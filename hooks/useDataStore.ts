@@ -265,6 +265,7 @@ export const useDataStore = () => {
                 fecha: ventaData.fecha,
                 origen: { tipo: 'venta_vendedor', id: ventaRef.id },
                 vendedorId: ventaData.vendedorId,
+                clienteId: ventaData.clienteId || null,
             });
             return pagoRef.id;
         });

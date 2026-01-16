@@ -195,12 +195,15 @@ export interface Factura {
 export interface MovimientoVenta {
     productoId: string;
     cantidad: number;
+    recibidos?: number; // Soporte para devolución de envases en local
+    precioUnitario?: number; // Precio pactado en la venta
 }
 
 export interface VentaVendedor {
     id: string;
     fecha: string;
     vendedorId: string;
+    clienteId?: string; // Nuevo: Soporte para cliente eventual o registrado en local
     movimientos: MovimientoVenta[];
     pagoIds?: string[];
 }

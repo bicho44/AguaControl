@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardView from './views/DashboardView';
@@ -106,6 +107,8 @@ function AppContent() {
                   addPagoManual={dataStore.addPagoManual}
                   addGasto={dataStore.addGasto}
                   addVentaVendedor={dataStore.addVentaVendedor}
+                  // FIX: Add missing addCliente prop
+                  addCliente={dataStore.addCliente}
                   updateRegistroPago={dataStore.updateRegistroPago}
                   updateGasto={dataStore.updateGasto}
                   deleteRegistroPago={dataStore.deleteRegistroPago}
