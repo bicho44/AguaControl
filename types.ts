@@ -122,6 +122,7 @@ export interface Producto {
     estado: EstadoProducto;
     litros: number;
     precio: number;
+    precioReventa?: number; // Precio default para vendedores externos
     color?: string;
 }
 

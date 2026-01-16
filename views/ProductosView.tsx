@@ -25,8 +25,8 @@ const ProductoForm: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNumber = name === 'litros' || name === 'precio';
-    setFormData(prev => ({ ...prev, [name]: isNumber ? Number(value) : value }));
+    const isNumber = name === 'litros' || name === 'precio' || name === 'precioReventa';
+    setFormData(prev => ({ ...prev, [name]: isNumber ? (value === '' ? undefined : Number(value)) : value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -43,22 +43,29 @@ const ProductoForm: React.FC<{
         <input id="nombre" type="text" name="nombre" placeholder="Ej: Bidón 20L Retornable" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
       </div>
 
-      <div>
-        <label htmlFor="tipo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-        <select id="tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-          <option value="">Seleccionar Tipo de Producto</option>
-          {Object.values(TipoProducto).map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
-        </select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label htmlFor="tipo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+            <select id="tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+            <option value="">Seleccionar Tipo de Producto</option>
+            {Object.values(TipoProducto).map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+            </select>
+        </div>
+        <div>
+            <label htmlFor="litros" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Litros</label>
+            <input id="litros" type="number" name="litros" placeholder="Litros (0 si no aplica)" value={formData.litros ?? ''} onChange={handleChange} required min="0" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+        </div>
       </div>
       
-      <div>
-        <label htmlFor="litros" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Litros</label>
-        <input id="litros" type="number" name="litros" placeholder="Litros (0 si no aplica)" value={formData.litros ?? ''} onChange={handleChange} required min="0" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-      </div>
-
-      <div>
-        <label htmlFor="precio" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio</label>
-        <input id="precio" type="number" name="precio" placeholder="Precio de lista" value={formData.precio ?? ''} onChange={handleChange} required min="0" step="0.01" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-primary-50/50 dark:bg-primary-900/10 p-3 rounded-lg border border-primary-100 dark:border-primary-800">
+        <div>
+            <label htmlFor="precio" className="block text-sm font-bold text-primary-700 dark:text-primary-300 mb-1">Precio de Lista (Público)</label>
+            <input id="precio" type="number" name="precio" placeholder="1500.00" value={formData.precio ?? ''} onChange={handleChange} required min="0" step="0.01" className="w-full p-2 bg-white dark:bg-gray-700 border-primary-200 rounded-md" />
+        </div>
+        <div>
+            <label htmlFor="precioReventa" className="block text-sm font-bold text-green-700 dark:text-green-400 mb-1">Precio de Reventa (Distribuidores)</label>
+            <input id="precioReventa" type="number" name="precioReventa" placeholder="1200.00" value={formData.precioReventa ?? ''} onChange={handleChange} min="0" step="0.01" className="w-full p-2 bg-white dark:bg-gray-700 border-green-200 rounded-md" />
+        </div>
       </div>
 
       <div>
@@ -71,7 +78,7 @@ const ProductoForm: React.FC<{
 
       <div className="flex justify-end space-x-2 pt-4">
         <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
-        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
+        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 font-bold">Guardar Producto</button>
       </div>
     </form>
   )
@@ -115,7 +122,7 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
   const openNewModal = () => {
     setEditingProducto({
       nombre: '',
-      tipo: TipoProducto.OTRO,
+      tipo: TipoProducto.RETORNABLE,
       litros: 0,
       precio: 0,
       estado: EstadoProducto.ACTIVO,
@@ -161,8 +168,8 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
                 <th scope="col" className="px-6 py-3 w-10">Color</th>
                 <th scope="col" className="px-6 py-3">Nombre</th>
                 <th scope="col" className="px-6 py-3">Tipo</th>
-                <th scope="col" className="px-6 py-3 text-center">Litros</th>
-                <th scope="col" className="px-6 py-3 text-right">Precio</th>
+                <th scope="col" className="px-6 py-3 text-right">P. Lista</th>
+                <th scope="col" className="px-6 py-3 text-right">P. Reventa</th>
                 <th scope="col" className="px-6 py-3">Estado</th>
                 <th scope="col" className="px-6 py-3"><span className="sr-only">Acciones</span></th>
               </tr>
@@ -177,8 +184,10 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{producto.nombre}</td>
                   <td className="px-6 py-4">{producto.tipo}</td>
-                  <td className="px-6 py-4 text-center">{producto.litros > 0 ? `${producto.litros} L` : '-'}</td>
                   <td className="px-6 py-4 text-right font-semibold text-gray-800 dark:text-gray-200">${producto.precio.toLocaleString('es-AR')}</td>
+                  <td className="px-6 py-4 text-right font-bold text-green-600 dark:text-green-400">
+                      {producto.precioReventa ? `$${producto.precioReventa.toLocaleString('es-AR')}` : '-'}
+                  </td>
                   <td className="px-6 py-4">
                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isInactive ? 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}`}>
                         {producto.estado}
@@ -238,7 +247,7 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
                 <div className="flex justify-center space-x-4">
                     <button
                         onClick={() => setProductoParaBaja(null)}
-                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
                     >
                         Cancelar
                     </button>

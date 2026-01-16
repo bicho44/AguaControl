@@ -76,11 +76,21 @@ const MovimientoCajaForm: React.FC<{
 
   const totalVentaCalculado = useMemo(() => {
     if (!isVentaMode || !selectedVendedor) return 0;
+    
+    // Mapa de precios definidos ESPECÍFICAMENTE para este usuario
     const preciosEspecialesMap = new Map(selectedVendedor.preciosEspeciales?.map(p => [p.productoId, p.precio]));
     
     return movimientosVenta.reduce((sum, mov) => {
         const prod = productosMap.get(mov.productoId);
-        const precio = preciosEspecialesMap.get(mov.productoId) ?? (prod?.precio || 0);
+        if (!prod) return sum;
+        
+        // JERARQUÍA DE PRECIOS:
+        // 1. Precio Especial del Usuario
+        // 2. Precio de Reventa del Producto (Default global para externos)
+        // 3. Precio de Lista (Fallback)
+        const precio = preciosEspecialesMap.get(mov.productoId) 
+                       ?? (prod.precioReventa ?? prod.precio);
+                       
         return sum + (mov.cantidad * precio);
     }, 0);
   }, [movimientosVenta, selectedVendedor, isVentaMode, productosMap]);
@@ -169,7 +179,7 @@ const MovimientoCajaForm: React.FC<{
       {isVentaMode && (
         <fieldset className="border-t-2 border-primary-500 pt-4 bg-primary-50/30 dark:bg-primary-900/10 p-3 rounded-lg">
           <legend className="text-sm font-bold text-primary-600 px-2 flex items-center gap-1">
-            <CubeIcon className="w-4 h-4"/> PRODUCTOS VENDIDOS (PRECIOS ESPECIALES)
+            <CubeIcon className="w-4 h-4"/> PRODUCTOS VENDIDOS (PRECIOS DE REVENTA)
           </legend>
           <div className="space-y-2 mt-2">
             {movimientosVenta.map((mov, index) => (
