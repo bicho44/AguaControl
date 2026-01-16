@@ -1,6 +1,8 @@
+
 // views/UsuariosView.tsx
 
 import React, { useState, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -43,7 +45,7 @@ const UsuarioForm: React.FC<{
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
       <input type="text" name="nombre" placeholder="Nombre" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
       <input type="email" name="email" placeholder="Email" value={formData.email || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-      <input type="password" name="password" placeholder="Contraseña (dejar en blanco para no cambiar)" onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+      <input type="password" name="password" placeholder="Contraseña (dejar en blanco para no cambiar)" onChange={handleChange} className="w-full p-3 bg-gray-200 dark:bg-gray-700 rounded-md"/>
       
       <div className="grid grid-cols-2 gap-4">
         <select name="rol" value={formData.rol || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
@@ -183,14 +185,49 @@ const PagosVendedorModal: React.FC<{
     pagos: RegistroPago[];
     clientesMap: Map<string, Cliente>;
     onClose: () => void;
-}> = ({ usuario, pagos, clientesMap, onClose }) => (
-    <Modal isOpen={true} onClose={onClose}>
-        <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Cobranzas de {usuario.nombre}</h2>
-            {/* Omitted for brevity */}
-        </div>
-    </Modal>
-)
+}> = ({ usuario, pagos, clientesMap, onClose }) => {
+    const total = useMemo(() => pagos.reduce((sum, p) => sum + p.monto, 0), [pagos]);
+
+    return (
+        <Modal isOpen={true} onClose={onClose} className="max-w-4xl">
+            <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
+                <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Cobranzas de {usuario.nombre}</h2>
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400">Total: ${total.toLocaleString()}</span>
+                </div>
+                
+                {pagos.length > 0 ? (
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th className="px-4 py-2">Fecha</th>
+                                <th className="px-4 py-2">Cliente</th>
+                                <th className="px-4 py-2">Método</th>
+                                <th className="px-4 py-2 text-right">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {pagos.map(p => (
+                                <tr key={p.id} className="border-b dark:border-gray-700">
+                                    <td className="px-4 py-2">{new Date(p.fecha + 'T00:00:00').toLocaleDateString()}</td>
+                                    <td className="px-4 py-2">{clientesMap.get(p.clienteId || '')?.nombre || 'Venta Mostrador'}</td>
+                                    <td className="px-4 py-2">{p.metodo}</td>
+                                    <td className="px-4 py-2 text-right font-bold">${p.monto.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <p className="text-center py-8 text-gray-500">No hay registros de cobranza para este usuario.</p>
+                )}
+                
+                <div className="flex justify-end pt-4">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md font-medium">Cerrar</button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
 
 const ComprasVendedorModal: React.FC<{
     usuario: Usuario;
@@ -199,16 +236,120 @@ const ComprasVendedorModal: React.FC<{
     productosMap: Map<string, Producto>;
     onClose: () => void;
 }> = ({ usuario, ventas, registrosPago, productosMap, onClose }) => {
-    // Omitted for brevity
+    
+    // 1. Preparar datos para el gráfico mensual (Últimos 6 meses)
+    const chartData = useMemo(() => {
+        const data: Record<string, number> = {};
+        const months = [];
+        const today = new Date();
+        
+        // Crear labels para los últimos 6 meses
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const key = d.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
+            data[key] = 0;
+            months.push(key);
+        }
+
+        ventas.forEach(v => {
+            const date = new Date(v.fecha + 'T00:00:00');
+            const key = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
+            
+            if (data[key] !== undefined) {
+                const totalVenta = v.movimientos.reduce((sum, m) => {
+                    const prod = productosMap.get(m.productoId);
+                    return sum + (m.cantidad * (prod?.precio || 0));
+                }, 0);
+                data[key] += totalVenta;
+            }
+        });
+
+        return months.map(name => ({ name, total: data[name] }));
+    }, [ventas, productosMap]);
+
+    const totalInvertido = useMemo(() => {
+        return ventas.reduce((sum, v) => {
+            return sum + v.movimientos.reduce((mSum, m) => {
+                const prod = productosMap.get(m.productoId);
+                return mSum + (m.cantidad * (prod?.precio || 0));
+            }, 0);
+        }, 0);
+    }, [ventas, productosMap]);
+
     return (
-    <Modal isOpen={true} onClose={onClose}>
-        <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Compras de {usuario.nombre}</h2>
-             {/* Omitted for brevity */}
-        </div>
-    </Modal>
-    )
-}
+        <Modal isOpen={true} onClose={onClose} className="max-w-4xl">
+            <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
+                <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Compras de {usuario.nombre}</h2>
+                        <p className="text-sm text-gray-500">Vendedor Externo</p>
+                    </div>
+                    <div className="text-right">
+                         <span className="text-lg font-bold text-blue-600 dark:text-blue-400">Total Histórico: ${totalInvertido.toLocaleString()}</span>
+                    </div>
+                </div>
+
+                {/* Gráfico de Evolución */}
+                <Card title="Evolución Mensual de Compras ($)">
+                    <div className="h-64 mt-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" opacity={0.2} />
+                                <XAxis dataKey="name" fontSize={12} />
+                                <YAxis fontSize={10} tickFormatter={(val) => `$${val/1000}k`} />
+                                <Tooltip 
+                                    formatter={(val: number) => [`$${val.toLocaleString()}`, 'Total Mes']}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={index === chartData.length - 1 ? '#2563eb' : '#93c5fd'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                {/* Listado de Operaciones */}
+                <div className="space-y-4">
+                    <h3 className="font-bold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider">Historial de Transacciones</h3>
+                    <div className="space-y-2">
+                        {ventas.map(v => {
+                            const totalVenta = v.movimientos.reduce((sum, m) => {
+                                const prod = productosMap.get(m.productoId);
+                                return sum + (m.cantidad * (prod?.precio || 0));
+                            }, 0);
+                            
+                            return (
+                                <div key={v.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700 shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <p className="font-bold">{new Date(v.fecha + 'T00:00:00').toLocaleDateString()}</p>
+                                        <div className="flex gap-2 mt-1">
+                                            {v.movimientos.map((m, idx) => (
+                                                <span key={idx} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                                    {m.cantidad} x {productosMap.get(m.productoId)?.nombre}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-lg font-black text-gray-900 dark:text-white">${totalVenta.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {ventas.length === 0 && <p className="text-center py-8 text-gray-500 italic">No se han registrado compras aún.</p>}
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t dark:border-gray-700">
+                    <button onClick={onClose} className="px-6 py-2 bg-primary-600 text-white rounded-md font-bold hover:bg-primary-700">Cerrar</button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
 
 
 const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, addUsuario, updateUsuario, addVentaVendedor }) => {

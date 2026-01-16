@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardView from './views/DashboardView';
@@ -102,8 +101,11 @@ function AppContent() {
                   remitos={dataStore.remitos}
                   facturas={dataStore.facturas}
                   ventasVendedor={dataStore.ventasVendedor}
+                  // FIX: Se agregaron las props productos y addVentaVendedor requeridas por CajaViewProps
+                  productos={dataStore.productos}
                   addPagoManual={dataStore.addPagoManual}
                   addGasto={dataStore.addGasto}
+                  addVentaVendedor={dataStore.addVentaVendedor}
                   updateRegistroPago={dataStore.updateRegistroPago}
                   updateGasto={dataStore.updateGasto}
                   deleteRegistroPago={dataStore.deleteRegistroPago}
