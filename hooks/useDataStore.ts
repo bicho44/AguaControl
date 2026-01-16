@@ -5,6 +5,17 @@ import { db } from '../firebase/config';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy } from 'firebase/firestore';
 import { mockEmpresaSettings } from '../data/mockData'; // Fallback para settings iniciales
 
+// Helper para limpiar undefineds (Firestore no los acepta)
+const cleanUndefineds = <T extends Record<string, any>>(obj: T): T => {
+    const newObj = { ...obj };
+    Object.keys(newObj).forEach(key => {
+        if (newObj[key] === undefined) {
+            delete newObj[key];
+        }
+    });
+    return newObj;
+};
+
 // Hook para sincronizar colecciones de Firestore
 function useFirestoreCollection<T>(collectionName: string, orderByField?: string): T[] {
   const [data, setData] = useState<T[]>([]);
@@ -43,7 +54,7 @@ export const useDataStore = () => {
   const servicios = useFirestoreCollection<Servicio>('servicios');
   const planillas = useFirestoreCollection<PlanillaDiaria>('planillas', 'fecha');
   
-  // Settings es un documento único, no una colección iterable usualmente
+  // Settings es un documento único
   const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>(mockEmpresaSettings);
   
   useEffect(() => {
@@ -58,7 +69,7 @@ export const useDataStore = () => {
 
   // --- ESCRITURA DATOS (FIRESTORE) ---
 
-  const generateId = (prefix: string) => `${prefix}_${new Date().getTime()}`; // Para compatibilidad con lógica vieja si es necesario, pero Firestore crea IDs
+  const generateId = (prefix: string) => `${prefix}_${new Date().getTime()}`;
 
   // Helper para calcular total de remito
   const getRemitoTotal = useCallback((remito: Remito, currentClientes: Cliente[], currentProductos: Producto[]): number => {
@@ -79,20 +90,18 @@ export const useDataStore = () => {
   // Remitos
   const addRemito = useCallback(async (remitoData: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => {
     const cliente = clientes.find(c => c.id === remitoData.clienteId);
-    const newPagoIds: string[] = [];
-
-    // 1. Crear Pagos si aplica
-    if (!cliente?.tieneCuentaCorriente && remitoData.pagos && remitoData.pagos.length > 0) {
-        for (const pago of remitoData.pagos) {
-            // Primero creamos el registro de pago, luego lo actualizaremos con el ID del remito
-            // O mejor: creamos el remito, obtenemos ID, y luego creamos pagos.
-            // Estrategia: Firestore batch o secuencial. Secuencial simple por ahora.
-        }
-    }
     
-    // Simplificación para Firestore: Crear Remito primero para tener ID
-    const { pagos, ...newRemitoData } = remitoData;
-    const remitoRef = await addDoc(collection(db, 'remitos'), { ...newRemitoData, pagoIds: [], facturaId: undefined });
+    // Limpieza de datos (Separar pagos y limpiar undefineds del remito)
+    const { pagos, ...rawRemitoData } = remitoData;
+    
+    const newRemitoData = {
+        ...rawRemitoData,
+        sucursalId: rawRemitoData.sucursalId || null, // Convertir undefined/vacío a null
+        pagoIds: [],
+        facturaId: null // Firestore no acepta undefined, usar null
+    };
+
+    const remitoRef = await addDoc(collection(db, 'remitos'), cleanUndefineds(newRemitoData));
     
     if (!cliente?.tieneCuentaCorriente && pagos && pagos.length > 0) {
         const batchPagos = pagos.map(async (pago) => {
@@ -115,12 +124,8 @@ export const useDataStore = () => {
     const remitoRef = doc(db, 'remitos', updatedRemitoData.id);
     const { pagos, ...dataToSave } = updatedRemitoData;
     
-    // Nota: La actualización de pagos compleja (borrar viejos, crear nuevos) se simplifica aquí.
-    // En una app real, deberíamos diff los pagos. Aquí asumimos que si se envían pagos, reemplazan la lógica.
-    // Por seguridad en esta migración rápida, solo actualizamos los datos del remito.
-    // La gestión de pagos en edición requiere más lógica detallada que omitiremos para no romper el flujo.
-    
-    await updateDoc(remitoRef, dataToSave);
+    // Limpiar undefineds antes de guardar
+    await updateDoc(remitoRef, cleanUndefineds(dataToSave));
   }, []);
 
   const deleteRemito = useCallback(async (remitoId: string) => {
@@ -129,7 +134,7 @@ export const useDataStore = () => {
   
   const addMultipleRemitos = useCallback(async (newRemitos: Remito[]) => {
       // Importación masiva
-      const batchPromises = newRemitos.map(r => addDoc(collection(db, 'remitos'), r));
+      const batchPromises = newRemitos.map(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
       await Promise.all(batchPromises);
   }, []);
 
@@ -139,7 +144,7 @@ export const useDataStore = () => {
     contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
   }) => {
     const { stockInicial, contratosIniciales, ...cliente } = clienteData;
-    const clienteRef = await addDoc(collection(db, 'clientes'), { ...cliente, estado: EstadoCliente.ACTIVO });
+    const clienteRef = await addDoc(collection(db, 'clientes'), cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
 
     if (stockInicial && stockInicial.length > 0) {
         const yesterday = new Date();
@@ -149,7 +154,7 @@ export const useDataStore = () => {
         const remitosDeAjuste = stockInicial.map(stock => ({
             fecha: yesterday.toISOString().split('T')[0],
             clienteId: clienteRef.id,
-            sucursalId: stock.sucursalId || undefined,
+            sucursalId: stock.sucursalId || null, // Convertir undefined a null
             vendedorId: adminUser?.id || usuarios[0]?.id,
             puntoVenta: '0000',
             numero: `AJU-${Date.now()}`,
@@ -159,17 +164,17 @@ export const useDataStore = () => {
                 recibidos: 0
             }]
         }));
-        remitosDeAjuste.forEach(r => addDoc(collection(db, 'remitos'), r));
+        remitosDeAjuste.forEach(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
     }
 
     if (contratosIniciales && contratosIniciales.length > 0) {
-        contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), { ...c, clienteId: clienteRef.id }));
+        contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: clienteRef.id })));
     }
 
   }, [usuarios]);
 
   const updateCliente = useCallback(async (updatedCliente: Cliente) => {
-    await updateDoc(doc(db, 'clientes', updatedCliente.id), updatedCliente as any);
+    await updateDoc(doc(db, 'clientes', updatedCliente.id), cleanUndefineds(updatedCliente));
   }, []);
 
   const deleteCliente = useCallback(async (clienteId: string) => {
@@ -181,19 +186,17 @@ export const useDataStore = () => {
   }, []);
 
   const addMultipleClientes = useCallback(async (newClientes: Cliente[]) => {
-      const batchPromises = newClientes.map(c => addDoc(collection(db, 'clientes'), c));
+      const batchPromises = newClientes.map(c => addDoc(collection(db, 'clientes'), cleanUndefineds(c)));
       await Promise.all(batchPromises);
   }, []);
 
   // Usuarios
   const addUsuario = useCallback(async (usuario: Omit<Usuario, 'id'>) => {
-    // Nota: Crear usuario en Auth requiere una Cloud Function o hacerlo desde cliente pero es complejo sin backend.
-    // Aquí solo creamos el registro en Firestore. El Login real requiere que el usuario exista en Auth.
-    await addDoc(collection(db, 'usuarios'), usuario);
+    await addDoc(collection(db, 'usuarios'), cleanUndefineds(usuario));
   }, []);
 
   const updateUsuario = useCallback(async (updatedUsuario: Usuario) => {
-    await updateDoc(doc(db, 'usuarios', updatedUsuario.id), updatedUsuario as any);
+    await updateDoc(doc(db, 'usuarios', updatedUsuario.id), cleanUndefineds(updatedUsuario));
   }, []);
   
   // Pagos Manuales
@@ -206,26 +209,22 @@ export const useDataStore = () => {
   }) => {
     const { fecha, clienteId, vendedorId, concepto, pagos } = pagoData;
     
-    // Lógica simplificada: Crear registro de pago manual directo
-    // La lógica de imputar deuda a remitos viejos es compleja de migrar a async en un solo paso
-    // y mantener consistencia. Por ahora, registramos el pago como "A cuenta" o "Pago Manual".
-    
     pagos.forEach(async (pago) => {
-        await addDoc(collection(db, 'registrosPago'), {
+        await addDoc(collection(db, 'registrosPago'), cleanUndefineds({
             fecha,
-            clienteId,
-            vendedorId,
+            clienteId: clienteId || null,
+            vendedorId: vendedorId || null,
             concepto: concepto || 'Pago Manual',
             monto: pago.monto,
             metodo: pago.metodo,
-            origen: { tipo: 'pago_manual', id: 'manual' } // ID placeholder
-        });
+            origen: { tipo: 'pago_manual', id: 'manual' }
+        }));
     });
 
   }, []);
   
   const updateRegistroPago = useCallback(async (updatedPago: RegistroPago) => {
-    await updateDoc(doc(db, 'registrosPago', updatedPago.id), updatedPago as any);
+    await updateDoc(doc(db, 'registrosPago', updatedPago.id), cleanUndefineds(updatedPago));
   }, []);
 
   const deleteRegistroPago = useCallback(async (pagoId: string) => {
@@ -235,7 +234,7 @@ export const useDataStore = () => {
   // Venta Vendedor
   const addVentaVendedor = useCallback(async (ventaData: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => {
     const { pagos, ...newVenta } = ventaData;
-    const ventaRef = await addDoc(collection(db, 'ventasVendedor'), { ...newVenta, pagoIds: [] });
+    const ventaRef = await addDoc(collection(db, 'ventasVendedor'), cleanUndefineds({ ...newVenta, pagoIds: [] }));
     
     if (pagos && pagos.length > 0) {
         const batchPagos = pagos.map(async (pago) => {
@@ -253,19 +252,18 @@ export const useDataStore = () => {
   }, []);
   
   const updateVentaVendedor = useCallback(async (updatedVentaData: VentaVendedor & { pagos?: PagoDetalle[] }) => {
-     // Simplificado para update solo de datos
      const { pagos, ...data } = updatedVentaData;
-     await updateDoc(doc(db, 'ventasVendedor', data.id), data as any);
+     await updateDoc(doc(db, 'ventasVendedor', data.id), cleanUndefineds(data));
   }, []);
 
 
   // Gastos
   const addGasto = useCallback(async (gasto: Omit<Gasto, 'id'>) => {
-    await addDoc(collection(db, 'gastos'), gasto);
+    await addDoc(collection(db, 'gastos'), cleanUndefineds(gasto));
   }, []);
 
   const updateGasto = useCallback(async (updatedGasto: Gasto) => {
-    await updateDoc(doc(db, 'gastos', updatedGasto.id), updatedGasto as any);
+    await updateDoc(doc(db, 'gastos', updatedGasto.id), cleanUndefineds(updatedGasto));
   }, []);
 
   const deleteGasto = useCallback(async (gastoId: string) => {
@@ -274,23 +272,19 @@ export const useDataStore = () => {
 
   // Facturas
   const addFactura = useCallback(async (facturaData: Omit<Factura, 'id' | 'pagoIds' | 'estado' | 'numero'>) => {
-    // Generar número correlativo es difícil en Firestore distribuido. 
-    // Usamos una transacción o leemos el último (riesgo de colisión bajo volumen).
-    // Leemos localmente 'facturas' que ya están cargadas por el hook (eventual consistency)
     const lastFacturaNumber = facturas.length > 0
         ? Math.max(...facturas.map(f => parseInt(f.numero.split('-')[2], 10)))
         : 0;
     const newFacturaNumber = `F-001-${(lastFacturaNumber + 1).toString().padStart(4, '0')}`;
 
-    const facturaRef = await addDoc(collection(db, 'facturas'), {
+    const facturaRef = await addDoc(collection(db, 'facturas'), cleanUndefineds({
         ...facturaData,
         numero: newFacturaNumber,
-        estado: 'Pendiente', // Hardcoded enum string value
+        estado: 'Pendiente',
         pagoIds: [],
         enviada: false,
-    });
+    }));
 
-    // Actualizar remitos
     facturaData.remitosIds.forEach(remitoId => {
         updateDoc(doc(db, 'remitos', remitoId), { facturaId: facturaRef.id });
     });
@@ -314,8 +308,6 @@ export const useDataStore = () => {
     const newIds = await Promise.all(batchPagos);
     const updatedPagoIds = [...(factura.pagoIds || []), ...newIds];
     
-    // Check if fully paid (simple check)
-    // Se debería sumar montos, pero por simplicidad:
     await updateDoc(doc(db, 'facturas', facturaId), { pagoIds: updatedPagoIds });
 
   }, [facturas]);
@@ -327,11 +319,11 @@ export const useDataStore = () => {
 
   // Productos
   const addProducto = useCallback(async (producto: Omit<Producto, 'id' | 'estado'>) => {
-    await addDoc(collection(db, 'productos'), { ...producto, estado: EstadoProducto.ACTIVO });
+    await addDoc(collection(db, 'productos'), cleanUndefineds({ ...producto, estado: EstadoProducto.ACTIVO }));
   }, []);
 
   const updateProducto = useCallback(async (updatedProducto: Producto) => {
-    await updateDoc(doc(db, 'productos', updatedProducto.id), updatedProducto as any);
+    await updateDoc(doc(db, 'productos', updatedProducto.id), cleanUndefineds(updatedProducto));
   }, []);
 
   const deleteProducto = useCallback(async (productoId: string) => {
@@ -344,16 +336,16 @@ export const useDataStore = () => {
   
   // Empresa Settings
   const updateEmpresaSettings = useCallback(async (settings: EmpresaSettings) => {
-    await setDoc(doc(db, 'settings', 'empresa'), settings);
+    await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(settings));
   }, []);
 
   // Contratos
   const addContrato = useCallback(async (contrato: Omit<Contrato, 'id'>) => {
-    await addDoc(collection(db, 'contratos'), contrato);
+    await addDoc(collection(db, 'contratos'), cleanUndefineds(contrato));
   }, []);
 
   const updateContrato = useCallback(async (updatedContrato: Contrato) => {
-    await updateDoc(doc(db, 'contratos', updatedContrato.id), updatedContrato as any);
+    await updateDoc(doc(db, 'contratos', updatedContrato.id), cleanUndefineds(updatedContrato));
   }, []);
 
   const deleteContrato = useCallback(async (contratoId: string) => {
@@ -362,11 +354,11 @@ export const useDataStore = () => {
 
   // Servicios
   const addServicio = useCallback(async (servicio: Omit<Servicio, 'id' | 'estado'>) => {
-    await addDoc(collection(db, 'servicios'), { ...servicio, estado: EstadoServicio.ACTIVO });
+    await addDoc(collection(db, 'servicios'), cleanUndefineds({ ...servicio, estado: EstadoServicio.ACTIVO }));
   }, []);
 
   const updateServicio = useCallback(async (updatedServicio: Servicio) => {
-    await updateDoc(doc(db, 'servicios', updatedServicio.id), updatedServicio as any);
+    await updateDoc(doc(db, 'servicios', updatedServicio.id), cleanUndefineds(updatedServicio));
   }, []);
 
   const deleteServicio = useCallback(async (servicioId: string) => {
@@ -377,13 +369,13 @@ export const useDataStore = () => {
     await updateDoc(doc(db, 'servicios', servicioId), { estado: EstadoServicio.ACTIVO });
   }, []);
 
-  // Planillas (Stock Control)
+  // Planillas
   const addPlanilla = useCallback(async (planilla: Omit<PlanillaDiaria, 'id'>) => {
-      await addDoc(collection(db, 'planillas'), planilla);
+      await addDoc(collection(db, 'planillas'), cleanUndefineds(planilla));
   }, []);
 
   const updatePlanilla = useCallback(async (updatedPlanilla: PlanillaDiaria) => {
-      await updateDoc(doc(db, 'planillas', updatedPlanilla.id), updatedPlanilla as any);
+      await updateDoc(doc(db, 'planillas', updatedPlanilla.id), cleanUndefineds(updatedPlanilla));
   }, []);
 
 

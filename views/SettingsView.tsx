@@ -145,33 +145,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
       <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Configuración de la Empresa</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Magic Link Section */}
-        {shareLink && (
-            <Card title="Conexión de Dispositivos">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                    <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
-                        Para configurar un nuevo celular o computadora sin ingresar las claves manualmente, 
-                        envíe este enlace por WhatsApp al repartidor y pídale que lo abra.
-                    </p>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            value={shareLink} 
-                            readOnly 
-                            className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-500"
-                        />
-                        <button 
-                            type="button"
-                            onClick={copyToClipboard}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 whitespace-nowrap"
-                        >
-                            Copiar Link
-                        </button>
-                    </div>
-                </div>
-            </Card>
-        )}
-
         <Card>
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1 space-y-2">
@@ -293,7 +266,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
             </div>
         </Card>
 
-        {/* Nueva Tarjeta para Plantilla de Email */}
         <Card title="Plantilla de Correo Electrónico">
             <div className="p-4 space-y-4">
                 <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md border border-blue-200 dark:border-blue-800 mb-4">
@@ -340,6 +312,33 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                 </div>
             </div>
         </Card>
+
+        {/* Magic Link Section - Moved to bottom */}
+        {shareLink && (
+            <Card title="Conexión de Dispositivos">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                        Para configurar un nuevo celular o computadora sin ingresar las claves manualmente, 
+                        envíe este enlace por WhatsApp al repartidor y pídale que lo abra.
+                    </p>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={shareLink} 
+                            readOnly 
+                            className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-500"
+                        />
+                        <button 
+                            type="button"
+                            onClick={copyToClipboard}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 whitespace-nowrap"
+                        >
+                            Copiar Link
+                        </button>
+                    </div>
+                </div>
+            </Card>
+        )}
 
         <div className="flex justify-end">
           <button type="submit" className="px-6 py-3 rounded-md bg-primary-600 text-white font-semibold hover:bg-primary-700 text-lg shadow-lg">

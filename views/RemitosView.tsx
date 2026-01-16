@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, TipoProducto, PagoDetalle, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -18,9 +19,9 @@ interface RemitosViewProps {
   productos: Producto[];
   registrosPago: RegistroPago[];
   currentUser: Usuario;
-  addRemito: (remito: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => void;
-  updateRemito: (remito: Remito & { pagos?: PagoDetalle[] }) => void;
-  deleteRemito: (remitoId: string) => void;
+  addRemito: (remito: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => Promise<void>;
+  updateRemito: (remito: Remito & { pagos?: PagoDetalle[] }) => Promise<void>;
+  deleteRemito: (remitoId: string) => Promise<void>;
 }
 
 const RemitoForm: React.FC<{
@@ -29,7 +30,7 @@ const RemitoForm: React.FC<{
   vendedores: Usuario[];
   productos: Producto[];
   currentUser: Usuario;
-  onSave: (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => void;
+  onSave: (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => Promise<void>;
   onClose: () => void;
   remitos: Remito[];
   registrosPago: RegistroPago[];
@@ -39,6 +40,7 @@ const RemitoForm: React.FC<{
   const [clienteSucursales, setClienteSucursales] = useState<Sucursal[]>([]);
   const [isCtaCte, setIsCtaCte] = useState(false);
   const [deudaPendiente, setDeudaPendiente] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const pagosMap = useMemo(() => {
@@ -155,10 +157,12 @@ const RemitoForm: React.FC<{
     setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
-    onSave(formData as Remito & { pagos: PagoDetalle[] });
+    setIsSaving(true);
+    await onSave(formData as Remito & { pagos: PagoDetalle[] });
+    setIsSaving(false);
   };
   
   const vendedoresInternos = useMemo(() => vendedores.filter(v => v.tipo === TipoVendedor.INTERNO), [vendedores]);
@@ -303,7 +307,7 @@ const RemitoForm: React.FC<{
 
       <div className="flex justify-end space-x-2 pt-4">
         <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">{isReadOnly ? 'Cerrar' : 'Cancelar'}</button>
-        {!isReadOnly && <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>}
+        {!isReadOnly && <button type="submit" disabled={isSaving} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">{isSaving ? 'Guardando...' : 'Guardar'}</button>}
       </div>
     </form>
   )
@@ -436,26 +440,27 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     });
   }, [processedRemitos, clienteFilter, dateFilter, paymentStatusFilter]);
 
-  const handleSave = (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => {
+  const handleSave = async (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => {
     try {
       if ('id' in remito && remito.id) {
-        updateRemito(remito as Remito & { pagos?: PagoDetalle[] });
+        await updateRemito(remito as Remito & { pagos?: PagoDetalle[] });
         showNotification('Remito actualizado con éxito.', 'success');
       } else {
-        addRemito(remito as Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] });
+        await addRemito(remito as Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] });
         showNotification('Remito creado con éxito.', 'success');
       }
       setIsModalOpen(false);
-    } catch (error) {
-        showNotification('Error al guardar el remito.', 'error');
-        console.error(error);
+    } catch (error: any) {
+        console.error("Error saving remito:", error);
+        const msg = error?.message || 'Error desconocido al guardar.';
+        showNotification(`Error: ${msg}`, 'error');
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!remitoParaBorrar) return;
     try {
-        deleteRemito(remitoParaBorrar.id);
+        await deleteRemito(remitoParaBorrar.id);
         showNotification('Remito eliminado con éxito.', 'success');
     } catch (error) {
         const message = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
