@@ -19,7 +19,6 @@ interface CajaViewProps {
   facturas: Factura[];
   ventasVendedor: VentaVendedor[];
   productos: Producto[];
-  // Se actualizaron los tipos de retorno a Promise<void> para coincidir con useDataStore
   addPagoManual: (pagoData: {
     fecha: string;
     clienteId?: string;
@@ -54,10 +53,11 @@ const MovimientoCajaForm: React.FC<{
   clientes: Cliente[];
   vendedores: Usuario[];
   productos: Producto[];
+  ventasVendedor: VentaVendedor[]; // Necesario para buscar la venta al editar
   onSave: (data: any, isVenta: boolean) => void;
   onClose: () => void;
   isEdit: boolean;
-}> = ({ movimiento, type, onSave, onClose, isEdit, clientes, vendedores, productos }) => {
+}> = ({ movimiento, type, onSave, onClose, isEdit, clientes, vendedores, productos, ventasVendedor }) => {
   const [formData, setFormData] = useState<any>(movimiento);
   const [isVentaMode, setIsVentaMode] = useState(false);
   const [movimientosVenta, setMovimientosVenta] = useState<MovimientoVenta[]>([]);
@@ -66,28 +66,32 @@ const MovimientoCajaForm: React.FC<{
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   useEffect(() => {
-    // Si seleccionamos un vendedor externo, sugerimos el modo venta
-    if (selectedVendedor?.tipo === TipoVendedor.EXTERNO && !isEdit) {
+    // 1. Detectar si es una venta existente al editar
+    if (isEdit && formData.origen?.tipo === 'venta_vendedor') {
+        const ventaOriginal = ventasVendedor.find(v => v.id === formData.origen.id);
+        if (ventaOriginal) {
+            setIsVentaMode(true);
+            setMovimientosVenta(ventaOriginal.movimientos || []);
+        }
+    } 
+    // 2. Si es nuevo, sugerir modo venta si el vendedor es externo
+    else if (!isEdit && selectedVendedor?.tipo === TipoVendedor.EXTERNO) {
       setIsVentaMode(true);
-    } else {
+    } 
+    else if (!isEdit) {
       setIsVentaMode(false);
     }
-  }, [selectedVendedor, isEdit]);
+  }, [selectedVendedor, isEdit, formData.origen, ventasVendedor]);
 
   const totalVentaCalculado = useMemo(() => {
     if (!isVentaMode || !selectedVendedor) return 0;
     
-    // Mapa de precios definidos ESPECÍFICAMENTE para este usuario
     const preciosEspecialesMap = new Map(selectedVendedor.preciosEspeciales?.map(p => [p.productoId, p.precio]));
     
     return movimientosVenta.reduce((sum, mov) => {
         const prod = productosMap.get(mov.productoId);
         if (!prod) return sum;
         
-        // JERARQUÍA DE PRECIOS:
-        // 1. Precio Especial del Usuario
-        // 2. Precio de Reventa del Producto (Default global para externos)
-        // 3. Precio de Lista (Fallback)
         const precio = preciosEspecialesMap.get(mov.productoId) 
                        ?? (prod.precioReventa ?? prod.precio);
                        
@@ -95,7 +99,6 @@ const MovimientoCajaForm: React.FC<{
     }, 0);
   }, [movimientosVenta, selectedVendedor, isVentaMode, productosMap]);
 
-  // Actualizar el monto del pago automáticamente al cambiar la venta (solo si hay 1 pago y no es edición)
   useEffect(() => {
     if (isVentaMode && !isEdit && formData.pagos?.length === 1) {
         const newPagos = [...formData.pagos];
@@ -141,8 +144,7 @@ const MovimientoCajaForm: React.FC<{
     e.preventDefault();
     if (isVentaMode) {
       const ventaData = {
-        fecha: formData.fecha,
-        vendedorId: formData.vendedorId,
+        ...formData,
         movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0),
         pagos: formData.pagos
       };
@@ -169,17 +171,17 @@ const MovimientoCajaForm: React.FC<{
         <input type="text" name="concepto" placeholder="Concepto" value={formData.concepto || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" required={!isVentaMode} />
       </div>
 
-      {type === 'ingreso' && !isEdit && (
+      {type === 'ingreso' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Asignar a Cliente (Opcional)" />
-          <SearchableSelect options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Vendedor / Operador" />
+          {!isEdit && <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Asignar a Cliente (Opcional)" />}
+          <SearchableSelect options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Vendedor / Operador" disabled={isEdit} />
         </div>
       )}
 
       {isVentaMode && (
         <fieldset className="border-t-2 border-primary-500 pt-4 bg-primary-50/30 dark:bg-primary-900/10 p-3 rounded-lg">
           <legend className="text-sm font-bold text-primary-600 px-2 flex items-center gap-1">
-            <CubeIcon className="w-4 h-4"/> PRODUCTOS VENDIDOS (PRECIOS DE REVENTA)
+            <CubeIcon className="w-4 h-4"/> {isEdit ? 'EDITAR PRODUCTOS VENDIDOS' : 'PRODUCTOS VENDIDOS'}
           </legend>
           <div className="space-y-2 mt-2">
             {movimientosVenta.map((mov, index) => (
@@ -192,7 +194,7 @@ const MovimientoCajaForm: React.FC<{
             <div className="flex justify-between items-center mt-2">
                 <button type="button" onClick={addMovimiento} className="text-xs font-bold text-primary-600 hover:underline">+ Agregar ítem de stock</button>
                 <div className="text-right">
-                    <span className="text-xs text-gray-500 uppercase font-bold">Total Venta: </span>
+                    <span className="text-xs text-gray-500 uppercase font-bold">Total Sugerido: </span>
                     <span className="text-lg font-black text-primary-700 dark:text-primary-300">${totalVentaCalculado.toLocaleString()}</span>
                 </div>
             </div>
@@ -218,7 +220,7 @@ const MovimientoCajaForm: React.FC<{
 
       <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
         <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
-        <button type="submit" className="px-6 py-2 rounded-md bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg">Confirmar Movimiento</button>
+        <button type="submit" className="px-6 py-2 rounded-md bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg">Confirmar Operación</button>
       </div>
     </form>
   )
@@ -387,7 +389,12 @@ const CajaView: React.FC<CajaViewProps> = ({
                      const venta = ventasVendedorMap.get(primerPago.origen.id);
                      if (venta) {
                         const updatedPagosDetalle = data.pagos.map((p: any) => ({monto: p.monto, metodo: p.metodo}));
-                        updateVentaVendedor({...venta, pagos: updatedPagosDetalle });
+                        // ACTUALIZACIÓN DE PRODUCTOS AL EDITAR VENTA
+                        updateVentaVendedor({
+                            ...venta, 
+                            movimientos: data.movimientos, // Actualizamos los productos/cantidades
+                            pagos: updatedPagosDetalle 
+                        });
                      }
                 }
             }
@@ -401,7 +408,7 @@ const CajaView: React.FC<CajaViewProps> = ({
             addPagoManual(data);
           }
         }
-        showNotification('Movimiento guardado con éxito.', 'success');
+        showNotification('Operación guardada y stock sincronizado.', 'success');
         setIsModalOpen(false);
     } catch(e) {
         showNotification('Error al guardar el movimiento.', 'error');
@@ -534,6 +541,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                 clientes={clientes}
                 vendedores={vendedores}
                 productos={productos}
+                ventasVendedor={ventasVendedor}
             />
         </Modal>
       )}

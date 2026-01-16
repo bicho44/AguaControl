@@ -272,18 +272,33 @@ const PagosVendedorModal: React.FC<{
 const ComprasVendedorModal: React.FC<{
     usuario: Usuario;
     ventas: VentaVendedor[];
-    registrosPago: RegistroPago[];
+    registrosPago: RegistroPago[]; // Pasamos todos los pagos para filtrar
     productosMap: Map<string, Producto>;
     onClose: () => void;
 }> = ({ usuario, ventas, registrosPago, productosMap, onClose }) => {
     
-    // 1. Preparar datos para el gráfico mensual (Últimos 6 meses)
+    // 1. Filtrar pagos que pertenecen a estas ventas
+    const pagosDeVentas = useMemo(() => {
+        const ventaIds = new Set(ventas.map(v => v.id));
+        return registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && ventaIds.has(p.origen.id));
+    }, [ventas, registrosPago]);
+
+    // 2. Mapear cada venta a su monto real cobrado (Fuente de verdad financiera)
+    const montosPorVenta = useMemo(() => {
+        const map = new Map<string, number>();
+        pagosDeVentas.forEach(p => {
+            const current = map.get(p.origen.id) || 0;
+            map.set(p.origen.id, current + p.monto);
+        });
+        return map;
+    }, [pagosDeVentas]);
+
+    // 3. Preparar datos para el gráfico mensual basado en MONTOS REALES (no en precios actuales)
     const chartData = useMemo(() => {
         const data: Record<string, number> = {};
         const months = [];
         const today = new Date();
         
-        // Crear labels para los últimos 6 meses
         for (let i = 5; i >= 0; i--) {
             const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
             const key = d.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
@@ -291,35 +306,23 @@ const ComprasVendedorModal: React.FC<{
             months.push(key);
         }
 
-        const preciosEspecialesMap = new Map(usuario.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-
         ventas.forEach(v => {
             const date = new Date(v.fecha + 'T00:00:00');
             const key = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
             
             if (data[key] !== undefined) {
-                const totalVenta = v.movimientos.reduce((sum, m) => {
-                    const prod = productosMap.get(m.productoId);
-                    const precio = preciosEspecialesMap.get(m.productoId) ?? (prod?.precio || 0);
-                    return sum + (m.cantidad * precio);
-                }, 0);
-                data[key] += totalVenta;
+                // Usar el monto registrado en caja para esta venta
+                const montoReal = montosPorVenta.get(v.id) || 0;
+                data[key] += montoReal;
             }
         });
 
         return months.map(name => ({ name, total: data[name] }));
-    }, [ventas, productosMap, usuario.preciosEspeciales]);
+    }, [ventas, montosPorVenta]);
 
     const totalInvertido = useMemo(() => {
-        const preciosEspecialesMap = new Map(usuario.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-        return ventas.reduce((sum, v) => {
-            return sum + v.movimientos.reduce((mSum, m) => {
-                const prod = productosMap.get(m.productoId);
-                const precio = preciosEspecialesMap.get(m.productoId) ?? (prod?.precio || 0);
-                return mSum + (m.cantidad * precio);
-            }, 0);
-        }, 0);
-    }, [ventas, productosMap, usuario.preciosEspeciales]);
+        return Array.from(montosPorVenta.values()).reduce((sum, m) => sum + m, 0);
+    }, [montosPorVenta]);
 
     return (
         <Modal isOpen={true} onClose={onClose} className="max-w-4xl">
@@ -327,7 +330,7 @@ const ComprasVendedorModal: React.FC<{
                 <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Compras de {usuario.nombre}</h2>
-                        <p className="text-sm text-gray-500">Vendedor Externo</p>
+                        <p className="text-sm text-gray-500">Basado en flujos de caja reales (Integridad Histórica)</p>
                     </div>
                     <div className="text-right">
                          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">Total Histórico: ${totalInvertido.toLocaleString()}</span>
@@ -343,7 +346,7 @@ const ComprasVendedorModal: React.FC<{
                                 <XAxis dataKey="name" fontSize={12} />
                                 <YAxis fontSize={10} tickFormatter={(val) => `$${val/1000}k`} />
                                 <Tooltip 
-                                    formatter={(val: number) => [`$${val.toLocaleString()}`, 'Total Mes']}
+                                    formatter={(val: number) => [`$${val.toLocaleString()}`, 'Monto Cobrado']}
                                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
                                 <Bar dataKey="total" radius={[4, 4, 0, 0]}>
@@ -358,15 +361,10 @@ const ComprasVendedorModal: React.FC<{
 
                 {/* Listado de Operaciones */}
                 <div className="space-y-4">
-                    <h3 className="font-bold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider">Historial de Transacciones</h3>
+                    <h3 className="font-bold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider">Historial de Transacciones (Valores Congelados)</h3>
                     <div className="space-y-2">
                         {ventas.map(v => {
-                            const preciosEspecialesMap = new Map(usuario.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-                            const totalVenta = v.movimientos.reduce((sum, m) => {
-                                const prod = productosMap.get(m.productoId);
-                                const precio = preciosEspecialesMap.get(m.productoId) ?? (prod?.precio || 0);
-                                return sum + (m.cantidad * precio);
-                            }, 0);
+                            const montoReal = montosPorVenta.get(v.id) || 0;
                             
                             return (
                                 <div key={v.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700 shadow-sm flex justify-between items-center">
@@ -381,7 +379,8 @@ const ComprasVendedorModal: React.FC<{
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-lg font-black text-gray-900 dark:text-white">${totalVenta.toLocaleString()}</p>
+                                        <p className="text-lg font-black text-gray-900 dark:text-white">${montoReal.toLocaleString()}</p>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-tighter">Monto de Caja</p>
                                     </div>
                                 </div>
                             );
@@ -423,8 +422,8 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
             .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
         const productosComprados = misVentas.reduce((sum, venta) => sum + venta.movimientos.reduce((movSum, mov) => movSum + mov.cantidad, 0), 0);
         
-        const misVentasIds = misVentas.map(v => v.id);
-        const misPagos = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && misVentasIds.includes(p.origen.id));
+        const misVentasIds = new Set(misVentas.map(v => v.id));
+        const misPagos = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && misVentasIds.has(p.origen.id));
         const totalPagado = misPagos.reduce((sum, p) => sum + p.monto, 0);
 
         return { ...usuario, stats: { type: 'externo' as const, productosComprados, totalPagado, ventas: misVentas }};
