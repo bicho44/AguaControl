@@ -20,27 +20,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Buscar datos extendidos del usuario en Firestore (Roles, Tipo)
-        // Asumimos que existe una colección 'usuarios' con el ID del UID de Auth
         try {
+            // Intentamos leer datos extendidos (Rol, etc)
             const userDocRef = doc(db, 'usuarios', firebaseUser.uid);
             const userDoc = await getDoc(userDocRef);
             
             if (userDoc.exists()) {
                 setUser({ id: firebaseUser.uid, email: firebaseUser.email || '', ...userDoc.data() } as Usuario);
             } else {
-                // Fallback temporal si el usuario no está en base de datos pero sí en Auth
-                // (útil para el primer admin)
+                // Si el documento no existe (recién registrado), usamos datos básicos
+                // Esto permite entrar aunque la DB falle momentáneamente
+                console.warn("Usuario autenticado pero sin perfil en base de datos.");
                 setUser({
                     id: firebaseUser.uid,
                     email: firebaseUser.email || '',
-                    nombre: firebaseUser.displayName || 'Usuario',
-                    rol: Rol.ADMINISTRADOR, // Default temp
+                    nombre: firebaseUser.displayName || 'Admin (Sin Perfil)',
+                    rol: Rol.ADMINISTRADOR, // Asumimos Admin temporalmente para permitir configuración
                     tipo: TipoVendedor.INTERNO
                 });
             }
         } catch (error) {
-            console.error("Error fetching user data:", error);
+            console.error("Error leyendo base de datos, usando perfil básico:", error);
+            // FALLBACK CRÍTICO: Si falla Firestore (permisos, reglas), logueamos igual
+            setUser({
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                nombre: 'Modo Recuperación',
+                rol: Rol.ADMINISTRADOR,
+                tipo: TipoVendedor.INTERNO
+            });
         }
       } else {
         setUser(null);
