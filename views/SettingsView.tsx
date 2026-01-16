@@ -1,9 +1,5 @@
 
-
-
-
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EmpresaSettings, Telefono, TipoTelefono, CondicionIVA } from '../types';
 import { useNotification } from '../context/NotificationContext';
 import Card from '../components/Card';
@@ -40,7 +36,25 @@ const unformatCuit = (value: string = '') => {
 const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings }) => {
   const [formData, setFormData] = useState<EmpresaSettings>(settings);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [shareLink, setShareLink] = useState('');
   const { showNotification } = useNotification();
+
+  // Generar link de configuración al cargar
+  useEffect(() => {
+      const config = localStorage.getItem('firebase_config');
+      if (config) {
+          // Codificamos en Base64 para que sea una URL "limpia"
+          const encoded = btoa(config);
+          const url = `${window.location.origin}/?config=${encoded}`;
+          setShareLink(url);
+      }
+  }, []);
+
+  const copyToClipboard = () => {
+      navigator.clipboard.writeText(shareLink).then(() => {
+          showNotification('Enlace copiado al portapapeles', 'success');
+      });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -130,6 +144,34 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
     <div className="space-y-6 pt-12 md:pt-0">
       <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Configuración de la Empresa</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* Magic Link Section */}
+        {shareLink && (
+            <Card title="Conexión de Dispositivos">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                        Para configurar un nuevo celular o computadora sin ingresar las claves manualmente, 
+                        envíe este enlace por WhatsApp al repartidor y pídale que lo abra.
+                    </p>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={shareLink} 
+                            readOnly 
+                            className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-500"
+                        />
+                        <button 
+                            type="button"
+                            onClick={copyToClipboard}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 whitespace-nowrap"
+                        >
+                            Copiar Link
+                        </button>
+                    </div>
+                </div>
+            </Card>
+        )}
+
         <Card>
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1 space-y-2">

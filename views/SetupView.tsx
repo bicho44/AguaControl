@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initFirebase } from '../firebase/config';
 
 interface SetupViewProps {
@@ -10,6 +10,41 @@ const SetupView: React.FC<SetupViewProps> = ({ onConfigured }) => {
     const [input, setInput] = useState('');
     const [error, setError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // Auto-configuración vía URL
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const configEncoded = params.get('config');
+
+        if (configEncoded) {
+            setIsProcessing(true);
+            try {
+                // Decodificar Base64
+                const configStr = atob(configEncoded);
+                const config = JSON.parse(configStr);
+
+                if (config && config.apiKey && config.projectId) {
+                    const success = initFirebase(config);
+                    if (success) {
+                        localStorage.setItem('firebase_config', JSON.stringify(config));
+                        // Limpiar URL para que no quede la config visible y evitar re-procesamiento al refrescar
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        onConfigured();
+                    } else {
+                        setError("La configuración del enlace no es válida.");
+                        setIsProcessing(false);
+                    }
+                } else {
+                    setError("El enlace de configuración está incompleto.");
+                    setIsProcessing(false);
+                }
+            } catch (e) {
+                console.error(e);
+                setError("Enlace de configuración corrupto.");
+                setIsProcessing(false);
+            }
+        }
+    }, [onConfigured]);
 
     const handleConnect = () => {
         setError('');
@@ -143,7 +178,7 @@ const SetupView: React.FC<SetupViewProps> = ({ onConfigured }) => {
                     {/* Botón */}
                     <button 
                         onClick={handleConnect}
-                        disabled={!input || isProcessing}
+                        disabled={(!input && !isProcessing) || isProcessing}
                         className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg hover:bg-black hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {isProcessing ? (
