@@ -61,7 +61,7 @@ const MovimientoCajaForm: React.FC<{
   onClose: () => void;
   isEdit: boolean;
 }> = ({ movimiento, type, onSave, onAddCliente, onClose, isEdit, clientes, vendedores, productos, ventasVendedor }) => {
-  const [formData, setFormData] = useState<any>(movimiento);
+  const [formData, setFormData] = useState<any>(movimiento || { pagos: [] });
   const [isVentaMode, setIsVentaMode] = useState(false);
   const [movimientosVenta, setMovimientosVenta] = useState<MovimientoVenta[]>([]);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
@@ -73,14 +73,14 @@ const MovimientoCajaForm: React.FC<{
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   useEffect(() => {
-    if (isEdit && formData.origen?.tipo === 'venta_vendedor') {
+    if (isEdit && formData?.origen?.tipo === 'venta_vendedor') {
         const ventaOriginal = ventasVendedor.find(v => v.id === formData.origen.id);
         if (ventaOriginal) {
             setIsVentaMode(true);
             setMovimientosVenta(ventaOriginal.movimientos || []);
         }
     } 
-  }, [isEdit, formData.origen, ventasVendedor]);
+  }, [isEdit, formData, ventasVendedor]);
 
   const totalVentaCalculado = useMemo(() => {
     if (!isVentaMode) return 0;
@@ -89,11 +89,6 @@ const MovimientoCajaForm: React.FC<{
         const prod = productosMap.get(mov.productoId);
         if (!prod) return sum;
         
-        // Prioridad de precios: 
-        // 1. Manual si se editó
-        // 2. Especial del Cliente
-        // 3. Especial del Vendedor (Reventa)
-        // 4. Lista
         const especialCliente = selectedCliente?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio;
         const especialVendedor = selectedVendedor?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio;
         
@@ -105,7 +100,7 @@ const MovimientoCajaForm: React.FC<{
   }, [movimientosVenta, selectedVendedor, selectedCliente, isVentaMode, productosMap]);
 
   useEffect(() => {
-    if (isVentaMode && !isEdit && (formData.pagos?.length === 0 || (formData.pagos?.length === 1 && formData.pagos[0].monto === 0))) {
+    if (isVentaMode && !isEdit && (!formData.pagos || formData.pagos.length === 0 || (formData.pagos.length === 1 && formData.pagos[0].monto === 0))) {
         setFormData((prev: any) => ({ ...prev, pagos: [{ monto: totalVentaCalculado, metodo: MetodoPago.EFECTIVO }] }));
     }
   }, [totalVentaCalculado, isVentaMode, isEdit]);
@@ -123,7 +118,6 @@ const MovimientoCajaForm: React.FC<{
       if (!quickClientName) return;
       const newClient = {
           nombre: quickClientName,
-          // FIX: Added missing TipoTelefono to imports
           telefonos: [{ tipo: TipoTelefono.CEL, numero: quickClientPhone }],
           sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: 'Venta Mostrador' }],
           estado: EstadoCliente.ACTIVO
@@ -148,7 +142,7 @@ const MovimientoCajaForm: React.FC<{
   };
 
   const addMovimiento = () => setMovimientosVenta([...movimientosVenta, { productoId: '', cantidad: 1, recibidos: 0 }]);
-  const removeMovimiento = (index: number) => movimientosVenta.filter((_, i) => i !== index);
+  const removeMovimiento = (index: number) => setMovimientosVenta(prev => prev.filter((_, i) => i !== index));
 
   const addPago = () => {
     setFormData((prev: any) => ({ ...prev, pagos: [...(prev.pagos || []), { monto: 0, metodo: MetodoPago.EFECTIVO }] }));
@@ -249,7 +243,6 @@ const MovimientoCajaForm: React.FC<{
                     </div>
                     {movimientosVenta.map((mov, index) => {
                         const prod = productosMap.get(mov.productoId);
-                        // FIX: Added missing TipoProducto to imports
                         const isRetornable = prod?.tipo === TipoProducto.RETORNABLE;
                         
                         return (
@@ -450,7 +443,16 @@ const CajaView: React.FC<CajaViewProps> = ({
         }
       }
     } else {
-      setModalConfig({ type, isEdit, data: { fecha: new Date().toISOString().split('T00:00:00').toISOString().split('T')[0], pagos: [{ monto: 0, metodo: MetodoPago.EFECTIVO }] } });
+      // FIX: Se limpia la lógica de fecha para evitar errores de tipo string/date
+      const todayStr = new Date().toISOString().split('T')[0];
+      setModalConfig({ 
+        type, 
+        isEdit, 
+        data: { 
+            fecha: todayStr, 
+            pagos: [{ monto: 0, metodo: MetodoPago.EFECTIVO }] 
+        } 
+      });
     }
     setIsModalOpen(true);
   };
