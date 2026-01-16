@@ -205,8 +205,8 @@ const RemitoForm: React.FC<{
       
        {deudaPendiente > 0 && (
         <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-400 dark:text-yellow-300 rounded-md" role="alert">
-          <p className="font-bold">Atención</p>
-          <p>Este cliente tiene una deuda pendiente de ${deudaPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.</p>
+          <p className="font-bold">Cobranza Pendiente</p>
+          <p>Este cliente debe ${deudaPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de entregas anteriores.</p>
         </div>
       )}
 
@@ -260,8 +260,8 @@ const RemitoForm: React.FC<{
         <div className="space-y-2 mt-2 max-h-60 overflow-y-auto pr-2">
             <div className="grid grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-sm text-gray-500 dark:text-gray-400">
                 <span>Producto</span>
-                <span>Entregados</span>
-                <span>Recibidos</span>
+                <span>Entrega</span>
+                <span>Retira</span>
                 <span></span>
             </div>
             {(formData.movimientos || []).map((mov, index) => (
@@ -410,6 +410,9 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const filteredRemitos = useMemo(() => {
     return processedRemitos.filter(r => {
+        // SEGURIDAD: El repartidor solo ve sus remitos
+        if (currentUser.rol === Rol.REPARTIDOR && r.vendedorId !== currentUser.id) return false;
+
         const clienteMatch = !clienteFilter || r.clienteId === clienteFilter;
         if (!clienteMatch) return false;
 
@@ -438,7 +441,24 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         if (puntoVentaComparison !== 0) return puntoVentaComparison;
         return parseInt(b.numero, 10) - parseInt(a.numero, 10);
     });
-  }, [processedRemitos, clienteFilter, dateFilter, paymentStatusFilter]);
+  }, [processedRemitos, clienteFilter, dateFilter, paymentStatusFilter, currentUser]);
+
+  // Resumen del día para el repartidor
+  const statsHoy = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const remitosHoy = filteredRemitos.filter(r => r.fecha === today);
+    
+    const totals: Record<string, number> = {};
+    remitosHoy.forEach(r => {
+        r.movimientos.forEach(m => {
+            const p = productosMap.get(m.productoId);
+            if (p) {
+                totals[p.nombre] = (totals[p.nombre] || 0) + m.entregados;
+            }
+        });
+    });
+    return totals;
+  }, [filteredRemitos, productosMap]);
 
   const handleSave = async (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => {
     try {
@@ -513,10 +533,24 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
-        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
+        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 shadow-lg font-bold">
           + Nuevo Remito
         </button>
       </div>
+
+      {currentUser.rol === Rol.REPARTIDOR && Object.keys(statsHoy).length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Entregas de Hoy ({currentUser.nombre})</h3>
+              <div className="flex flex-wrap gap-4">
+                  {Object.entries(statsHoy).map(([name, count]) => (
+                      <div key={name} className="flex flex-col">
+                          <span className="text-xl font-black text-primary-600 dark:text-primary-400">{count}</span>
+                          <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{name}</span>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
 
       <Card>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
@@ -532,17 +566,19 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     <option value="facturado">Facturados</option>
                 </select>
             </div>
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                    <label className="text-sm font-medium">Desde:</label>
-                    <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({...prev, from: e.target.value}))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+            {currentUser.rol === Rol.ADMINISTRADOR && (
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <label className="text-sm font-medium">Desde:</label>
+                        <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({...prev, from: e.target.value}))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                    </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <label className="text-sm font-medium">Hasta:</label>
+                        <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({...prev, to: e.target.value}))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                    </div>
+                    <button onClick={() => {setClienteFilter(''); setDateFilter({ from: '', to: ''}); setPaymentStatusFilter('todos');}} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 w-full md:w-auto">Limpiar</button>
                 </div>
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                    <label className="text-sm font-medium">Hasta:</label>
-                    <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({...prev, to: e.target.value}))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-                </div>
-                <button onClick={() => {setClienteFilter(''); setDateFilter({ from: '', to: ''}); setPaymentStatusFilter('todos');}} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 w-full md:w-auto">Limpiar</button>
-            </div>
+            )}
         </div>
         <div className="space-y-2 p-2">
           {filteredRemitos.map(remito => {
@@ -593,16 +629,16 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                           <thead className="text-left text-gray-500 dark:text-gray-400">
                             <tr>
                               <th className="py-2 px-2 font-normal">Producto</th>
-                              <th className="py-2 px-2 font-normal text-center">Entregados</th>
-                              <th className="py-2 px-2 font-normal text-center">Recibidos</th>
+                              <th className="py-2 px-2 font-normal text-center">Entrega</th>
+                              <th className="py-2 px-2 font-normal text-center">Retira</th>
                             </tr>
                           </thead>
                           <tbody>
                             {remito.movimientos.map((mov, index) => (
                               <tr key={index} className="border-t border-dashed dark:border-gray-700">
                                 <td className="py-2 px-2">{productosMap.get(mov.productoId)?.nombre || 'N/A'}</td>
-                                <td className="py-2 px-2 text-center">{mov.entregados}</td>
-                                <td className="py-2 px-2 text-center">{mov.recibidos}</td>
+                                <td className="py-2 px-2 text-center font-bold text-blue-600 dark:text-blue-400">{mov.entregados}</td>
+                                <td className="py-2 px-2 text-center text-gray-500">{mov.recibidos}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -611,12 +647,12 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     </div>
                     {remito.pagos && remito.pagos.length > 0 && (
                       <div>
-                        <h4 className="font-semibold mb-2 text-gray-800 dark:text-gray-200">Detalle de Pagos</h4>
+                        <h4 className="font-semibold mb-2 text-gray-800 dark:text-gray-200">Detalle de Cobranza</h4>
                          <ul className="space-y-1 text-sm">
                           {remito.pagos.map((pago) => (
                             <li key={pago.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                               <span>{pago.metodo}</span>
-                              <span className="font-semibold">${pago.monto.toLocaleString()}</span>
+                              <span className="font-semibold text-green-600 dark:text-green-400">${pago.monto.toLocaleString()}</span>
                             </li>
                           ))}
                         </ul>

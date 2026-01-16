@@ -52,7 +52,7 @@ function AppContent() {
   useEffect(() => {
     if (user && user.rol === Rol.REPARTIDOR) {
       setCurrentView('remitos');
-    } else {
+    } else if (user) {
       setCurrentView('dashboard');
     }
   }, [user]);
@@ -66,6 +66,7 @@ function AppContent() {
   }
 
   const renderView = () => {
+    // Seguridad y redirección para Repartidor
     if (user.rol === Rol.REPARTIDOR && !['remitos', 'clientes'].includes(currentView)) {
       return <RemitosView 
                 remitos={dataStore.remitos} 
@@ -150,6 +151,7 @@ function AppContent() {
                   productos={dataStore.productos}
                   contratos={dataStore.contratos}
                   servicios={dataStore.servicios}
+                  registrosPago={dataStore.registrosPago}
                   addCliente={dataStore.addCliente}
                   updateCliente={dataStore.updateCliente}
                   deleteCliente={dataStore.deleteCliente}
@@ -230,23 +232,33 @@ function AppContent() {
   };
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+    <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen relative overflow-x-hidden">
+      {/* Backdrop para cerrar el menú en móviles */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar 
         currentView={currentView} 
         setCurrentView={setCurrentView} 
         isSidebarOpen={isSidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         currentUser={user}
         empresaSettings={dataStore.empresaSettings}
         appVersion={APP_VERSION}
       />
+
       <div className="md:ml-64 p-4 sm:p-6 lg:p-8">
         <div className="flex justify-between items-center mb-4">
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)} 
-                className="md:hidden p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
+                className="md:hidden p-2 bg-white dark:bg-gray-800 shadow-sm rounded-md border dark:border-gray-700"
             >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+                <svg className="h-6 w-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
                 </svg>
             </button>
             <button 

@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana } from '../types';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -12,6 +12,7 @@ import { ReplyIcon } from '../components/icons/ReplyIcon';
 import { MapIcon } from '../components/icons/MapIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
 import MapPickerModal from '../components/MapPickerModal';
+import { useAuth } from '../context/AuthContext';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -19,6 +20,7 @@ interface ClientesViewProps {
   productos: Producto[];
   contratos: Contrato[];
   servicios: Servicio[];
+  registrosPago: RegistroPago[]; // Añadimos esto para calcular deuda rápida
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'> & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   updateCliente: (cliente: Cliente) => void;
   deleteCliente: (clienteId: string) => void;
@@ -48,7 +50,7 @@ const ClienteForm: React.FC<{
   cliente: Partial<Cliente>;
   productos: Producto[];
   servicios: Servicio[];
-  clientes: Cliente[]; // Pass all clients for validation
+  clientes: Cliente[]; 
   onSave: (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   onClose: () => void;
 }> = ({ cliente, productos, servicios, clientes, onSave, onClose }) => {
@@ -61,7 +63,6 @@ const ClienteForm: React.FC<{
   const [isSearching, setIsSearching] = useState(false);
   const { showNotification } = useNotification();
 
-  // Estado para el modal del mapa
   const [mapModalConfig, setMapModalConfig] = useState<{
     isOpen: boolean;
     sucursalIndex: number | null;
@@ -107,14 +108,12 @@ const ClienteForm: React.FC<{
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
-  // Sucursales
   const handleSucursalChange = (index: number, field: keyof Sucursal, value: any) => {
       const newSucursales = [...(formData.sucursales || [])];
       newSucursales[index] = { ...newSucursales[index], [field]: value };
       setFormData(prev => ({ ...prev, sucursales: newSucursales }));
   }
 
-  // Actualización atómica de ubicación para evitar Race Conditions
   const handleUpdateSucursalLocation = (index: number, lat: number, lng: number, address: string) => {
       setFormData(prev => {
           const newSucursales = [...(prev.sucursales || [])];
@@ -144,7 +143,6 @@ const ClienteForm: React.FC<{
       setFormData(prev => ({ ...prev, sucursales: newSucursales }));
   }
   
-  // Búsqueda de dirección (Geocoding Forward) para pre-llenar coordenadas
   const handleSearchAddress = async (index: number) => {
       const direccion = formData.sucursales?.[index]?.direccion;
       if (!direccion) {
@@ -162,7 +160,6 @@ const ClienteForm: React.FC<{
               const lat = parseFloat(data[0].lat);
               const lng = parseFloat(data[0].lon);
               
-              // Solo actualizamos coordenadas en el form, no abrimos mapa aun
               handleUpdateSucursalLocation(index, lat, lng, direccion);
               showNotification('Coordenadas encontradas. Puede verlas en el mapa.', 'success');
           } else {
@@ -176,7 +173,6 @@ const ClienteForm: React.FC<{
       }
   };
 
-  // Abrir Modal de Mapa
   const handleOpenMap = async (index: number) => {
       const sucursal = formData.sucursales?.[index];
       
@@ -184,7 +180,6 @@ const ClienteForm: React.FC<{
       let lng = sucursal?.lng;
       const address = sucursal?.direccion || '';
 
-      // Si no tiene coordenadas pero tiene dirección, intentamos buscarla antes de abrir
       if (address && (!lat || !lng)) {
            setIsSearching(true);
            try {
@@ -208,10 +203,8 @@ const ClienteForm: React.FC<{
       });
   };
 
-  // Confirmación desde el Modal
   const handleMapConfirm = (lat: number, lng: number, address: string) => {
       if (mapModalConfig.sucursalIndex !== null) {
-          // Usamos la función atómica para evitar race conditions
           handleUpdateSucursalLocation(mapModalConfig.sucursalIndex, lat, lng, address);
       }
       setMapModalConfig({ isOpen: false, sucursalIndex: null, initialAddress: '' });
@@ -225,7 +218,6 @@ const ClienteForm: React.FC<{
       setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
   }
 
-  // Telefonos
   const handleTelefonoChange = (index: number, field: keyof Telefono, value: string) => {
     const newTelefonos = [...(formData.telefonos || [])];
     newTelefonos[index] = { ...newTelefonos[index], [field]: value };
@@ -239,7 +231,6 @@ const ClienteForm: React.FC<{
     setFormData(prev => ({ ...prev, telefonos: prev.telefonos?.filter((_, i) => i !== index) }));
   }
 
-  // Emails
   const handleEmailChange = (index: number, value: string) => {
     const newEmails = [...(formData.emails || [])];
     newEmails[index] = value;
@@ -252,7 +243,6 @@ const ClienteForm: React.FC<{
     setFormData(prev => ({ ...prev, emails: prev.emails?.filter((_, i) => i !== index) }));
   }
 
-  // Precios Especiales
   const handlePrecioEspecialChange = (index: number, field: 'productoId' | 'precio', value: string) => {
     const newPrecios = [...(formData.preciosEspeciales || [])];
     const updatedValue = field === 'precio' ? (value === '' ? 0 : Number(value)) : value;
@@ -267,7 +257,6 @@ const ClienteForm: React.FC<{
     setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
   }
 
-  // Stock Inicial
     const handleStockChange = (index: number, field: 'productoId' | 'cantidad' | 'sucursalId', value: string) => {
         const newStock = [...stockInicial];
         const updatedValue = field === 'cantidad' ? (value === '' ? 0 : Number(value)) : value;
@@ -277,7 +266,6 @@ const ClienteForm: React.FC<{
     const addStockRow = () => setStockInicial([...stockInicial, { productoId: '', cantidad: 0, sucursalId: '' }]);
     const removeStockRow = (index: number) => setStockInicial(stockInicial.filter((_, i) => i !== index));
 
-    // Contratos Iniciales
     const handleContratoChange = (index: number, field: keyof Omit<Contrato, 'id'|'clienteId'>, value: any) => {
         const newContratos = [...contratosIniciales];
         let newContrato = { ...newContratos[index], [field]: value };
@@ -343,8 +331,6 @@ const ClienteForm: React.FC<{
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
   const productosRetornables = useMemo(() => productosActivos.filter(p => p.tipo === TipoProducto.RETORNABLE), [productosActivos]);
   const serviciosActivosOptions = useMemo(() => servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({ value: s.id, label: s.nombre })), [servicios]);
-  const equiposOptions = useMemo(() => productosActivos.filter(p => p.tipo === TipoProducto.EQUIPO).map(p => ({ value: p.id, label: p.nombre })), [productosActivos]);
-  const consumoOptions = useMemo(() => productosActivos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).map(p => ({ value: p.id, label: p.nombre })), [productosActivos]);
 
   const sucursalOptions = useMemo(() => [
     { value: '', label: 'Casa Central' },
@@ -381,7 +367,6 @@ const ClienteForm: React.FC<{
                     </p>
                 )}
             </div>
-            <input type="text" name="web" placeholder="Sitio Web (ej: www.dominio.com)" value={formData.web || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
              <div className="pt-2">
                 <label className="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600 rounded focus:ring-primary-500" />
@@ -523,7 +508,6 @@ const ClienteForm: React.FC<{
       
       {isNew && (
         <div className="space-y-4">
-            {/* Accordion for Initial Stock */}
             <div className="border dark:border-gray-600 rounded-md">
                 <button type="button" onClick={() => setOpenSection(openSection === 'stock' ? null : 'stock')} className="w-full flex justify-between items-center p-4 text-left">
                     <span className="text-lg font-medium text-gray-800 dark:text-white">Stock Inicial de Envases (Opcional)</span>
@@ -549,7 +533,6 @@ const ClienteForm: React.FC<{
                 )}
             </div>
 
-            {/* Accordion for Initial Contracts */}
              <div className="border dark:border-gray-600 rounded-md">
                 <button type="button" onClick={() => setOpenSection(openSection === 'contratos' ? null : 'contratos')} className="w-full flex justify-between items-center p-4 text-left">
                     <span className="text-lg font-medium text-gray-800 dark:text-white">Contratos Iniciales (Opcional)</span>
@@ -578,7 +561,6 @@ const ClienteForm: React.FC<{
         </div>
       )}
 
-      {/* Modal Aislado para el Mapa */}
       {mapModalConfig.isOpen && (
           <MapPickerModal
               initialLat={mapModalConfig.initialLat}
@@ -598,7 +580,7 @@ const ClienteForm: React.FC<{
   )
 }
 
-const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, addCliente, updateCliente, deleteCliente, reactivarCliente }) => {
+const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, registrosPago, addCliente, updateCliente, deleteCliente, reactivarCliente }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Partial<Cliente> | null>(null);
   const [clienteParaBaja, setClienteParaBaja] = useState<Cliente | null>(null);
@@ -606,6 +588,45 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const [statusFilter, setStatusFilter] = useState<EstadoCliente | 'todos'>(EstadoCliente.ACTIVO);
   const [expandedClienteId, setExpandedClienteId] = useState<string | null>(null);
   const { showNotification } = useNotification();
+  const { user: currentUser } = useAuth();
+
+  const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
+
+  // Cálculo de deuda por cliente (Optimizado)
+  const deudasMap = useMemo(() => {
+    const deudas = new Map<string, number>();
+    
+    // Agrupar pagos por origen
+    const pagosMap = new Map<string, number>();
+    registrosPago.forEach(p => {
+        const key = p.origen.id;
+        pagosMap.set(key, (pagosMap.get(key) || 0) + p.monto);
+    });
+
+    clientes.forEach(cliente => {
+        const remitosCliente = remitos.filter(r => r.clienteId === cliente.id);
+        const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+
+        let deudaTotal = 0;
+        remitosCliente.forEach(r => {
+            const totalRemito = r.movimientos.reduce((sum, mov) => {
+                const prod = productosMap.get(mov.productoId);
+                if (!prod) return sum;
+                const precio = preciosEspecialesMap.get(mov.productoId) ?? prod.precio;
+                return sum + (mov.entregados * precio);
+            }, 0);
+            
+            const totalPagado = pagosMap.get(r.id) || 0;
+            if (totalRemito > totalPagado) {
+                deudaTotal += (totalRemito - totalPagado);
+            }
+        });
+        
+        if (deudaTotal > 0.01) deudas.set(cliente.id, deudaTotal);
+    });
+    
+    return deudas;
+  }, [clientes, remitos, registrosPago, productosMap]);
 
   const handleSave = (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => {
     try {
@@ -652,6 +673,15 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     setIsModalOpen(true);
   }
 
+  const handleOpenGoogleMaps = (sucursal: Sucursal) => {
+      if (!sucursal.lat || !sucursal.lng) {
+          showNotification('La sucursal no tiene coordenadas guardadas.', 'error');
+          return;
+      }
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${sucursal.lat},${sucursal.lng}`;
+      window.open(url, '_blank');
+  };
+
   const filteredClientes = useMemo(() => {
     return clientes.filter(c => {
         const matchesName = c.nombre.toLowerCase().includes(filter.toLowerCase());
@@ -664,9 +694,11 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Clientes</h1>
-        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
-          + Nuevo Cliente
-        </button>
+        {currentUser?.rol === Rol.ADMINISTRADOR && (
+            <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 font-bold shadow-md">
+            + Nuevo Cliente
+            </button>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
@@ -679,10 +711,9 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
           />
           
           <div className="flex items-center space-x-4">
-            <span className="font-medium text-sm text-gray-700 dark:text-gray-300">Mostrar:</span>
+            <span className="font-medium text-sm text-gray-700 dark:text-gray-300">Filtrar:</span>
             <label className="flex items-center cursor-pointer text-sm text-gray-700 dark:text-gray-300"><input type="radio" name="statusFilter" value="Activo" checked={statusFilter === EstadoCliente.ACTIVO} onChange={() => setStatusFilter(EstadoCliente.ACTIVO)} className="form-radio mr-1 text-primary-600" /> Activos</label>
             <label className="flex items-center cursor-pointer text-sm text-gray-700 dark:text-gray-300"><input type="radio" name="statusFilter" value="Inactivo" checked={statusFilter === EstadoCliente.INACTIVO} onChange={() => setStatusFilter(EstadoCliente.INACTIVO)} className="form-radio mr-1 text-primary-600" /> Inactivos</label>
-            <label className="flex items-center cursor-pointer text-sm text-gray-700 dark:text-gray-300"><input type="radio" name="statusFilter" value="todos" checked={statusFilter === 'todos'} onChange={() => setStatusFilter('todos')} className="form-radio mr-1 text-primary-600" /> Todos</label>
           </div>
       </div>
 
@@ -690,6 +721,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
         {filteredClientes.map(cliente => {
             const isInactive = cliente.estado === EstadoCliente.INACTIVO;
             const isExpanded = expandedClienteId === cliente.id;
+            const deuda = deudasMap.get(cliente.id) || 0;
             
             return (
             <div key={cliente.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 transition-opacity ${isInactive ? 'opacity-70' : ''}`}>
@@ -699,20 +731,29 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                 >
                     <div className="flex-grow">
                         <div className="flex items-center gap-2">
-                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{cliente.nombre}</h3>
+                             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{cliente.nombre}</h3>
                              {isInactive && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200">Inactivo</span>}
+                             {deuda > 0.01 && (
+                                <span className="px-2 py-0.5 text-xs font-black rounded-full bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">
+                                    DEUDA: ${deuda.toLocaleString()}
+                                </span>
+                             )}
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {cliente.sucursales.length} Sucursal{cliente.sucursales.length !== 1 ? 'es' : ''} | {cliente.tieneCuentaCorriente ? 'Cta. Corriente' : 'Pago Contra Entrega'}
+                            {cliente.sucursales.length} Sucursal{cliente.sucursales.length !== 1 ? 'es' : ''} | {cliente.tieneCuentaCorriente ? 'Cta. Corriente' : 'Pago Efectivo'}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); openEditModal(cliente); }} className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" title="Editar"><PencilIcon /></button>
-                         {isInactive ? (
-                            <button onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); showNotification('Cliente reactivado.', 'success'); }} className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-full" title="Reactivar"><ReplyIcon /></button>
-                         ) : (
-                            <button onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }} className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" title="Dar de Baja"><TrashIcon /></button>
-                         )}
+                        {currentUser?.rol === Rol.ADMINISTRADOR && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); openEditModal(cliente); }} className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" title="Editar"><PencilIcon /></button>
+                                {isInactive ? (
+                                    <button onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); showNotification('Cliente reactivado.', 'success'); }} className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-full" title="Reactivar"><ReplyIcon /></button>
+                                ) : (
+                                    <button onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }} className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" title="Dar de Baja"><TrashIcon /></button>
+                                )}
+                            </>
+                        )}
                         <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                 </div>
@@ -721,7 +762,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                     <div className="px-4 pb-4 pt-0 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 text-sm">
                             <div>
-                                <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Información de Contacto</h4>
+                                <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2 uppercase text-xs tracking-wider">Contacto</h4>
                                 <ul className="space-y-1 text-gray-600 dark:text-gray-400">
                                     {cliente.cuit && <li><strong>CUIT:</strong> {cliente.cuit}</li>}
                                     {(cliente.telefonos || []).map((tel, i) => (
@@ -730,25 +771,29 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                     {(cliente.emails || []).map((email, i) => (
                                         <li key={i}><strong>Email:</strong> {email}</li>
                                     ))}
-                                    {cliente.web && <li><strong>Web:</strong> <a href={`http://${cliente.web}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{cliente.web}</a></li>}
                                 </ul>
                             </div>
                             <div>
-                                <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Sucursales</h4>
+                                <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2 uppercase text-xs tracking-wider">Sucursales / Rutas</h4>
                                 <ul className="space-y-2">
                                     {cliente.sucursales.map((suc, i) => (
-                                        <li key={i} className="text-gray-600 dark:text-gray-400 border-l-2 border-primary-300 pl-2">
-                                            <p className="font-medium text-gray-800 dark:text-gray-200">{suc.nombre}</p>
-                                            <p>{suc.direccion}</p>
-                                            {(suc.diasReparto?.length || (suc.lat && suc.lng)) && (
-                                                <div className="flex gap-2 mt-1 text-xs flex-wrap">
-                                                    {suc.diasReparto && suc.diasReparto.length > 0 && (
-                                                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
-                                                            Reparto: {suc.diasReparto.join(', ')}
-                                                        </span>
-                                                    )}
-                                                    {suc.lat && suc.lng && <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded flex items-center gap-1"><MapIcon className="w-3 h-3"/> Ubicación OK</span>}
-                                                </div>
+                                        <li key={i} className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700 shadow-sm flex justify-between items-center">
+                                            <div>
+                                                <p className="font-bold text-gray-800 dark:text-gray-200">{suc.nombre}</p>
+                                                <p className="text-xs text-gray-500">{suc.direccion}</p>
+                                                {suc.diasReparto && suc.diasReparto.length > 0 && (
+                                                    <p className="text-[10px] text-primary-600 font-bold mt-1">Días: {suc.diasReparto.join(', ')}</p>
+                                                )}
+                                            </div>
+                                            {suc.lat && suc.lng && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenGoogleMaps(suc); }}
+                                                    className="flex flex-col items-center p-2 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded hover:bg-green-100 transition-colors"
+                                                    title="Navegar con GPS"
+                                                >
+                                                    <MapIcon className="w-5 h-5" />
+                                                    <span className="text-[10px] font-black mt-1">GPS</span>
+                                                </button>
                                             )}
                                         </li>
                                     ))}
