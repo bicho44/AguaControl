@@ -1,5 +1,4 @@
 
-
 export type View =
   | 'dashboard'
   | 'caja'
@@ -32,6 +31,7 @@ export interface Usuario {
   password?: string;
   rol: Rol;
   tipo: TipoVendedor;
+  preciosEspeciales?: PrecioEspecial[]; // Precios de reventa para externos
 }
 
 export enum TipoTelefono {

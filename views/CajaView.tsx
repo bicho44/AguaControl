@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, PagoDetalle, MetodoPago, Factura, Producto, TipoVendedor, MovimientoVenta, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -61,15 +62,37 @@ const MovimientoCajaForm: React.FC<{
   const [isVentaMode, setIsVentaMode] = useState(false);
   const [movimientosVenta, setMovimientosVenta] = useState<MovimientoVenta[]>([]);
 
+  const selectedVendedor = useMemo(() => vendedores.find(v => v.id === formData.vendedorId), [formData.vendedorId, vendedores]);
+  const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
+
   useEffect(() => {
     // Si seleccionamos un vendedor externo, sugerimos el modo venta
-    const vendedor = vendedores.find(v => v.id === formData.vendedorId);
-    if (vendedor?.tipo === TipoVendedor.EXTERNO && !isEdit) {
+    if (selectedVendedor?.tipo === TipoVendedor.EXTERNO && !isEdit) {
       setIsVentaMode(true);
     } else {
       setIsVentaMode(false);
     }
-  }, [formData.vendedorId, vendedores, isEdit]);
+  }, [selectedVendedor, isEdit]);
+
+  const totalVentaCalculado = useMemo(() => {
+    if (!isVentaMode || !selectedVendedor) return 0;
+    const preciosEspecialesMap = new Map(selectedVendedor.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+    
+    return movimientosVenta.reduce((sum, mov) => {
+        const prod = productosMap.get(mov.productoId);
+        const precio = preciosEspecialesMap.get(mov.productoId) ?? (prod?.precio || 0);
+        return sum + (mov.cantidad * precio);
+    }, 0);
+  }, [movimientosVenta, selectedVendedor, isVentaMode, productosMap]);
+
+  // Actualizar el monto del pago automáticamente al cambiar la venta (solo si hay 1 pago y no es edición)
+  useEffect(() => {
+    if (isVentaMode && !isEdit && formData.pagos?.length === 1) {
+        const newPagos = [...formData.pagos];
+        newPagos[0] = { ...newPagos[0], monto: totalVentaCalculado };
+        setFormData((prev: any) => ({ ...prev, pagos: newPagos }));
+    }
+  }, [totalVentaCalculado, isVentaMode, isEdit]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -87,7 +110,6 @@ const MovimientoCajaForm: React.FC<{
     setFormData((prev: any) => ({ ...prev, pagos: newPagos }));
   };
 
-  // Lógica de Productos (solo para modo venta)
   const handleMovimientoChange = (index: number, field: keyof MovimientoVenta, value: any) => {
     const newMovs = [...movimientosVenta];
     newMovs[index] = { ...newMovs[index], [field]: field === 'cantidad' ? (Number(value) || 0) : value };
@@ -147,7 +169,7 @@ const MovimientoCajaForm: React.FC<{
       {isVentaMode && (
         <fieldset className="border-t-2 border-primary-500 pt-4 bg-primary-50/30 dark:bg-primary-900/10 p-3 rounded-lg">
           <legend className="text-sm font-bold text-primary-600 px-2 flex items-center gap-1">
-            <CubeIcon className="w-4 h-4"/> PRODUCTOS VENDIDOS
+            <CubeIcon className="w-4 h-4"/> PRODUCTOS VENDIDOS (PRECIOS ESPECIALES)
           </legend>
           <div className="space-y-2 mt-2">
             {movimientosVenta.map((mov, index) => (
@@ -157,7 +179,13 @@ const MovimientoCajaForm: React.FC<{
                 <button type="button" onClick={() => removeMovimiento(index)} className="text-red-500 p-1"><TrashIcon/></button>
               </div>
             ))}
-            <button type="button" onClick={addMovimiento} className="text-xs font-bold text-primary-600 hover:underline">+ Agregar ítem de stock</button>
+            <div className="flex justify-between items-center mt-2">
+                <button type="button" onClick={addMovimiento} className="text-xs font-bold text-primary-600 hover:underline">+ Agregar ítem de stock</button>
+                <div className="text-right">
+                    <span className="text-xs text-gray-500 uppercase font-bold">Total Venta: </span>
+                    <span className="text-lg font-black text-primary-700 dark:text-primary-300">${totalVentaCalculado.toLocaleString()}</span>
+                </div>
+            </div>
           </div>
         </fieldset>
       )}
@@ -198,7 +226,7 @@ const CajaView: React.FC<CajaViewProps> = ({
   const [movimientoParaBorrar, setMovimientoParaBorrar] = useState<CombinedMovement | null>(null);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c.nombre])), [clientes]);
-  const vendedoresMap = useMemo(() => new Map(vendedores.map(v => [v.id, v.nombre])), [vendedores]);
+  const vendedoresMap = useMemo(() => new Map(vendedores.map(v => [v.id, v])), [vendedores]);
   const remitosMap = useMemo(() => new Map(remitos.map(r => [r.id, r])), [remitos]);
   const ventasVendedorMap = useMemo(() => new Map(ventasVendedor.map(v => [v.id, v])), [ventasVendedor]);
   const facturasMap = useMemo(() => new Map(facturas.map(f => [f.id, f])), [facturas]);
@@ -262,11 +290,11 @@ const CajaView: React.FC<CajaViewProps> = ({
           concepto = `Remito ${remito?.puntoVenta}-${remito?.numero} (${clientesMap.get(primerPago.clienteId!) || 'N/A'})`;
           break;
         case 'venta_vendedor':
-           concepto = `Venta de Stock (${vendedoresMap.get(primerPago.vendedorId!) || 'N/A'})`;
+           concepto = `Venta de Stock (${vendedoresMap.get(primerPago.vendedorId!)?.nombre || 'N/A'})`;
            ventaId = primerPago.origen.id;
           break;
         case 'pago_manual':
-           concepto = `${primerPago.concepto || 'Ingreso Manual'} (${clientesMap.get(primerPago.clienteId!) || vendedoresMap.get(primerPago.vendedorId!) || 'N/A'})`;
+           concepto = `${primerPago.concepto || 'Ingreso Manual'} (${clientesMap.get(primerPago.clienteId!) || vendedoresMap.get(primerPago.vendedorId!)?.nombre || 'N/A'})`;
           break;
       }
       allMovements.push({

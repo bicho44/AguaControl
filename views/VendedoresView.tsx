@@ -25,9 +25,10 @@ interface UsuariosViewProps {
 
 const UsuarioForm: React.FC<{
   usuario: Partial<Usuario>;
+  productos: Producto[];
   onSave: (usuario: Omit<Usuario, 'id'> | Usuario) => void;
   onClose: () => void;
-}> = ({ usuario, onSave, onClose }) => {
+}> = ({ usuario, productos, onSave, onClose }) => {
   const [formData, setFormData] = useState(usuario);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -35,13 +36,31 @@ const UsuarioForm: React.FC<{
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handlePrecioEspecialChange = (index: number, field: 'productoId' | 'precio', value: string) => {
+    const newPrecios = [...(formData.preciosEspeciales || [])];
+    const updatedValue = field === 'precio' ? (value === '' ? 0 : Number(value)) : value;
+    newPrecios[index] = { ...newPrecios[index], [field]: updatedValue };
+    setFormData(prev => ({ ...prev, preciosEspeciales: newPrecios }));
+  }
+
+  const addPrecioEspecial = () => {
+    const newPrecio = { productoId: '', precio: 0 };
+    setFormData(prev => ({ ...prev, preciosEspeciales: [...(prev.preciosEspeciales || []), newPrecio] }));
+  }
+
+  const removePrecioEspecial = (index: number) => {
+    setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData as Usuario);
   };
 
+  const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
       <input type="text" name="nombre" placeholder="Nombre" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
       <input type="email" name="email" placeholder="Email" value={formData.email || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
@@ -58,9 +77,30 @@ const UsuarioForm: React.FC<{
             <option value={TipoVendedor.EXTERNO}>Externo</option>
         </select>
       </div>
-      <div className="flex justify-end space-x-2 pt-4">
-        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
-        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
+
+      {formData.tipo === TipoVendedor.EXTERNO && (
+        <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
+            <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Precios de Reventa (Especiales)</legend>
+            <p className="text-xs text-gray-500 mb-2 px-2">Si un producto no figura aquí, se usará el precio de lista.</p>
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+            {(formData.preciosEspeciales || []).map((precio, index) => (
+                <div key={index} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-center">
+                    <select value={precio.productoId} onChange={(e) => handlePrecioEspecialChange(index, 'productoId', e.target.value)} className="w-full p-2 bg-gray-100 dark:bg-gray-600 rounded-md text-sm" required>
+                        <option value="">Seleccionar Producto</option>
+                        {productosActivos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                    </select>
+                    <input type="number" placeholder="Precio" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} className="w-full p-2 bg-gray-100 dark:bg-gray-600 rounded-md font-bold" step="0.01" min="0" required />
+                    <button type="button" onClick={() => removePrecioEspecial(index)} className="text-red-500 p-2"><TrashIcon className="h-4 w-4" /></button>
+                </div>
+            ))}
+            </div>
+            <button type="button" onClick={addPrecioEspecial} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50">+ Agregar Precio de Reventa</button>
+        </fieldset>
+      )}
+
+      <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
+        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200">Cancelar</button>
+        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar Cambios</button>
       </div>
     </form>
   )
@@ -251,6 +291,8 @@ const ComprasVendedorModal: React.FC<{
             months.push(key);
         }
 
+        const preciosEspecialesMap = new Map(usuario.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+
         ventas.forEach(v => {
             const date = new Date(v.fecha + 'T00:00:00');
             const key = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
@@ -258,23 +300,26 @@ const ComprasVendedorModal: React.FC<{
             if (data[key] !== undefined) {
                 const totalVenta = v.movimientos.reduce((sum, m) => {
                     const prod = productosMap.get(m.productoId);
-                    return sum + (m.cantidad * (prod?.precio || 0));
+                    const precio = preciosEspecialesMap.get(m.productoId) ?? (prod?.precio || 0);
+                    return sum + (m.cantidad * precio);
                 }, 0);
                 data[key] += totalVenta;
             }
         });
 
         return months.map(name => ({ name, total: data[name] }));
-    }, [ventas, productosMap]);
+    }, [ventas, productosMap, usuario.preciosEspeciales]);
 
     const totalInvertido = useMemo(() => {
+        const preciosEspecialesMap = new Map(usuario.preciosEspeciales?.map(p => [p.productoId, p.precio]));
         return ventas.reduce((sum, v) => {
             return sum + v.movimientos.reduce((mSum, m) => {
                 const prod = productosMap.get(m.productoId);
-                return mSum + (m.cantidad * (prod?.precio || 0));
+                const precio = preciosEspecialesMap.get(m.productoId) ?? (prod?.precio || 0);
+                return mSum + (m.cantidad * precio);
             }, 0);
         }, 0);
-    }, [ventas, productosMap]);
+    }, [ventas, productosMap, usuario.preciosEspeciales]);
 
     return (
         <Modal isOpen={true} onClose={onClose} className="max-w-4xl">
@@ -316,9 +361,11 @@ const ComprasVendedorModal: React.FC<{
                     <h3 className="font-bold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wider">Historial de Transacciones</h3>
                     <div className="space-y-2">
                         {ventas.map(v => {
+                            const preciosEspecialesMap = new Map(usuario.preciosEspeciales?.map(p => [p.productoId, p.precio]));
                             const totalVenta = v.movimientos.reduce((sum, m) => {
                                 const prod = productosMap.get(m.productoId);
-                                return sum + (m.cantidad * (prod?.precio || 0));
+                                const precio = preciosEspecialesMap.get(m.productoId) ?? (prod?.precio || 0);
+                                return sum + (m.cantidad * precio);
                             }, 0);
                             
                             return (
@@ -466,6 +513,7 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
         <Modal isOpen={!!editingUsuario} onClose={() => setEditingUsuario(null)}>
             <UsuarioForm
                 usuario={editingUsuario}
+                productos={productos}
                 onSave={handleSaveUsuario}
                 onClose={() => setEditingUsuario(null)}
             />
