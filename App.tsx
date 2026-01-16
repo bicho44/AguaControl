@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardView from './views/DashboardView';
 import RemitosView from './views/RemitosView';
@@ -13,19 +14,17 @@ import CajaView from './views/CajaView';
 import SettingsView from './views/SettingsView';
 import ContratosView from './views/ContratosView';
 import PlanillasView from './views/PlanillasView';
+import LoginView from './views/LoginView';
+import SetupView from './views/SetupView';
 import { useDataStore } from './hooks/useDataStore';
-// FIX: Corrected import from types.ts
-import { View, Usuario, Rol } from './types';
-import { mockUsuarios } from './data/mockData';
+import { View, Rol } from './types';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import Notification from './components/Notification';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.5';
-
-// --- Simulación de Sesión de Usuario ---
-const SIMULATED_USER_INDEX = 1; 
-// -----------------------------------------
+const APP_VERSION = '2.5 (Firebase)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -45,22 +44,29 @@ const NotificationContainer: React.FC = () => {
 };
 
 function AppContent() {
+  const { user, loading: authLoading, logout } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const dataStore = useDataStore();
   
-  const [currentUser, setCurrentUser] = useState<Usuario>(mockUsuarios[SIMULATED_USER_INDEX]);
-
-  React.useEffect(() => {
-    if (currentUser.rol === Rol.REPARTIDOR) {
+  useEffect(() => {
+    if (user && user.rol === Rol.REPARTIDOR) {
       setCurrentView('remitos');
     } else {
       setCurrentView('dashboard');
     }
-  }, [currentUser]);
+  }, [user]);
+
+  if (authLoading) {
+      return <div className="flex h-screen items-center justify-center dark:bg-gray-900"><div className="text-primary-600 dark:text-white">Cargando...</div></div>;
+  }
+
+  if (!user) {
+      return <LoginView />;
+  }
 
   const renderView = () => {
-    if (currentUser.rol === Rol.REPARTIDOR && !['remitos', 'clientes'].includes(currentView)) {
+    if (user.rol === Rol.REPARTIDOR && !['remitos', 'clientes'].includes(currentView)) {
       return <RemitosView 
                 remitos={dataStore.remitos} 
                 clientes={dataStore.clientes} 
@@ -70,7 +76,7 @@ function AppContent() {
                 addRemito={dataStore.addRemito}
                 updateRemito={dataStore.updateRemito}
                 deleteRemito={dataStore.deleteRemito}
-                currentUser={currentUser}
+                currentUser={user}
               />;
     }
 
@@ -135,7 +141,7 @@ function AppContent() {
                   addRemito={dataStore.addRemito}
                   updateRemito={dataStore.updateRemito}
                   deleteRemito={dataStore.deleteRemito}
-                  currentUser={currentUser}
+                  currentUser={user}
                 />;
       case 'clientes':
         return <ClientesView 
@@ -229,19 +235,27 @@ function AppContent() {
         currentView={currentView} 
         setCurrentView={setCurrentView} 
         isSidebarOpen={isSidebarOpen}
-        currentUser={currentUser}
+        currentUser={user}
         empresaSettings={dataStore.empresaSettings}
         appVersion={APP_VERSION}
       />
       <div className="md:ml-64 p-4 sm:p-6 lg:p-8">
-        <button 
-          onClick={() => setSidebarOpen(!isSidebarOpen)} 
-          className="md:hidden fixed top-4 left-4 z-50 p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
-          </svg>
-        </button>
+        <div className="flex justify-between items-center mb-4">
+            <button 
+                onClick={() => setSidebarOpen(!isSidebarOpen)} 
+                className="md:hidden p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
+            >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+            </button>
+            <button 
+                onClick={logout} 
+                className="ml-auto px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+            >
+                Cerrar Sesión
+            </button>
+        </div>
         <main>{renderView()}</main>
       </div>
     </div>
@@ -249,11 +263,25 @@ function AppContent() {
 }
 
 function App() {
+  // Comprobamos si Firebase está inicializado (via config.ts que chequea localStorage o env)
+  const [isConfigured, setIsConfigured] = useState(!!firebaseApp);
+
+  // Callback para recargar la app tras configurar (para asegurar que db/auth se re-importen correctamente en todos los hooks)
+  const handleConfigured = () => {
+      window.location.reload();
+  };
+
+  if (!isConfigured) {
+      return <SetupView onConfigured={handleConfigured} />;
+  }
+
   return (
-    <NotificationProvider>
-      <AppContent />
-      <NotificationContainer />
-    </NotificationProvider>
+    <AuthProvider>
+        <NotificationProvider>
+            <AppContent />
+            <NotificationContainer />
+        </NotificationProvider>
+    </AuthProvider>
   );
 }
 
