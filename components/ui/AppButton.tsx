@@ -13,6 +13,7 @@ const AppButton: React.FC<AppButtonProps> = ({
   size = 'md', 
   isLoading, 
   className = '', 
+  type = 'button', // Ahora por defecto es button, no submit
   ...props 
 }) => {
   const baseStyles = "inline-flex items-center justify-center font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-sm";
@@ -33,6 +34,7 @@ const AppButton: React.FC<AppButtonProps> = ({
 
   return (
     <button 
+      type={type}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={isLoading || props.disabled}
       {...props}

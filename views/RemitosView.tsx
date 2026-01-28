@@ -44,6 +44,7 @@ const RemitoForm: React.FC<{
   const [isCtaCte, setIsCtaCte] = useState(false);
   const [deudaPendiente, setDeudaPendiente] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const { showNotification } = useNotification();
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const pagosMap = useMemo(() => {
@@ -163,6 +164,35 @@ const RemitoForm: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
+
+    // VALIDACION ANTES DE GUARDAR
+    if (!formData.clienteId) {
+        showNotification('Debe seleccionar un cliente antes de guardar.', 'error');
+        return;
+    }
+
+    if (!formData.vendedorId) {
+        showNotification('Debe seleccionar un repartidor.', 'error');
+        return;
+    }
+
+    if (!formData.movimientos || formData.movimientos.length === 0) {
+        showNotification('Debe agregar al menos un producto al remito.', 'error');
+        return;
+    }
+
+    const hasInvalidProducts = formData.movimientos.some(m => !m.productoId);
+    if (hasInvalidProducts) {
+        showNotification('Uno o más productos no han sido seleccionados correctamente.', 'error');
+        return;
+    }
+
+    const hasNoQuantity = formData.movimientos.every(m => m.entregados === 0 && m.recibidos === 0);
+    if (hasNoQuantity) {
+        showNotification('El remito no puede estar vacío (entrega o retiro debe ser mayor a 0).', 'error');
+        return;
+    }
+
     setIsSaving(true);
     await onSave(formData as Remito & { pagos: PagoDetalle[] });
     setIsSaving(false);
@@ -317,12 +347,12 @@ const RemitoForm: React.FC<{
                         </div>
                     </div>
                     <div className="flex justify-end md:block mt-2 md:mt-0">
-                        <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
+                        <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon className="w-5 h-5"/></AppButton>
                     </div>
                 </div>
             ))}
         </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-3 w-full border-dashed border-2 py-3 text-base">+ Agregar Producto</AppButton>}
+        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-3 w-full border-dashed border-2 py-3 text-base" type="button">+ Agregar Producto</AppButton>}
     </fieldset>
 
     <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -339,15 +369,15 @@ const RemitoForm: React.FC<{
                 <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
                     <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
                     <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                    <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-5 w-5" /></AppButton>
+                    <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2" type="button"><TrashIcon className="h-5 w-5" /></AppButton>
                 </div>
             ))}
         </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2">+ Agregar Pago</AppButton>}
+        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2" type="button">+ Agregar Pago</AppButton>}
     </fieldset>
 
       <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
-        <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
+        <AppButton variant="secondary" onClick={onClose} type="button">{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
         {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</AppButton>}
       </div>
     </form>
@@ -575,7 +605,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       return (
           <div className="animate-fade-in pb-12">
               <div className="mb-6 flex items-center gap-4">
-                  <button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full transition-colors">
+                  <button type="button" onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full transition-colors">
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
                   </button>
                   <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestionar Entrega</h1>
@@ -667,8 +697,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     </div>
                   </div>
                   <div className="flex items-center pl-2 gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); openEditModal(remito); }} className="text-blue-500 hover:text-blue-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" disabled={!remito.canBeEdited} title={!remito.canBeEdited ? "No se puede editar un remito facturado" : "Editar remito"}><PencilIcon /></button>
-                    <button onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }} className="text-red-500 hover:text-red-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" disabled={!remito.canBeDeleted} title={!remito.canBeDeleted ? "No se puede borrar un remito pagado o facturado" : "Eliminar remito"}><TrashIcon /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); openEditModal(remito); }} className="text-blue-500 hover:text-blue-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" disabled={!remito.canBeEdited} title={!remito.canBeEdited ? "No se puede editar un remito facturado" : "Editar remito"}><PencilIcon /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }} className="text-red-500 hover:text-red-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" disabled={!remito.canBeDeleted} title={!remito.canBeDeleted ? "No se puede borrar un remito pagado o facturado" : "Eliminar remito"}><TrashIcon /></button>
                     <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
                 </div>

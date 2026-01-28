@@ -24,7 +24,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
-  // Detectar si estamos en móvil para forzar modo Modal seguro
   useEffect(() => {
     const checkMobile = () => setIsMobileMode(window.innerWidth < 1024);
     checkMobile();
@@ -32,7 +31,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Calcular posición para Desktop (Dropdown Flotante)
   const updateDropdownPosition = useCallback(() => {
     if (!isOpen || isMobileMode || !wrapperRef.current) return;
 
@@ -41,7 +39,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     const spaceAbove = rect.top;
     const dropdownHeight = 300;
 
-    // Si no hay espacio abajo, abrimos hacia arriba
     const openUpwards = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
 
     setDropdownStyle({
@@ -67,14 +64,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     };
   }, [isOpen, updateDropdownPosition]);
 
-  // Sincronizar el término de búsqueda con la opción seleccionada cuando se cierra
   useEffect(() => {
     if (!isOpen) {
         setSearchTerm(selectedOption ? selectedOption.label : '');
     }
   }, [value, selectedOption, isOpen]);
 
-  // Auto-focus en móvil cuando abre
   useEffect(() => {
     if (isOpen && isMobileMode && mobileInputRef.current) {
         setTimeout(() => mobileInputRef.current?.focus(), 100);
@@ -90,9 +85,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     setIsOpen(false);
   };
 
-  // --- RENDERIZADO DEL PORTAL ---
-
-  // 1. Contenido Desktop (Dropdown Flotante)
   const renderDesktopContent = () => (
     <div 
         className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto animate-fade-in" 
@@ -118,12 +110,14 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     </div>
   );
 
-  // 2. Contenido Móvil (Modal Full Screen)
   const renderMobileContent = () => (
       <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
-          {/* Header del Buscador */}
           <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shadow-sm">
-              <button onClick={() => setIsOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+              <button 
+                type="button" // IMPORTANTE
+                onClick={() => setIsOpen(false)} 
+                className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+              >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
               </button>
               <div className="relative flex-1">
@@ -140,8 +134,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                   </div>
               </div>
           </div>
-          
-          {/* Lista de Resultados */}
           <div className="flex-1 overflow-y-auto p-2">
               {label && <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>}
               <div className="space-y-1">
@@ -177,8 +169,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
           {label}
         </label>
       )}
-      
-      {/* Input de Control */}
       <div 
         className={`
           w-full px-4 py-2.5 pr-10
@@ -200,14 +190,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
           <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
-      
-      {/* Portal del Dropdown */}
       {isOpen && !disabled && createPortal(
           isMobileMode ? renderMobileContent() : renderDesktopContent(), 
           document.body
       )}
-      
-      {/* Backdrop transparente para cerrar en Desktop */}
       {isOpen && !isMobileMode && (
           <div 
             className="fixed inset-0 z-[9998] bg-transparent" 
