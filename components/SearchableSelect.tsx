@@ -1,6 +1,8 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { SearchIcon } from './icons/SearchIcon';
 
 interface SearchableSelectProps {
   options: { value: string; label: string; }[];
@@ -8,157 +10,223 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  label?: string;
 }
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false }) => {
+const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [isMobileMode, setIsMobileMode] = useState(false);
+  
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
+  // Detectar modo (Móvil/Tablet/Touch vs Desktop)
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-      }
+    const checkMode = () => {
+        // Regla simple y estricta: Menos de 1024px es móvil/tablet -> Modal Full Screen
+        setIsMobileMode(window.innerWidth < 1024);
+    };
+    checkMode();
+    window.addEventListener('resize', checkMode);
+    return () => window.removeEventListener('resize', checkMode);
+  }, []);
+
+  // Posicionamiento para Desktop
+  const updateDesktopPosition = useCallback(() => {
+    if (!isOpen || isMobileMode || !wrapperRef.current) return;
+
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const dropdownMaxHeight = 300; 
+
+    const openUpwards = spaceBelow < dropdownMaxHeight && rect.top > spaceBelow;
+
+    setDropdownStyle({
+        position: 'fixed',
+        left: `${rect.left}px`,
+        width: `${rect.width}px`,
+        top: openUpwards ? 'auto' : `${rect.bottom + 5}px`,
+        bottom: openUpwards ? `${viewportHeight - rect.top + 5}px` : 'auto',
+        zIndex: 999999, // Z-Index máximo para superar cualquier frame
+    });
+  }, [isOpen, isMobileMode]);
+
+  useEffect(() => {
+    if (isOpen && !isMobileMode) {
+        updateDesktopPosition();
+        window.addEventListener('scroll', updateDesktopPosition, true);
+        window.addEventListener('resize', updateDesktopPosition);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wrapperRef, selectedOption]);
-  
+    return () => {
+        window.removeEventListener('scroll', updateDesktopPosition, true);
+        window.removeEventListener('resize', updateDesktopPosition);
+    };
+  }, [isOpen, isMobileMode, updateDesktopPosition]);
+
+  // Sincronizar término de búsqueda
   useEffect(() => {
-    setSearchTerm(selectedOption ? selectedOption.label : '');
-  }, [value, selectedOption]);
+    if (!isOpen) {
+        setSearchTerm(selectedOption ? selectedOption.label : '');
+    }
+  }, [value, selectedOption, isOpen]);
+
+  // Auto-focus en móvil
+  useEffect(() => {
+      if (isOpen && isMobileMode) {
+          setTimeout(() => mobileInputRef.current?.focus(), 50);
+          document.body.style.overflow = 'hidden';
+      } else {
+          document.body.style.overflow = '';
+      }
+      return () => { document.body.style.overflow = ''; };
+  }, [isOpen, isMobileMode]);
 
   const filteredOptions = useMemo(() => options.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase())
   ), [options, searchTerm]);
 
-  useEffect(() => {
-    if (isOpen) {
-        setHighlightedIndex(-1);
-    }
-  }, [searchTerm, isOpen]);
-
-  useEffect(() => {
-    if (isOpen && highlightedIndex >= 0 && listRef.current) {
-      const highlightedItem = listRef.current.children[highlightedIndex] as HTMLLIElement;
-      if (highlightedItem) {
-        highlightedItem.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [highlightedIndex, isOpen]);
-
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
     setIsOpen(false);
-    const selected = options.find(opt => opt.value === optionValue);
-    setSearchTerm(selected ? selected.label : '');
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newSearchTerm = e.target.value;
-    setSearchTerm(newSearchTerm);
-    if (!isOpen) setIsOpen(true);
-    
-    if (newSearchTerm === '') {
-        onChange('');
-    }
+    setSearchTerm(''); 
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (disabled) return;
-    
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!isOpen) setIsOpen(true);
-        setHighlightedIndex(prev => (prev + 1) % filteredOptions.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (!isOpen) setIsOpen(true);
-        setHighlightedIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
-        break;
-      case 'Enter':
-        if (isOpen) {
-          e.preventDefault();
-          if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
-            handleSelect(filteredOptions[highlightedIndex].value);
-          } else if (filteredOptions.length === 1) {
-            handleSelect(filteredOptions[0].value);
-          } else {
-            setIsOpen(false);
-          }
-        }
-        // If dropdown is closed, let the form submit
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-        break;
-      case 'Tab':
-        setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-        break;
-      default:
-        break;
-    }
-  };
+  // --- RENDERIZADO DEL PORTAL ---
+
+  // 1. Contenido Desktop (Dropdown Flotante)
+  const renderDesktopContent = () => (
+    <div 
+        className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl animate-fade-in flex flex-col" 
+        style={dropdownStyle}
+    >
+      {/* Contenedor con scroll, quitado el overflow del UL como pedido */}
+      <div className="overflow-y-auto max-h-[300px]">
+          {filteredOptions.length > 0 ? (
+            <ul className="py-1">
+                {filteredOptions.map((option) => (
+                <li
+                    key={option.value}
+                    onClick={() => handleSelect(option.value)}
+                    className={`px-4 py-2.5 cursor-pointer text-sm border-b dark:border-gray-700 last:border-0 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+                    option.value === value ? 'font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'
+                    }`}
+                >
+                    {option.label}
+                </li>
+                ))}
+            </ul>
+          ) : (
+             <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">No hay resultados</div>
+          )}
+      </div>
+    </div>
+  );
+
+  // 2. Contenido Móvil (Modal Full Screen) - SIEMPRE visible completamente
+  const renderMobileContent = () => (
+      <div className="fixed inset-0 z-[999999] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shadow-sm shrink-0 safe-top">
+              <button 
+                type="button"
+                onClick={() => { setIsOpen(false); setSearchTerm(selectedOption ? selectedOption.label : ''); }}
+                className="p-2 -ml-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="relative flex-1">
+                  <input
+                      ref={mobileInputRef}
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar..."
+                      className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full border-none focus:ring-2 focus:ring-primary-500 text-base font-medium outline-none"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <SearchIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+              </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-2 pb-safe">
+              {label && <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>}
+              <div className="space-y-2">
+                  {filteredOptions.length > 0 ? (
+                      filteredOptions.map((option) => (
+                          <div
+                              key={option.value}
+                              onClick={() => handleSelect(option.value)}
+                              className={`px-4 py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] border shadow-sm ${
+                                  option.value === value 
+                                  ? 'bg-primary-600 text-white border-primary-600' 
+                                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700'
+                              }`}
+                          >
+                              {option.label}
+                          </div>
+                      ))
+                  ) : (
+                      <div className="flex flex-col items-center justify-center pt-20 text-gray-400 space-y-2">
+                          <SearchIcon className="w-12 h-12 opacity-20" />
+                          <p>No se encontraron resultados</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      </div>
+  );
 
   return (
-    <div className="relative" ref={wrapperRef}>
-      <div className="relative">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="w-full p-2 pr-8 bg-gray-200 dark:bg-gray-700 rounded-md appearance-none"
-          aria-haspopup="listbox"
-          aria-expanded={isOpen}
-        />
+    <div className="w-full relative" ref={wrapperRef}>
+      {label && (
+        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
+          {label}
+        </label>
+      )}
+      
+      <div 
+        className="relative"
+        onClick={() => { if (!disabled) setIsOpen(true); }}
+      >
         <div 
-            className="absolute inset-y-0 right-0 flex items-center px-2 cursor-pointer" 
-            onClick={() => !disabled && setIsOpen(!isOpen)}
+            className={`
+            w-full px-4 py-2.5 pr-10
+            text-gray-900 dark:text-white 
+            bg-gray-50 dark:bg-gray-700/50 
+            border border-gray-300 dark:border-gray-600 
+            rounded-lg 
+            cursor-pointer
+            flex items-center
+            min-h-[44px]
+            ${isOpen && !isMobileMode ? 'ring-2 ring-primary-500 border-primary-500' : ''}
+            ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-800' : ''}
+            `}
         >
-          <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <span className={`block truncate ${!selectedOption && !searchTerm ? 'text-gray-400' : ''}`}>
+                {searchTerm || selectedOption?.label || placeholder}
+            </span>
+        </div>
+        
+        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+          <ChevronDownIcon className={`h-5 w-5 text-gray-500 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
-      {isOpen && !disabled && (
-        <ul 
-            className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto" 
-            ref={listRef}
-            role="listbox"
-        >
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map((option, index) => (
-              <li
-                key={option.value}
-                onClick={() => handleSelect(option.value)}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                  index === highlightedIndex ? 'bg-primary-100 dark:bg-primary-900' : ''
-                } ${
-                  option.value === value ? 'bg-primary-50 dark:bg-primary-900/50 font-semibold' : ''
-                }`}
-                role="option"
-                aria-selected={option.value === value}
-              >
-                {option.label}
-              </li>
-            ))
-          ) : (
-             <li className="px-4 py-2 text-gray-500">No se encontraron resultados</li>
-          )}
-        </ul>
+      
+      {isOpen && !disabled && createPortal(
+          isMobileMode ? renderMobileContent() : renderDesktopContent(), 
+          document.body
+      )}
+      
+      {isOpen && !isMobileMode && (
+          <div 
+            className="fixed inset-0 z-[999990] bg-transparent" 
+            onClick={() => { setIsOpen(false); setSearchTerm(selectedOption ? selectedOption.label : ''); }}
+          />
       )}
     </div>
   );

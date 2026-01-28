@@ -1,10 +1,10 @@
 
-
 import React, { useState, useCallback } from 'react';
 import Card from '../components/Card';
-import { Cliente, Remito, Telefono, TipoFacturacion, TipoTelefono, EstadoCliente, EstadoProducto, TipoProducto, Producto } from '../types';
+import { Cliente, Remito, Telefono, TipoFacturacion, TipoTelefono, EstadoCliente } from '../types';
 import { UploadIcon } from '../components/icons/UploadIcon';
 import { useNotification } from '../context/NotificationContext';
+import AppButton from '../components/ui/AppButton';
 
 interface ImportarViewProps {
   clientes: Cliente[];
@@ -281,12 +281,13 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, addMulti
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       Descargue la lista completa de clientes, incluyendo sucursales y datos de contacto.
                   </p>
-                  <button 
+                  <AppButton 
                       onClick={handleExportClientes}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+                      variant="primary"
+                      fullWidth
                   >
                       Exportar Clientes (.csv)
-                  </button>
+                  </AppButton>
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-md border border-gray-200 dark:border-gray-600">
@@ -294,12 +295,13 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, addMulti
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       Descargue todos los remitos históricos con sus movimientos de productos.
                   </p>
-                  <button 
+                  <AppButton 
                       onClick={handleExportRemitos}
-                      className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center gap-2"
+                      variant="success"
+                      fullWidth
                   >
                       Exportar Remitos (.csv)
-                  </button>
+                  </AppButton>
               </div>
           </div>
       </Card>
@@ -308,21 +310,21 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, addMulti
       <Card title="Importar desde CSV">
         <div className="p-6 space-y-4">
           <div className="flex space-x-4">
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input type="radio" name="importType" value="clientes" checked={importType === 'clientes'} onChange={() => setImportType('clientes')} className="form-radio text-primary-600" />
-              <span className="ml-2">Clientes</span>
+              <span className="ml-2 font-medium">Clientes</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input type="radio" name="importType" value="remitos" checked={importType === 'remitos'} onChange={() => setImportType('remitos')} className="form-radio text-primary-600" />
-              <span className="ml-2">Histórico Remitos</span>
+              <span className="ml-2 font-medium">Histórico Remitos</span>
             </label>
           </div>
 
           <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md text-sm text-gray-600 dark:text-gray-300">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
                 <div>
                     <h4 className="font-semibold">Formato CSV esperado:</h4>
-                    <p className="font-mono text-xs mt-1">{importType === 'clientes' ? clienteCSVInfo : remitoCSVInfo}</p>
+                    <p className="font-mono text-xs mt-1 break-all">{importType === 'clientes' ? clienteCSVInfo : remitoCSVInfo}</p>
                     {importType === 'clientes' && (
                         <ul className="text-xs mt-1 list-disc list-inside space-y-1">
                             {clienteCSVDetails.map((detail, i) => <li key={i}>{detail}</li>)}
@@ -330,26 +332,32 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, addMulti
                     )}
                     {importType === 'remitos' && <p className="text-xs mt-1">Nota: Cada fila representa un producto dentro de un remito. Agrupe las filas por el 'id' del remito.</p>}
                 </div>
-                <button 
+                <AppButton 
+                    variant="outline"
+                    size="sm"
                     onClick={handleDownloadTemplate}
-                    className="ml-4 px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors whitespace-nowrap"
                 >
                     Descargar Plantilla Vacía
-                </button>
+                </AppButton>
             </div>
           </div>
           
           <div>
-            <label className="w-full flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-primary-600 rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-primary-600 hover:text-white">
+            <label className="w-full flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-primary-600 rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-primary-50 dark:hover:bg-gray-600 transition-colors">
               <UploadIcon />
               <span className="mt-2 text-base leading-normal">{file ? file.name : 'Seleccione un archivo .csv'}</span>
               <input type='file' accept=".csv" className="hidden" onChange={handleFileChange} />
             </label>
           </div>
 
-          <button onClick={handleImport} disabled={!file} className="w-full px-4 py-3 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            Importar
-          </button>
+          <AppButton 
+            onClick={handleImport} 
+            disabled={!file} 
+            fullWidth
+            size="lg"
+          >
+            Importar Datos
+          </AppButton>
         </div>
       </Card>
     </div>

@@ -1,15 +1,16 @@
 
-// views/UsuariosView.tsx
-
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
-import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import AppButton from '../components/ui/AppButton';
+import AppInput from '../components/ui/AppInput';
+import AppSelect from '../components/ui/AppSelect';
+import SearchableSelect from '../components/SearchableSelect';
 
 interface UsuariosViewProps {
   usuarios: Usuario[];
@@ -62,20 +63,32 @@ const UsuarioForm: React.FC<{
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
-      <input type="text" name="nombre" placeholder="Nombre" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-      <input type="email" name="email" placeholder="Email" value={formData.email || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-      <input type="password" name="password" placeholder="Contraseña (dejar en blanco para no cambiar)" onChange={handleChange} className="w-full p-3 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+      
+      <AppInput label="Nombre" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
+      <AppInput label="Email" type="email" name="email" value={formData.email || ''} onChange={handleChange} required />
+      <AppInput label="Contraseña" type="password" name="password" placeholder={usuario.id ? "Dejar en blanco para no cambiar" : "Contraseña"} onChange={handleChange} />
       
       <div className="grid grid-cols-2 gap-4">
-        <select name="rol" value={formData.rol || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-            <option value="">Rol</option>
-            {Object.values(Rol).map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
-        <select name="tipo" value={formData.tipo || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-            <option value="">Tipo</option>
-            <option value={TipoVendedor.INTERNO}>Interno</option>
-            <option value={TipoVendedor.EXTERNO}>Externo</option>
-        </select>
+        <AppSelect 
+            label="Rol" 
+            name="rol" 
+            value={formData.rol || ''} 
+            onChange={handleChange} 
+            options={[{value:"", label: "Seleccionar Rol"}, ...Object.values(Rol).map(r => ({value: r, label: r}))]}
+            required 
+        />
+        <AppSelect 
+            label="Tipo" 
+            name="tipo" 
+            value={formData.tipo || ''} 
+            onChange={handleChange} 
+            options={[
+                {value: "", label: "Seleccionar Tipo"},
+                {value: TipoVendedor.INTERNO, label: "Interno (Empleado)"},
+                {value: TipoVendedor.EXTERNO, label: "Externo (Distribuidor)"}
+            ]}
+            required 
+        />
       </div>
 
       {formData.tipo === TipoVendedor.EXTERNO && (
@@ -85,22 +98,19 @@ const UsuarioForm: React.FC<{
             <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
             {(formData.preciosEspeciales || []).map((precio, index) => (
                 <div key={index} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-center">
-                    <select value={precio.productoId} onChange={(e) => handlePrecioEspecialChange(index, 'productoId', e.target.value)} className="w-full p-2 bg-gray-100 dark:bg-gray-600 rounded-md text-sm" required>
-                        <option value="">Seleccionar Producto</option>
-                        {productosActivos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                    </select>
-                    <input type="number" placeholder="Precio" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} className="w-full p-2 bg-gray-100 dark:bg-gray-600 rounded-md font-bold" step="0.01" min="0" required />
-                    <button type="button" onClick={() => removePrecioEspecial(index)} className="text-red-500 p-2"><TrashIcon className="h-4 w-4" /></button>
+                    <AppSelect value={precio.productoId} onChange={(e) => handlePrecioEspecialChange(index, 'productoId', e.target.value)} options={[{value: "", label: "Producto..."}, ...productosActivos.map(p => ({value: p.id, label: p.nombre}))]} className="!py-2"/>
+                    <AppInput type="number" placeholder="$" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} step="0.01" min="0" required className="!py-2"/>
+                    <AppButton variant="danger" size="sm" onClick={() => removePrecioEspecial(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
                 </div>
             ))}
             </div>
-            <button type="button" onClick={addPrecioEspecial} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50">+ Agregar Precio de Reventa</button>
+            <AppButton variant="secondary" size="sm" onClick={addPrecioEspecial} className="mt-2 w-full border-dashed border-2">+ Agregar Precio de Reventa</AppButton>
         </fieldset>
       )}
 
       <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
-        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200">Cancelar</button>
-        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar Cambios</button>
+        <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+        <AppButton type="submit" variant="primary">Guardar Cambios</AppButton>
       </div>
     </form>
   )
@@ -126,6 +136,10 @@ const VentaVendedorForm: React.FC<{
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
+
+    const handleSelectChange = (name: string, value: string) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }
 
     const handleMovimientoChange = (index: number, field: keyof MovimientoVenta, value: string) => {
         const newMovimientos = [...(formData.movimientos || [])];
@@ -172,11 +186,8 @@ const VentaVendedorForm: React.FC<{
         <form onSubmit={handleSubmit} className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Nueva Venta a Vendedor</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-                <select name="vendedorId" value={formData.vendedorId || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                    <option value="">Seleccionar Vendedor Externo</option>
-                    {vendedoresExternos.map(v => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-                </select>
+                <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required />
+                <SearchableSelect label="Vendedor Externo" options={vendedoresExternos.map(v => ({value: v.id, label: v.nombre}))} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Seleccionar Vendedor" />
             </div>
 
             <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
@@ -184,16 +195,13 @@ const VentaVendedorForm: React.FC<{
                 <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                     {(formData.movimientos || []).map((mov, index) => (
                         <div key={index} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-center">
-                            <select value={mov.productoId} onChange={(e) => handleMovimientoChange(index, 'productoId', e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                                <option value="">Seleccionar Producto</option>
-                                {productosActivos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                            </select>
-                            <input type="number" value={mov.cantidad} onChange={(e) => handleMovimientoChange(index, 'cantidad', e.target.value)} required min="1" className="w-full text-center p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-                            <button type="button" onClick={() => removeMovimiento(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
+                            <SearchableSelect options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} value={mov.productoId} onChange={(v) => handleMovimientoChange(index, 'productoId', v)} placeholder="Producto..." />
+                            <AppInput type="number" value={mov.cantidad} onChange={(e) => handleMovimientoChange(index, 'cantidad', e.target.value)} required min="1" className="text-center font-bold"/>
+                            <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
                         </div>
                     ))}
                 </div>
-                <button type="button" onClick={addMovimiento} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Producto</button>
+                <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-2 w-full border-dashed border-2">+ Agregar Producto</AppButton>
             </fieldset>
 
             <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
@@ -201,20 +209,18 @@ const VentaVendedorForm: React.FC<{
                 <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                     {(formData.pagos || []).map((pago, index) => (
                         <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                            <input type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-                            <select value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                                {Object.values(MetodoPago).map(metodo => <option key={metodo} value={metodo}>{metodo}</option>)}
-                            </select>
-                            <button type="button" onClick={() => removePago(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
+                            <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
+                            <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
+                            <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
                         </div>
                     ))}
                 </div>
-                <button type="button" onClick={addPago} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Pago</button>
+                <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-2 w-full border-dashed border-2">+ Agregar Pago</AppButton>
             </fieldset>
 
-            <div className="flex justify-end space-x-2 pt-4">
-                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar Venta</button>
+            <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
+                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                <AppButton type="submit" variant="primary">Guardar Venta</AppButton>
             </div>
         </form>
     )
@@ -262,7 +268,7 @@ const PagosVendedorModal: React.FC<{
                 )}
                 
                 <div className="flex justify-end pt-4">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md font-medium">Cerrar</button>
+                    <AppButton variant="secondary" onClick={onClose}>Cerrar</AppButton>
                 </div>
             </div>
         </Modal>
@@ -321,7 +327,7 @@ const ComprasVendedorModal: React.FC<{
     }, [ventas, montosPorVenta]);
 
     const totalInvertido = useMemo(() => {
-        return Array.from(montosPorVenta.values()).reduce((sum, m) => sum + m, 0);
+        return Array.from(montosPorVenta.values()).reduce((sum: number, m: number) => sum + m, 0);
     }, [montosPorVenta]);
 
     return (
@@ -390,7 +396,7 @@ const ComprasVendedorModal: React.FC<{
                 </div>
 
                 <div className="flex justify-end pt-4 border-t dark:border-gray-700">
-                    <button onClick={onClose} className="px-6 py-2 bg-primary-600 text-white rounded-md font-bold hover:bg-primary-700">Cerrar</button>
+                    <AppButton variant="primary" onClick={onClose}>Cerrar</AppButton>
                 </div>
             </div>
         </Modal>
@@ -463,12 +469,12 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Gestión de Usuarios</h1>
         <div className="space-x-2">
-            <button onClick={() => setEditingUsuario({ rol: Rol.REPARTIDOR, tipo: TipoVendedor.INTERNO })} className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700">
+            <AppButton variant="success" onClick={() => setEditingUsuario({ rol: Rol.REPARTIDOR, tipo: TipoVendedor.INTERNO })}>
                 + Usuario
-            </button>
-            <button onClick={() => setIsVentaModalOpen(true)} className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">
+            </AppButton>
+            <AppButton variant="primary" onClick={() => setIsVentaModalOpen(true)}>
                 + Venta a Externo
-            </button>
+            </AppButton>
         </div>
       </div>
       
@@ -490,17 +496,17 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
                   <>
                     <p>Productos entregados: <span className="font-bold">{u.stats.productosEntregados}</span></p>
                     <p>Total cobrado: <span className="font-bold text-green-500">${u.stats.totalCobrado.toLocaleString()}</span></p>
-                    <button onClick={() => setViewingPagosUsuario(u)} className="w-full text-center px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium">
+                    <AppButton variant="secondary" fullWidth size="sm" onClick={() => setViewingPagosUsuario(u)}>
                         Ver Cobranzas ({u.stats.pagos.length})
-                    </button>
+                    </AppButton>
                   </>
                 ) : (
                   <>
                     <p>Productos comprados: <span className="font-bold">{u.stats.productosComprados}</span></p>
                     <p>Total pagado: <span className="font-bold text-green-500">${u.stats.totalPagado.toLocaleString()}</span></p>
-                    <button onClick={() => setViewingComprasUsuario(u)} className="w-full text-center px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium">
+                    <AppButton variant="secondary" fullWidth size="sm" onClick={() => setViewingComprasUsuario(u)}>
                         Ver Compras ({u.stats.ventas.length})
-                    </button>
+                    </AppButton>
                   </>
                 )}
             </div>

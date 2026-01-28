@@ -8,6 +8,10 @@ import { UploadIcon } from '../components/icons/UploadIcon';
 import { MapIcon } from '../components/icons/MapIcon';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
 import MapPickerModal from '../components/MapPickerModal';
+import AppButton from '../components/ui/AppButton';
+import AppInput from '../components/ui/AppInput';
+import AppSelect from '../components/ui/AppSelect';
+import AppTextarea from '../components/ui/AppTextarea';
 
 interface SettingsViewProps {
   settings: EmpresaSettings;
@@ -166,17 +170,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                 </div>
                 <div className="md:col-span-2 space-y-4">
                      <h3 className="text-lg font-medium text-gray-800 dark:text-white">Datos Principales</h3>
-                    <input type="text" name="nombre" placeholder="Nombre / Razón Social" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-                    <input type="text" name="nombreFantasia" placeholder="Nombre de Fantasía" value={formData.nombreFantasia || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                    <AppInput type="text" name="nombre" placeholder="Nombre / Razón Social" value={formData.nombre || ''} onChange={handleChange} required />
+                    <AppInput type="text" name="nombreFantasia" placeholder="Nombre de Fantasía" value={formData.nombreFantasia || ''} onChange={handleChange} />
                     
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dirección y Ubicación (Depósito/Fábrica)</label>
                         <div className="flex gap-2">
-                            <input type="text" name="direccion" placeholder="Dirección" value={formData.direccion || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                            <AppInput type="text" name="direccion" placeholder="Dirección" value={formData.direccion || ''} onChange={handleChange} />
                             <button
                                 type="button"
                                 onClick={() => setIsMapOpen(true)}
-                                className={`p-2 rounded-md border ${formData.lat ? 'bg-green-100 border-green-300 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-600'}`}
+                                className={`p-2.5 rounded-lg border ${formData.lat ? 'bg-green-100 border-green-300 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-600'}`}
                                 title="Ubicar Depósito en Mapa"
                             >
                                 <MapIcon />
@@ -195,15 +199,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                         {(formData.telefonos || []).map((tel, index) => (
                             <div key={index} className="grid grid-cols-[1fr,2fr,auto] gap-2 items-center">
-                                <select value={tel.tipo} onChange={(e) => handleTelefonoChange(index, 'tipo', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
-                                    {Object.values(TipoTelefono).map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                                <input type="text" placeholder="Número" value={tel.numero} onChange={(e) => handleTelefonoChange(index, 'numero', e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-                                <button type="button" onClick={() => removeTelefono(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
+                                <AppSelect value={tel.tipo} onChange={(e) => handleTelefonoChange(index, 'tipo', e.target.value)} options={Object.values(TipoTelefono).map(t => ({value: t, label: t}))} />
+                                <AppInput type="text" placeholder="Número" value={tel.numero} onChange={(e) => handleTelefonoChange(index, 'numero', e.target.value)} required />
+                                <AppButton variant="danger" size="sm" onClick={() => removeTelefono(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
                             </div>
                         ))}
                     </div>
-                    <button type="button" onClick={addTelefono} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Teléfono</button>
+                    <AppButton variant="secondary" size="sm" onClick={addTelefono} className="mt-2 w-full border-dashed border-2">+ Agregar Teléfono</AppButton>
                 </fieldset>
 
                 <fieldset>
@@ -211,27 +213,29 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                         {(formData.emails || []).map((email, index) => (
                             <div key={index} className="flex items-center gap-2">
-                                <input type="email" placeholder="correo@ejemplo.com" value={email} onChange={(e) => handleEmailChange(index, e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
-                                <button type="button" onClick={() => removeEmail(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
+                                <AppInput type="email" placeholder="correo@ejemplo.com" value={email} onChange={(e) => handleEmailChange(index, e.target.value)} required />
+                                <AppButton variant="danger" size="sm" onClick={() => removeEmail(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
                             </div>
                         ))}
                     </div>
-                    <button type="button" onClick={addEmail} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Email</button>
+                    <AppButton variant="secondary" size="sm" onClick={addEmail} className="mt-2 w-full border-dashed border-2">+ Agregar Email</AppButton>
                 </fieldset>
             </div>
         </Card>
 
         <Card title="Datos Fiscales">
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 <input type="text" name="cuit" placeholder="XX-XXXXXXXX-X" value={formatCuit(formData.cuit)} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-                 <select name="condicionIVA" value={formData.condicionIVA || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                    <option value="">Condición frente al IVA</option>
-                    {Object.values(CondicionIVA).map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
-                </select>
-                <input type="text" name="iibb" placeholder="Nro. Ingresos Brutos" value={formData.iibb || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                 <AppInput type="text" name="cuit" placeholder="XX-XXXXXXXX-X" value={formatCuit(formData.cuit)} onChange={handleChange} />
+                 <AppSelect 
+                    name="condicionIVA" 
+                    value={formData.condicionIVA || ''} 
+                    onChange={handleChange} 
+                    options={[{value: "", label: "Condición frente al IVA"}, ...Object.values(CondicionIVA).map(tipo => ({value: tipo, label: tipo}))]} 
+                 />
+                <AppInput type="text" name="iibb" placeholder="Nro. Ingresos Brutos" value={formData.iibb || ''} onChange={handleChange} />
                 <div className="lg:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Inicio de Actividades</label>
-                    <input type="date" name="fechaInicioActividad" value={formData.fechaInicioActividad || ''} onChange={handleChange} className="w-full md:w-1/3 p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                    <AppInput type="date" name="fechaInicioActividad" value={formData.fechaInicioActividad || ''} onChange={handleChange} className="w-full md:w-1/3" />
                 </div>
             </div>
         </Card>
@@ -239,28 +243,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
         <Card title="Configuración de Facturación y Pagos">
             <div className="p-4 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Banco</label>
-                        <input type="text" name="banco" placeholder="Ej: Banco Nación" value={formData.banco || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBU / CVU</label>
-                        <input type="text" name="cbu" placeholder="0000000000000000000000" value={formData.cbu || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alias</label>
-                        <input type="text" name="alias" placeholder="ALIAS.EJEMPLO.MP" value={formData.alias || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-                    </div>
+                    <AppInput label="Banco" type="text" name="banco" placeholder="Ej: Banco Nación" value={formData.banco || ''} onChange={handleChange} />
+                    <AppInput label="CBU / CVU" type="text" name="cbu" placeholder="0000000000000000000000" value={formData.cbu || ''} onChange={handleChange} />
+                    <AppInput label="Alias" type="text" name="alias" placeholder="ALIAS.EJEMPLO.MP" value={formData.alias || ''} onChange={handleChange} />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones / Pie de Factura</label>
-                    <textarea 
+                    <AppTextarea 
+                        label="Observaciones / Pie de Factura"
                         name="observacionesFactura" 
                         placeholder="Ej: Horario de atención Lun a Vie 9 a 18hs. Los precios están sujetos a cambio..." 
                         value={formData.observacionesFactura || ''} 
                         onChange={handleChange} 
                         rows={3}
-                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" 
                     />
                 </div>
             </div>
@@ -291,29 +285,28 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Asunto del Correo</label>
-                    <input 
+                    <AppInput 
+                        label="Asunto del Correo"
                         type="text" 
                         value={formData.emailTemplate?.asunto || ''} 
                         onChange={(e) => handleTemplateChange('asunto', e.target.value)}
-                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" 
                         placeholder="Factura {{numero}} - {{empresa}}"
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuerpo del Mensaje</label>
-                    <textarea 
+                    <AppTextarea 
                         value={formData.emailTemplate?.cuerpo || ''} 
                         onChange={(e) => handleTemplateChange('cuerpo', e.target.value)}
                         rows={8}
-                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md font-mono text-sm" 
+                        className="font-mono text-sm" 
                         placeholder="Escriba aquí el cuerpo del mensaje..."
                     />
                 </div>
             </div>
         </Card>
 
-        {/* Magic Link Section - Moved to bottom */}
+        {/* Magic Link Section */}
         {shareLink && (
             <Card title="Conexión de Dispositivos">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
@@ -326,24 +319,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                             type="text" 
                             value={shareLink} 
                             readOnly 
-                            className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-500"
+                            className="w-full p-2 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-500 outline-none"
                         />
-                        <button 
+                        <AppButton 
                             type="button"
+                            size="sm"
                             onClick={copyToClipboard}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 whitespace-nowrap"
                         >
                             Copiar Link
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
             </Card>
         )}
 
         <div className="flex justify-end">
-          <button type="submit" className="px-6 py-3 rounded-md bg-primary-600 text-white font-semibold hover:bg-primary-700 text-lg shadow-lg">
+          <AppButton type="submit" size="lg">
             Guardar Configuración
-          </button>
+          </AppButton>
         </div>
       </form>
 
