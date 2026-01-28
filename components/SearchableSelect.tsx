@@ -1,6 +1,8 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { SearchIcon } from './icons/SearchIcon';
 
 interface SearchableSelectProps {
   options: { value: string; label: string; }[];
@@ -8,157 +10,209 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  label?: string;
 }
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false }) => {
+const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [isMobileMode, setIsMobileMode] = useState(false);
+  
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
+  // Detectar si estamos en móvil para forzar modo Modal seguro
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-      }
+    const checkMobile = () => setIsMobileMode(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Calcular posición para Desktop (Dropdown Flotante)
+  const updateDropdownPosition = useCallback(() => {
+    if (!isOpen || isMobileMode || !wrapperRef.current) return;
+
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const dropdownHeight = 300;
+
+    // Si no hay espacio abajo, abrimos hacia arriba
+    const openUpwards = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+    setDropdownStyle({
+        position: 'fixed',
+        left: `${rect.left}px`,
+        width: `${rect.width}px`,
+        top: openUpwards ? 'auto' : `${rect.bottom + 4}px`,
+        bottom: openUpwards ? `${window.innerHeight - rect.top + 4}px` : 'auto',
+        maxHeight: `${dropdownHeight}px`,
+        zIndex: 9999,
+    });
+  }, [isOpen, isMobileMode]);
+
+  useEffect(() => {
+    if (isOpen) {
+        updateDropdownPosition();
+        window.addEventListener('scroll', updateDropdownPosition, true);
+        window.addEventListener('resize', updateDropdownPosition);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wrapperRef, selectedOption]);
-  
+    return () => {
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+        window.removeEventListener('resize', updateDropdownPosition);
+    };
+  }, [isOpen, updateDropdownPosition]);
+
+  // Sincronizar el término de búsqueda con la opción seleccionada cuando se cierra
   useEffect(() => {
-    setSearchTerm(selectedOption ? selectedOption.label : '');
-  }, [value, selectedOption]);
+    if (!isOpen) {
+        setSearchTerm(selectedOption ? selectedOption.label : '');
+    }
+  }, [value, selectedOption, isOpen]);
+
+  // Auto-focus en móvil cuando abre
+  useEffect(() => {
+    if (isOpen && isMobileMode && mobileInputRef.current) {
+        setTimeout(() => mobileInputRef.current?.focus(), 100);
+    }
+  }, [isOpen, isMobileMode]);
 
   const filteredOptions = useMemo(() => options.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase())
   ), [options, searchTerm]);
 
-  useEffect(() => {
-    if (isOpen) {
-        setHighlightedIndex(-1);
-    }
-  }, [searchTerm, isOpen]);
-
-  useEffect(() => {
-    if (isOpen && highlightedIndex >= 0 && listRef.current) {
-      const highlightedItem = listRef.current.children[highlightedIndex] as HTMLLIElement;
-      if (highlightedItem) {
-        highlightedItem.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [highlightedIndex, isOpen]);
-
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
     setIsOpen(false);
-    const selected = options.find(opt => opt.value === optionValue);
-    setSearchTerm(selected ? selected.label : '');
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newSearchTerm = e.target.value;
-    setSearchTerm(newSearchTerm);
-    if (!isOpen) setIsOpen(true);
-    
-    if (newSearchTerm === '') {
-        onChange('');
-    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (disabled) return;
-    
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!isOpen) setIsOpen(true);
-        setHighlightedIndex(prev => (prev + 1) % filteredOptions.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (!isOpen) setIsOpen(true);
-        setHighlightedIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
-        break;
-      case 'Enter':
-        if (isOpen) {
-          e.preventDefault();
-          if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
-            handleSelect(filteredOptions[highlightedIndex].value);
-          } else if (filteredOptions.length === 1) {
-            handleSelect(filteredOptions[0].value);
-          } else {
-            setIsOpen(false);
-          }
-        }
-        // If dropdown is closed, let the form submit
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-        break;
-      case 'Tab':
-        setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-        break;
-      default:
-        break;
-    }
-  };
+  // --- RENDERIZADO DEL PORTAL ---
+
+  // 1. Contenido Desktop (Dropdown Flotante)
+  const renderDesktopContent = () => (
+    <div 
+        className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto animate-fade-in" 
+        style={dropdownStyle}
+    >
+      {filteredOptions.length > 0 ? (
+        <ul className="py-1">
+            {filteredOptions.map((option) => (
+            <li
+                key={option.value}
+                onClick={() => handleSelect(option.value)}
+                className={`px-4 py-2.5 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+                option.value === value ? 'font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'
+                }`}
+            >
+                {option.label}
+            </li>
+            ))}
+        </ul>
+      ) : (
+         <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">No hay resultados</div>
+      )}
+    </div>
+  );
+
+  // 2. Contenido Móvil (Modal Full Screen)
+  const renderMobileContent = () => (
+      <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
+          {/* Header del Buscador */}
+          <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shadow-sm">
+              <button onClick={() => setIsOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="relative flex-1">
+                  <input
+                      ref={mobileInputRef}
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar..."
+                      className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full border-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <SearchIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+              </div>
+          </div>
+          
+          {/* Lista de Resultados */}
+          <div className="flex-1 overflow-y-auto p-2">
+              {label && <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>}
+              <div className="space-y-1">
+                  {filteredOptions.length > 0 ? (
+                      filteredOptions.map((option) => (
+                          <div
+                              key={option.value}
+                              onClick={() => handleSelect(option.value)}
+                              className={`px-4 py-4 rounded-xl text-lg transition-all active:scale-[0.98] border ${
+                                  option.value === value 
+                                  ? 'bg-primary-600 text-white border-primary-600' 
+                                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 shadow-sm'
+                              }`}
+                          >
+                              <p className="font-bold">{option.label}</p>
+                          </div>
+                      ))
+                  ) : (
+                      <div className="flex flex-col items-center justify-center pt-20 text-gray-400">
+                          <SearchIcon className="w-12 h-12 opacity-20" />
+                          <p>No se encontraron resultados</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      </div>
+  );
 
   return (
-    <div className="relative" ref={wrapperRef}>
-      <div className="relative">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="w-full p-2 pr-8 bg-gray-200 dark:bg-gray-700 rounded-md appearance-none"
-          aria-haspopup="listbox"
-          aria-expanded={isOpen}
-        />
-        <div 
-            className="absolute inset-y-0 right-0 flex items-center px-2 cursor-pointer" 
-            onClick={() => !disabled && setIsOpen(!isOpen)}
-        >
+    <div className="w-full relative" ref={wrapperRef}>
+      {label && (
+        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
+          {label}
+        </label>
+      )}
+      
+      {/* Input de Control */}
+      <div 
+        className={`
+          w-full px-4 py-2.5 pr-10
+          text-gray-900 dark:text-white 
+          bg-gray-50 dark:bg-gray-700/50 
+          border border-gray-300 dark:border-gray-600 
+          rounded-xl cursor-pointer
+          flex items-center
+          min-h-[44px]
+          ${isOpen && !isMobileMode ? 'ring-2 ring-primary-500 border-primary-500' : ''}
+          ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-800' : ''}
+        `}
+        onClick={() => !disabled && setIsOpen(true)}
+      >
+        <span className={`block truncate ${!selectedOption && !searchTerm ? 'text-gray-400' : ''}`}>
+          {searchTerm || selectedOption?.label || placeholder}
+        </span>
+        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
           <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
-      {isOpen && !disabled && (
-        <ul 
-            className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto" 
-            ref={listRef}
-            role="listbox"
-        >
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map((option, index) => (
-              <li
-                key={option.value}
-                onClick={() => handleSelect(option.value)}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                  index === highlightedIndex ? 'bg-primary-100 dark:bg-primary-900' : ''
-                } ${
-                  option.value === value ? 'bg-primary-50 dark:bg-primary-900/50 font-semibold' : ''
-                }`}
-                role="option"
-                aria-selected={option.value === value}
-              >
-                {option.label}
-              </li>
-            ))
-          ) : (
-             <li className="px-4 py-2 text-gray-500">No se encontraron resultados</li>
-          )}
-        </ul>
+      
+      {/* Portal del Dropdown */}
+      {isOpen && !disabled && createPortal(
+          isMobileMode ? renderMobileContent() : renderDesktopContent(), 
+          document.body
+      )}
+      
+      {/* Backdrop transparente para cerrar en Desktop */}
+      {isOpen && !isMobileMode && (
+          <div 
+            className="fixed inset-0 z-[9998] bg-transparent" 
+            onClick={() => setIsOpen(false)}
+          />
       )}
     </div>
   );

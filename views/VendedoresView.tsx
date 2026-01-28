@@ -321,7 +321,8 @@ const ComprasVendedorModal: React.FC<{
     }, [ventas, montosPorVenta]);
 
     const totalInvertido = useMemo(() => {
-        return Array.from(montosPorVenta.values()).reduce((sum, m) => sum + m, 0);
+        // FIX: Explicitly type sum and m to avoid 'unknown' type errors during arithmetic
+        return Array.from(montosPorVenta.values()).reduce((sum: number, m: number) => sum + m, 0);
     }, [montosPorVenta]);
 
     return (
