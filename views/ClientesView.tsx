@@ -13,9 +13,6 @@ import { MapIcon } from '../components/icons/MapIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
 import MapPickerModal from '../components/MapPickerModal';
 import { useAuth } from '../context/AuthContext';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -349,16 +346,31 @@ const ClienteForm: React.FC<{
         <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Datos Generales</legend>
         <div className="space-y-4">
             <div>
-                <AppInput label="Nombre del Cliente" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Ya existe un cliente llamado ${nombreExistente}` : ''} />
+                <input type="text" name="nombre" placeholder="Nombre del Cliente" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                 {nombreExistente && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      Atención: Ya existe un cliente con este nombre ({nombreExistente}).
+                    </p>
+                )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AppInput label="CUIT" name="cuit" value={formatCuit(formData.cuit)} onChange={handleChange} placeholder="XX-XXXXXXXX-X" error={cuitExistente ? `CUIT en uso por ${cuitExistente}` : ''} />
-                <AppSelect label="Tipo de Facturación" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: "", label: "Seleccionar..."}, ...Object.values(TipoFacturacion).map(t => ({value: t, label: t}))]} />
+            <div className="space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="cuit" placeholder="XX-XXXXXXXX-X" value={formatCuit(formData.cuit)} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                    <select name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                        <option value="">Tipo de Facturación</option>
+                        {Object.values(TipoFacturacion).map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+                    </select>
+                </div>
+                {cuitExistente && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      Atención: Este CUIT ya pertenece a {cuitExistente}.
+                    </p>
+                )}
             </div>
              <div className="pt-2">
                 <label className="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600 rounded focus:ring-primary-500" />
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">Habilitar Cuenta Corriente</span>
+                    <span className="text-gray-700 dark:text-gray-300">Tiene Cuenta Corriente</span>
                 </label>
             </div>
         </div>
@@ -370,13 +382,15 @@ const ClienteForm: React.FC<{
             <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                 {(formData.telefonos || []).map((tel, index) => (
                     <div key={index} className="grid grid-cols-[1fr,2fr,auto] gap-2 items-center">
-                        <AppSelect value={tel.tipo} onChange={(e) => handleTelefonoChange(index, 'tipo', e.target.value)} options={Object.values(TipoTelefono).map(t => ({value: t, label: t}))} className="!py-2" />
-                        <AppInput placeholder="Número" value={tel.numero} onChange={(e) => handleTelefonoChange(index, 'numero', e.target.value)} required className="!py-2"/>
-                        <AppButton variant="danger" size="sm" onClick={() => removeTelefono(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
+                        <select value={tel.tipo} onChange={(e) => handleTelefonoChange(index, 'tipo', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
+                            {Object.values(TipoTelefono).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <input type="text" placeholder="Número" value={tel.numero} onChange={(e) => handleTelefonoChange(index, 'numero', e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                        <button type="button" onClick={() => removeTelefono(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
                     </div>
                 ))}
             </div>
-            <AppButton variant="secondary" size="sm" onClick={addTelefono} className="mt-2 w-full border-dashed border-2">+ Agregar Teléfono</AppButton>
+            <button type="button" onClick={addTelefono} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Teléfono</button>
         </fieldset>
 
         <fieldset className="border dark:border-gray-600 p-4 rounded-md">
@@ -384,12 +398,12 @@ const ClienteForm: React.FC<{
             <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                 {(formData.emails || []).map((email, index) => (
                     <div key={index} className="flex items-center gap-2">
-                        <AppInput type="email" placeholder="correo@ejemplo.com" value={email} onChange={(e) => handleEmailChange(index, e.target.value)} required className="!py-2"/>
-                        <AppButton variant="danger" size="sm" onClick={() => removeEmail(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
+                        <input type="email" placeholder="correo@ejemplo.com" value={email} onChange={(e) => handleEmailChange(index, e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                        <button type="button" onClick={() => removeEmail(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
                     </div>
                 ))}
             </div>
-            <AppButton variant="secondary" size="sm" onClick={addEmail} className="mt-2 w-full border-dashed border-2">+ Agregar Email</AppButton>
+            <button type="button" onClick={addEmail} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Email</button>
         </fieldset>
       </div>
 
@@ -402,20 +416,22 @@ const ClienteForm: React.FC<{
                     <button type="button" onClick={() => removeSucursal(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1"><TrashIcon className="h-4 w-4" /></button>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-8">
-                        <AppInput placeholder="Nombre Sucursal (Ej: Casa, Local)" value={sucursal.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} required />
+                        <input type="text" placeholder="Nombre Sucursal (Ej: Casa, Local)" value={sucursal.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
                         <div className="flex gap-2">
-                            <AppInput 
+                            <input 
+                                type="text" 
                                 placeholder="Dirección física" 
                                 value={sucursal.direccion} 
                                 onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} 
                                 required 
+                                className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
                             />
                              <button 
                                 type="button" 
                                 onClick={() => handleSearchAddress(index)}
                                 disabled={isSearching}
-                                className="p-2.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 disabled:opacity-50 border border-blue-200 dark:border-blue-800"
-                                title="Buscar coordenadas"
+                                className="p-2 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 disabled:opacity-50"
+                                title="Buscar y guardar coordenadas"
                             >
                                 <SearchIcon className="h-5 w-5" />
                             </button>
@@ -459,19 +475,18 @@ const ClienteForm: React.FC<{
                                 </span>
                              )}
                         </div>
-                        <AppButton 
+                        <button 
                             type="button" 
-                            variant="outline"
-                            size="sm"
                             onClick={() => handleOpenMap(index)} 
+                            className="px-3 py-1 bg-white border border-gray-300 dark:border-gray-600 dark:bg-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-500 text-sm"
                         >
                             {sucursal.lat ? 'Ver/Corregir Mapa' : 'Ubicar en Mapa'}
-                        </AppButton>
+                        </button>
                     </div>
                 </div>
             ))}
         </div>
-        <AppButton variant="secondary" size="sm" onClick={addSucursal} className="mt-2 w-full border-dashed border-2">+ Agregar Sucursal</AppButton>
+        <button type="button" onClick={addSucursal} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Sucursal</button>
       </fieldset>
 
       <fieldset className="border dark:border-gray-600 p-4 rounded-md">
@@ -479,13 +494,16 @@ const ClienteForm: React.FC<{
         <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
           {(formData.preciosEspeciales || []).map((precio, index) => (
             <div key={index} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-center">
-              <AppSelect value={precio.productoId} onChange={(e) => handlePrecioEspecialChange(index, 'productoId', e.target.value)} options={[{value: "", label: "Producto..."}, ...productosActivos.map(p => ({value: p.id, label: p.nombre}))]} className="!py-2" />
-              <AppInput type="number" placeholder="$" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} step="0.01" min="0" className="!py-2" />
-              <AppButton variant="danger" size="sm" onClick={() => removePrecioEspecial(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
+              <select value={precio.productoId} onChange={(e) => handlePrecioEspecialChange(index, 'productoId', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
+                <option value="">Seleccionar Producto</option>
+                {productosActivos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+              <input type="number" placeholder="Precio" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" step="0.01" min="0" />
+              <button type="button" onClick={() => removePrecioEspecial(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
             </div>
           ))}
         </div>
-        <AppButton variant="secondary" size="sm" onClick={addPrecioEspecial} className="mt-2 w-full border-dashed border-2">+ Agregar Precio</AppButton>
+        <button type="button" onClick={addPrecioEspecial} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Precio</button>
       </fieldset>
       
       {isNew && (
@@ -499,13 +517,18 @@ const ClienteForm: React.FC<{
                     <div className="p-4 border-t dark:border-gray-600 space-y-2">
                         {stockInicial.map((stock, index) => (
                             <div key={index} className="grid grid-cols-[2fr,1fr,1fr,auto] gap-2 items-center">
-                                <AppSelect value={stock.productoId} onChange={(e) => handleStockChange(index, 'productoId', e.target.value)} options={[{value: "", label: "Envase..."}, ...productosActivos.filter(p => p.tipo === TipoProducto.RETORNABLE).map(p => ({value: p.id, label: p.nombre}))]} className="!py-2" />
-                                <AppInput type="number" placeholder="Cant." value={stock.cantidad} onChange={(e) => handleStockChange(index, 'cantidad', e.target.value)} className="!py-2" />
-                                <AppSelect value={stock.sucursalId} onChange={(e) => handleStockChange(index, 'sucursalId', e.target.value)} options={sucursalOptions} className="!py-2" />
-                                <AppButton variant="danger" size="sm" onClick={() => removeStockRow(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
+                                <select value={stock.productoId} onChange={(e) => handleStockChange(index, 'productoId', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
+                                    <option value="">Seleccionar Envase Retornable</option>
+                                    {productosRetornables.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                                </select>
+                                <input type="number" placeholder="Cantidad" value={stock.cantidad} onChange={(e) => handleStockChange(index, 'cantidad', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                                <select value={stock.sucursalId} onChange={(e) => handleStockChange(index, 'sucursalId', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
+                                    {sucursalOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                </select>
+                                <button type="button" onClick={() => removeStockRow(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
                             </div>
                         ))}
-                         <AppButton variant="ghost" size="sm" onClick={addStockRow}>+ Agregar Stock Inicial</AppButton>
+                         <button type="button" onClick={addStockRow} className="mt-2 text-sm text-primary-600 hover:underline">+ Agregar Stock Inicial</button>
                     </div>
                 )}
             </div>
@@ -519,13 +542,19 @@ const ClienteForm: React.FC<{
                     <div className="p-4 border-t dark:border-gray-600 space-y-2">
                         {contratosIniciales.map((contrato, index) => (
                             <div key={index} className="grid grid-cols-[2fr,1fr,1fr,auto] gap-2 items-center">
-                                <AppSelect value={contrato.servicioId} onChange={(e) => handleContratoChange(index, 'servicioId', e.target.value)} options={[{value: "", label: "Servicio..."}, ...servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({value: s.id, label: s.nombre}))]} className="!py-2" />
-                                <AppSelect value={contrato.sucursalId} onChange={(e) => handleContratoChange(index, 'sucursalId', e.target.value)} options={sucursalOptions} className="!py-2" />
-                                 <AppInput type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="!py-2" />
-                                <AppButton variant="danger" size="sm" onClick={() => removeContratoRow(index)} className="!p-2"><TrashIcon className="h-4 w-4" /></AppButton>
+                                <select value={contrato.servicioId} onChange={(e) => handleContratoChange(index, 'servicioId', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
+                                    <option value="">Seleccionar Servicio</option>
+                                    {serviciosActivosOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                </select>
+                                <select value={contrato.sucursalId} onChange={(e) => handleContratoChange(index, 'sucursalId', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm">
+                                    {sucursalOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                </select>
+                                 <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+
+                                <button type="button" onClick={() => removeContratoRow(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
                             </div>
                         ))}
-                         <AppButton variant="ghost" size="sm" onClick={addContratoRow}>+ Agregar Contrato Inicial</AppButton>
+                         <button type="button" onClick={addContratoRow} className="mt-2 text-sm text-primary-600 hover:underline">+ Agregar Contrato Inicial</button>
                     </div>
                 )}
             </div>
@@ -543,9 +572,9 @@ const ClienteForm: React.FC<{
           />
       )}
 
-      <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
-        <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton type="submit" variant="primary">Guardar</AppButton>
+      <div className="flex justify-end space-x-2 pt-4">
+        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
+        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
       </div>
     </form>
   )
@@ -662,20 +691,23 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   }, [clientes, filter, statusFilter]);
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0 pb-12">
+    <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Clientes</h1>
         {currentUser?.rol === Rol.ADMINISTRADOR && (
-            <AppButton onClick={openNewModal}>+ Nuevo Cliente</AppButton>
+            <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 font-bold shadow-md">
+            + Nuevo Cliente
+            </button>
         )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-          <AppInput
+          <input
+            type="text"
             placeholder="Buscar por nombre..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full md:w-1/3"
+            className="w-full md:w-1/3 p-2 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600"
           />
           
           <div className="flex items-center space-x-4">
@@ -793,7 +825,9 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
         <Modal isOpen={!!clienteParaBaja} onClose={() => setClienteParaBaja(null)}>
             <div className="p-4 text-center">
                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
-                    <TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <svg className="h-6 w-6 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-4">Confirmar Baja de Cliente</h2>
                 <p className="text-gray-600 dark:text-gray-300 my-4">
@@ -802,8 +836,18 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                     El cliente pasará a estado 'Inactivo' y no podrá generar nuevos remitos.
                 </p>
                 <div className="flex justify-center space-x-4">
-                    <AppButton variant="secondary" onClick={() => setClienteParaBaja(null)}>Cancelar</AppButton>
-                    <AppButton variant="danger" onClick={handleBajaConfirm}>Sí, Dar de Baja</AppButton>
+                    <button
+                        onClick={() => setClienteParaBaja(null)}
+                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={handleBajaConfirm}
+                        className="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                    >
+                        Sí, Dar de Baja
+                    </button>
                 </div>
             </div>
         </Modal>

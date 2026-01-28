@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 
 interface SearchableSelectProps {
@@ -9,60 +8,27 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
-  label?: string;
 }
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label }) => {
+const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  
   const wrapperRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
-  // Actualizar coordenadas cuando se abre
-  useEffect(() => {
-    if (isOpen && wrapperRef.current) {
-      const rect = wrapperRef.current.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
-    }
-  }, [isOpen]);
-
-  // Cerrar al hacer click afuera
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      // Verificar click en el wrapper O en la lista (que ahora vive en el body)
-      if (
-        wrapperRef.current && !wrapperRef.current.contains(event.target as Node) &&
-        listRef.current && !listRef.current.contains(event.target as Node)
-      ) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setSearchTerm(selectedOption ? selectedOption.label : '');
       }
     }
-    
-    // Cerrar al hacer scroll para evitar que el dropdown quede "flotando" desalineado
-    function handleScroll() {
-        if(isOpen) setIsOpen(false);
-    }
-
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, true); // true para capturar scroll de contenedores internos
-    window.addEventListener("resize", handleScroll);
-
-    return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-        window.removeEventListener("scroll", handleScroll, true);
-        window.removeEventListener("resize", handleScroll);
-    };
-  }, [wrapperRef, selectedOption, isOpen]);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [wrapperRef, selectedOption]);
   
   useEffect(() => {
     setSearchTerm(selectedOption ? selectedOption.label : '');
@@ -129,6 +95,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
             setIsOpen(false);
           }
         }
+        // If dropdown is closed, let the form submit
         break;
       case 'Escape':
         setIsOpen(false);
@@ -143,50 +110,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     }
   };
 
-  // Renderizamos el dropdown usando un Portal para que "salga" de cualquier contenedor con overflow:hidden
-  const dropdownContent = (
-    <ul 
-        ref={listRef}
-        className="fixed z-[9999] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-2xl max-h-60 overflow-y-auto" 
-        style={{ 
-            top: coords.top + 4, 
-            left: coords.left, 
-            width: coords.width,
-            // En móbile, aseguramos que no se salga de la pantalla
-            maxWidth: '100vw'
-        }}
-        role="listbox"
-    >
-      {filteredOptions.length > 0 ? (
-        filteredOptions.map((option, index) => (
-          <li
-            key={option.value}
-            onClick={() => handleSelect(option.value)}
-            onMouseEnter={() => setHighlightedIndex(index)}
-            className={`px-4 py-3 cursor-pointer text-sm border-b dark:border-gray-700 last:border-0 ${
-              index === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-900 dark:text-primary-100' : 'text-gray-700 dark:text-gray-200'
-            } ${
-              option.value === value ? 'font-bold bg-primary-100 dark:bg-primary-900/50' : ''
-            }`}
-            role="option"
-            aria-selected={option.value === value}
-          >
-            {option.label}
-          </li>
-        ))
-      ) : (
-         <li className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No se encontraron resultados</li>
-      )}
-    </ul>
-  );
-
   return (
-    <div className="w-full relative" ref={wrapperRef}>
-      {label && (
-        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
-          {label}
-        </label>
-      )}
+    <div className="relative" ref={wrapperRef}>
       <div className="relative">
         <input
           type="text"
@@ -196,32 +121,45 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className={`
-            w-full px-4 py-2.5 pr-8
-            text-gray-900 dark:text-white 
-            bg-gray-50 dark:bg-gray-700/50 
-            border border-gray-300 dark:border-gray-600 
-            rounded-lg 
-            focus:ring-2 focus:ring-primary-500 focus:border-primary-500 
-            disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
-            appearance-none
-            transition-colors duration-200
-            text-base md:text-sm
-            ${isOpen ? 'ring-2 ring-primary-500 border-primary-500' : ''}
-          `}
+          className="w-full p-2 pr-8 bg-gray-200 dark:bg-gray-700 rounded-md appearance-none"
           aria-haspopup="listbox"
           aria-expanded={isOpen}
-          autoComplete="off" // Previene autocompletado del navegador que tapa la lista
         />
         <div 
-            className="absolute inset-y-0 right-0 flex items-center px-3 cursor-pointer pointer-events-none" 
+            className="absolute inset-y-0 right-0 flex items-center px-2 cursor-pointer" 
+            onClick={() => !disabled && setIsOpen(!isOpen)}
         >
-          <ChevronDownIcon className={`h-4 w-4 text-gray-500 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
-      
-      {/* El Portal renderiza el menú en el body */}
-      {isOpen && !disabled && createPortal(dropdownContent, document.body)}
+      {isOpen && !disabled && (
+        <ul 
+            className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto" 
+            ref={listRef}
+            role="listbox"
+        >
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option, index) => (
+              <li
+                key={option.value}
+                onClick={() => handleSelect(option.value)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  index === highlightedIndex ? 'bg-primary-100 dark:bg-primary-900' : ''
+                } ${
+                  option.value === value ? 'bg-primary-50 dark:bg-primary-900/50 font-semibold' : ''
+                }`}
+                role="option"
+                aria-selected={option.value === value}
+              >
+                {option.label}
+              </li>
+            ))
+          ) : (
+             <li className="px-4 py-2 text-gray-500">No se encontraron resultados</li>
+          )}
+        </ul>
+      )}
     </div>
   );
 };

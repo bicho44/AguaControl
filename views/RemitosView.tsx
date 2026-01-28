@@ -8,9 +8,6 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
 
 type PaymentStatus = 'facturado' | 'pagado' | 'pagado_parcial' | 'pendiente' | 'gratis';
 type PaymentStatusFilter = 'todos' | 'pendiente' | 'pagado' | 'facturado';
@@ -172,11 +169,6 @@ const RemitoForm: React.FC<{
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const vendedoresInternosOptions = useMemo(() => vendedoresInternos.map(v => ({ value: v.id, label: v.nombre })), [vendedoresInternos]);
   
-  const sucursalOptions = useMemo(() => [
-      { value: "", label: "Casa Central / Única" },
-      ...clienteSucursales.map(s => ({ value: s.id, label: s.nombre }))
-  ], [clienteSucursales]);
-
   const productosOptions = useMemo(() => {
     const productosActivos = productos.filter(p => p.estado === EstadoProducto.ACTIVO);
     const productosEnRemito = (formData.movimientos || [])
@@ -220,24 +212,22 @@ const RemitoForm: React.FC<{
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-1">
-            <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+            <input type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={isReadOnly}/>
         </div>
         <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Punto de Venta - Número</label>
             <div className="flex gap-2">
-                <div className="w-1/3">
-                    <AppInput label="Punto Venta" type="number" name="puntoVenta" placeholder="1" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/>
-                </div>
-                <div className="w-2/3">
-                    <AppInput label="Número" type="number" name="numero" placeholder="1234" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/>
-                </div>
+                <input type="number" name="puntoVenta" placeholder="1" value={formData.puntoVenta || ''} onChange={handleChange} required className="w-1/3 p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={isReadOnly}/>
+                <input type="number" name="numero" placeholder="1234" value={formData.numero || ''} onChange={handleChange} required className="w-2/3 p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={isReadOnly}/>
             </div>
         </div>
     </div>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
              <SearchableSelect
-                label="Cliente"
                 options={clienteOptions}
                 value={formData.clienteId || ''}
                 onChange={(value) => handleSelectChange('clienteId', value)}
@@ -246,20 +236,17 @@ const RemitoForm: React.FC<{
              />
         </div>
         <div>
-             <AppSelect 
-                label="Sucursal"
-                name="sucursalId" 
-                value={formData.sucursalId || ''} 
-                onChange={handleChange} 
-                options={sucursalOptions}
-                disabled={isReadOnly || clienteSucursales.length === 0}
-             />
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sucursal (Opcional)</label>
+             <select name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={isReadOnly || clienteSucursales.length === 0}>
+                <option value="">Casa Central / Única</option>
+                {clienteSucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+             </select>
         </div>
     </div>
     
     <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Repartidor (Internos)</label>
         <SearchableSelect
-            label="Repartidor (Internos)"
             options={vendedoresInternosOptions}
             value={formData.vendedorId || ''}
             onChange={(value) => handleSelectChange('vendedorId', value)}
@@ -269,87 +256,58 @@ const RemitoForm: React.FC<{
     </div>
 
     <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
-        <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimiento de Productos</legend>
-        <div className="space-y-4 md:space-y-2 mt-2">
-            {/* Headers solo visibles en MD o superior */}
-            <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-xs uppercase text-gray-500 dark:text-gray-400">
-                <span className="text-left pl-2">Producto</span>
+        <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Movimiento de Productos</legend>
+        <div className="space-y-2 mt-2 max-h-60 overflow-y-auto pr-2">
+            <div className="grid grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-sm text-gray-500 dark:text-gray-400">
+                <span>Producto</span>
                 <span>Entrega</span>
                 <span>Retira</span>
                 <span></span>
             </div>
-            
             {(formData.movimientos || []).map((mov, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-4 md:gap-2 p-4 md:p-0 bg-gray-50 md:bg-transparent dark:bg-gray-700/30 md:dark:bg-transparent rounded-lg border md:border-0 dark:border-gray-600">
-                    <div className="w-full">
-                        <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block">Producto</span>
-                        <SearchableSelect
-                            options={productosOptions}
-                            value={mov.productoId}
-                            onChange={(value) => handleProductoChange(index, value)}
-                            placeholder="Producto..."
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 md:contents">
-                        <div>
-                            <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Entrega</span>
-                            <AppInput 
-                                type="number" 
-                                value={mov.entregados} 
-                                onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
-                                required 
-                                min="0" 
-                                className="text-center font-bold text-lg md:text-base" 
-                                disabled={isReadOnly}
-                            />
-                        </div>
-                        <div>
-                            <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Retira</span>
-                            <AppInput 
-                                type="number" 
-                                value={mov.recibidos} 
-                                onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
-                                required 
-                                min="0" 
-                                className="text-center font-bold text-lg md:text-base" 
-                                disabled={isReadOnly}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end md:block mt-2 md:mt-0">
-                        <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
-                    </div>
+                <div key={index} className="grid grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2">
+                    <SearchableSelect
+                        options={productosOptions}
+                        value={mov.productoId}
+                        onChange={(value) => handleProductoChange(index, value)}
+                        placeholder="Seleccionar producto"
+                        disabled={isReadOnly}
+                    />
+                    <input type="number" value={mov.entregados} onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} required min="0" className="w-full text-center p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={isReadOnly}/>
+                    <input type="number" value={mov.recibidos} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} required min="0" className="w-full text-center p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={isReadOnly}/>
+                    <button type="button" onClick={() => removeMovimiento(index)} className="text-red-500 hover:text-red-700 p-1" disabled={isReadOnly}><TrashIcon/></button>
                 </div>
             ))}
         </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-4 md:mt-3 w-full border-dashed border-2 py-3">+ Agregar Producto</AppButton>}
+        {!isReadOnly && <button type="button" onClick={addMovimiento} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Producto</button>}
     </fieldset>
 
-    <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-        <span className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
-            Total: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+    <div className="flex justify-end items-center mt-4">
+        <span className="text-xl font-bold text-gray-800 dark:text-white">
+            Total Remito: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
     </div>
 
     <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4 relative" disabled={isCtaCte || isReadOnly}>
-        <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Cobranza (Opcional)</legend>
-        {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md z-10 backdrop-blur-[1px]"><p className="text-sm font-bold text-gray-600 dark:text-gray-300 p-3 bg-white dark:bg-gray-700 rounded-md shadow border dark:border-gray-600">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
-        <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
+        <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Cobranza (Opcional)</legend>
+        {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-200/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md -m-px"><p className="text-sm font-semibold text-gray-600 dark:text-gray-300 p-4 bg-white dark:bg-gray-700 rounded-md shadow">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
+        <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
             {(formData.pagos || []).map((pago, index) => (
                 <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                    <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
-                    <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                    <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-5 w-5" /></AppButton>
+                    <input type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                    <select value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                        {Object.values(MetodoPago).map(metodo => <option key={metodo} value={metodo}>{metodo}</option>)}
+                    </select>
+                    <button type="button" onClick={() => removePago(index)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="h-4 w-4" /></button>
                 </div>
             ))}
         </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2">+ Agregar Pago</AppButton>}
+        {!isReadOnly && <button type="button" onClick={addPago} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar Pago</button>}
     </fieldset>
 
-      <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
-        <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-        {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</AppButton>}
+      <div className="flex justify-end space-x-2 pt-4">
+        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">{isReadOnly ? 'Cerrar' : 'Cancelar'}</button>
+        {!isReadOnly && <button type="submit" disabled={isSaving} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50">{isSaving ? 'Guardando...' : 'Guardar'}</button>}
       </div>
     </form>
   )
@@ -360,32 +318,32 @@ const PaymentStatusBadge: React.FC<{
 }> = ({ remito }) => {
     switch (remito.paymentStatus) {
         case 'facturado':
-            return <span className="font-bold text-xs text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/30 px-2 py-1 rounded-full">Facturado</span>;
+            return <span className="font-semibold text-sm text-yellow-600 dark:text-yellow-400">Facturado</span>;
         case 'pagado':
-            return <span className="font-bold text-xs text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/30 px-2 py-1 rounded-full">Pagado</span>;
+            return <span className="font-bold text-sm text-green-600 dark:text-green-400">Pagado</span>;
         case 'pagado_parcial':
             const deuda = remito.totalRemito - remito.totalPagado;
             return (
-                <div className="flex flex-col items-start">
-                    <span className="font-bold text-xs text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30 px-2 py-1 rounded-full mb-1">Parcial</span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono font-bold">
-                        Debe: ${deuda.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                <div>
+                    <span className="font-semibold text-sm text-yellow-600 dark:text-yellow-400">Pago Parcial</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400 font-mono">
+                        Debe: ${deuda.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
             );
         case 'pendiente':
              return (
-                 <div className="flex flex-col items-start">
-                    <span className="font-bold text-xs text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30 px-2 py-1 rounded-full mb-1">Pendiente</span>
+                 <div>
+                    <span className="font-semibold text-sm text-red-600 dark:text-red-400">Pendiente</span>
                      {remito.totalRemito > 0 && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono font-bold">
-                           ${remito.totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                        <span className="block text-xs text-gray-500 dark:text-gray-400 font-mono">
+                           Total: ${remito.totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                        </span>
                      )}
                 </div>
             )
         default:
-             return <span className="font-semibold text-xs text-gray-500">-</span>;
+             return <span className="font-semibold text-sm text-gray-500">-</span>;
     }
 }
 
@@ -572,10 +530,12 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   }
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0 pb-12">
+    <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
-        <AppButton onClick={openNewModal}>+ Nuevo Remito</AppButton>
+        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 shadow-lg font-bold">
+          + Nuevo Remito
+        </button>
       </div>
 
       {currentUser.rol === Rol.REPARTIDOR && Object.keys(statsHoy).length > 0 && (
@@ -595,14 +555,28 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       <Card>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AppSelect value={clienteFilter} onChange={(e) => setClienteFilter(e.target.value)} options={[{value: "", label: "Todos los Clientes"}, ...clientes.map(c => ({value: c.id, label: c.nombre}))]} />
-                <AppSelect value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as PaymentStatusFilter)} options={[{value: "todos", label: "Todos los Estados"}, {value: "pendiente", label: "Pendientes"}, {value: "pagado", label: "Pagados"}, {value: "facturado", label: "Facturados"}]} />
+                <select value={clienteFilter} onChange={(e) => setClienteFilter(e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                    <option value="">Todos los Clientes</option>
+                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as PaymentStatusFilter)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                    <option value="todos">Todos los Estados de Pago</option>
+                    <option value="pendiente">Pendientes</option>
+                    <option value="pagado">Pagados</option>
+                    <option value="facturado">Facturados</option>
+                </select>
             </div>
             {currentUser.rol === Rol.ADMINISTRADOR && (
-                <div className="flex flex-col md:flex-row gap-4 items-end">
-                    <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({...prev, from: e.target.value}))} />
-                    <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({...prev, to: e.target.value}))} />
-                    <AppButton variant="secondary" onClick={() => {setClienteFilter(''); setDateFilter({ from: '', to: ''}); setPaymentStatusFilter('todos');}}>Limpiar</AppButton>
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <label className="text-sm font-medium">Desde:</label>
+                        <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({...prev, from: e.target.value}))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                    </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <label className="text-sm font-medium">Hasta:</label>
+                        <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({...prev, to: e.target.value}))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md"/>
+                    </div>
+                    <button onClick={() => {setClienteFilter(''); setDateFilter({ from: '', to: ''}); setPaymentStatusFilter('todos');}} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 w-full md:w-auto">Limpiar</button>
                 </div>
             )}
         </div>
@@ -623,48 +597,48 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 >
                   <div className={`flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center`}>
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Fecha</p>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">Fecha</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Cliente</p>
-                      <p className="font-bold text-gray-900 dark:text-white truncate text-sm">{cliente?.nombre || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">Cliente</p>
+                      <p className="font-medium text-gray-900 dark:text-white truncate">{cliente?.nombre || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Número</p>
-                      <p className="font-medium text-gray-900 dark:text-white font-mono text-sm">{formatRemitoNumber(remito.puntoVenta, remito.numero)}</p>
+                      <p className="text-xs text-gray-500">Número</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{formatRemitoNumber(remito.puntoVenta, remito.numero)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Estado</p>
+                      <p className="text-xs text-gray-500">Estado</p>
                       <PaymentStatusBadge remito={remito} />
                     </div>
                   </div>
-                  <div className="flex items-center pl-2 gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); openEditModal(remito); }} className="text-blue-500 hover:text-blue-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" disabled={!remito.canBeEdited} title={!remito.canBeEdited ? "No se puede editar un remito facturado" : "Editar remito"}><PencilIcon /></button>
-                    <button onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }} className="text-red-500 hover:text-red-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" disabled={!remito.canBeDeleted} title={!remito.canBeDeleted ? "No se puede borrar un remito pagado o facturado" : "Eliminar remito"}><TrashIcon /></button>
+                  <div className="flex items-center pl-4">
+                    <button onClick={(e) => { e.stopPropagation(); openEditModal(remito); }} className="text-blue-500 hover:text-blue-700 p-1 disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeEdited} title={!remito.canBeEdited ? "No se puede editar un remito facturado" : "Editar remito"}><PencilIcon /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }} className="text-red-500 hover:text-red-700 p-1 disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeDeleted} title={!remito.canBeDeleted ? "No se puede borrar un remito pagado o facturado" : "Eliminar remito"}><TrashIcon /></button>
                     <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t dark:border-gray-700 p-4 space-y-4 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="border-t dark:border-gray-700 p-4 space-y-4">
                     <div>
-                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Detalle de Movimientos</h4>
-                      <div className="overflow-x-auto rounded-lg border dark:border-gray-700">
+                      <h4 className="font-semibold mb-2 text-gray-800 dark:text-gray-200">Detalle de Movimientos</h4>
+                      <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead className="text-left text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700">
+                          <thead className="text-left text-gray-500 dark:text-gray-400">
                             <tr>
-                              <th className="py-2 px-3 font-medium">Producto</th>
-                              <th className="py-2 px-3 font-medium text-center">Entrega</th>
-                              <th className="py-2 px-3 font-medium text-center">Retira</th>
+                              <th className="py-2 px-2 font-normal">Producto</th>
+                              <th className="py-2 px-2 font-normal text-center">Entrega</th>
+                              <th className="py-2 px-2 font-normal text-center">Retira</th>
                             </tr>
                           </thead>
                           <tbody>
                             {remito.movimientos.map((mov, index) => (
-                              <tr key={index} className="border-t dark:border-gray-700 bg-white dark:bg-gray-800">
-                                <td className="py-2 px-3">{productosMap.get(mov.productoId)?.nombre || 'N/A'}</td>
-                                <td className="py-2 px-3 text-center font-bold text-blue-600 dark:text-blue-400">{mov.entregados}</td>
-                                <td className="py-2 px-3 text-center text-gray-500">{mov.recibidos}</td>
+                              <tr key={index} className="border-t border-dashed dark:border-gray-700">
+                                <td className="py-2 px-2">{productosMap.get(mov.productoId)?.nombre || 'N/A'}</td>
+                                <td className="py-2 px-2 text-center font-bold text-blue-600 dark:text-blue-400">{mov.entregados}</td>
+                                <td className="py-2 px-2 text-center text-gray-500">{mov.recibidos}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -673,12 +647,12 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     </div>
                     {remito.pagos && remito.pagos.length > 0 && (
                       <div>
-                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Detalle de Cobranza</h4>
+                        <h4 className="font-semibold mb-2 text-gray-800 dark:text-gray-200">Detalle de Cobranza</h4>
                          <ul className="space-y-1 text-sm">
-                          {remito.pagos.map((pago, index) => (
-                            <li key={index} className="flex justify-between p-2 bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700">
-                              <span className="font-medium text-gray-700 dark:text-gray-300">{pago.metodo}</span>
-                              <span className="font-bold text-green-600 dark:text-green-400">${pago.monto.toLocaleString()}</span>
+                          {remito.pagos.map((pago) => (
+                            <li key={pago.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                              <span>{pago.metodo}</span>
+                              <span className="font-semibold text-green-600 dark:text-green-400">${pago.monto.toLocaleString()}</span>
                             </li>
                           ))}
                         </ul>
@@ -689,7 +663,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
               </div>
             )
           })}
-           {filteredRemitos.length === 0 && <p className="text-center py-8 text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed dark:border-gray-700">No se encontraron remitos con los filtros seleccionados.</p>}
+           {filteredRemitos.length === 0 && <p className="text-center py-4 text-gray-500">No se encontraron remitos con los filtros seleccionados.</p>}
         </div>
       </Card>
       
@@ -713,18 +687,30 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       {remitoParaBorrar && (
         <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
             <div className="p-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
-                    <TrashIcon className="h-8 w-8 text-red-600 dark:text-red-400" />
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/50">
+                    <svg className="h-6 w-6 text-yellow-600 dark:text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Confirmar Eliminación</h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-4">Confirmar Eliminación</h2>
+                <p className="text-gray-600 dark:text-gray-300 my-4">
                     ¿Está seguro de que desea eliminar permanentemente el remito <strong>{formatRemitoNumber(remitoParaBorrar.puntoVenta, remitoParaBorrar.numero)}</strong>?
                     <br />
                     Esta acción no se puede deshacer.
                 </p>
                 <div className="flex justify-center space-x-4">
-                    <AppButton variant="secondary" onClick={() => setRemitoParaBorrar(null)}>Cancelar</AppButton>
-                    <AppButton variant="danger" onClick={confirmDelete}>Sí, Eliminar</AppButton>
+                    <button
+                        onClick={() => setRemitoParaBorrar(null)}
+                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={confirmDelete}
+                        className="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                    >
+                        Sí, Eliminar
+                    </button>
                 </div>
             </div>
         </Modal>

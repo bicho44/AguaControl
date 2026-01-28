@@ -9,9 +9,7 @@ import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
 import { CubeIcon } from '../components/icons/CubeIcon';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
+import { ReplyIcon } from '../components/icons/ReplyIcon';
 
 interface CajaViewProps {
   registrosPago: RegistroPago[];
@@ -190,15 +188,21 @@ const MovimientoCajaForm: React.FC<{
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required />
-            <AppInput label="Concepto / Referencia" type="text" name="concepto" placeholder="Ej: Venta de Mostrador, Pago de Deuda..." value={formData.concepto || ''} onChange={handleChange} required={!isVentaMode} />
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase px-1">Fecha</label>
+                <input type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" required />
+            </div>
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase px-1">Concepto / Referencia</label>
+                <input type="text" name="concepto" placeholder="Ej: Venta de Mostrador, Pago de Deuda..." value={formData.concepto || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" required={!isVentaMode} />
+            </div>
         </div>
 
         {type === 'ingreso' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <div className="flex justify-between items-end mb-1">
-                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Cliente</label>
+                <div className="space-y-1">
+                    <div className="flex justify-between items-end px-1">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
                         {!isEdit && (
                             <button type="button" onClick={() => setIsQuickClientOpen(!isQuickClientOpen)} className="text-[10px] font-black text-primary-600 hover:underline underline-offset-2">
                                 {isQuickClientOpen ? '✕ Cerrar' : '+ Nuevo Cliente Rápido'}
@@ -207,18 +211,19 @@ const MovimientoCajaForm: React.FC<{
                     </div>
                     {isQuickClientOpen ? (
                         <div className="p-3 bg-primary-50 dark:bg-primary-900/10 rounded-md border border-primary-200 dark:border-primary-800 space-y-2 animate-fade-in-down">
-                            <AppInput placeholder="Nombre completo" value={quickClientName} onChange={e => setQuickClientName(e.target.value)} className="!bg-white dark:!bg-gray-700"/>
+                            <input type="text" placeholder="Nombre completo" value={quickClientName} onChange={e => setQuickClientName(e.target.value)} className="w-full p-2 text-sm bg-white dark:bg-gray-700 rounded border border-primary-200" />
                             <div className="flex gap-2">
-                                <AppInput placeholder="Teléfono" value={quickClientPhone} onChange={e => setQuickClientPhone(e.target.value)} className="!bg-white dark:!bg-gray-700"/>
-                                <AppButton type="button" size="sm" onClick={handleQuickClientSave} disabled={!quickClientName}>Crear</AppButton>
+                                <input type="text" placeholder="Teléfono" value={quickClientPhone} onChange={e => setQuickClientPhone(e.target.value)} className="w-full p-2 text-sm bg-white dark:bg-gray-700 rounded border border-primary-200" />
+                                <button type="button" onClick={handleQuickClientSave} disabled={!quickClientName} className="px-3 bg-primary-600 text-white text-xs font-bold rounded hover:bg-primary-700 disabled:opacity-50">Crear</button>
                             </div>
                         </div>
                     ) : (
                         <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Seleccionar cliente (Opcional)" disabled={isEdit} />
                     )}
                 </div>
-                <div>
-                    <SearchableSelect label="Atendido por" options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Vendedor / Operador" disabled={isEdit} />
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase px-1">Atendido por / Vendedor</label>
+                    <SearchableSelect options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Vendedor / Operador" disabled={isEdit} />
                 </div>
             </div>
         )}
@@ -228,8 +233,8 @@ const MovimientoCajaForm: React.FC<{
                 <legend className="text-sm font-black text-primary-600 px-3 bg-white dark:bg-gray-800 rounded-full border-2 border-primary-500 flex items-center gap-2">
                     <CubeIcon className="w-4 h-4"/> DETALLE DE PRODUCTOS Y ENVASES
                 </legend>
-                <div className="space-y-4 md:space-y-3 mt-2">
-                    <div className="hidden md:grid md:grid-cols-[2fr,80px,80px,100px,auto] gap-2 text-[10px] font-black text-gray-400 uppercase text-center">
+                <div className="space-y-3 mt-2">
+                    <div className="grid grid-cols-[2fr,80px,80px,100px,auto] gap-2 text-[10px] font-black text-gray-400 uppercase text-center">
                         <span className="text-left pl-2">Producto</span>
                         <span>Venta</span>
                         <span>Retira</span>
@@ -241,38 +246,29 @@ const MovimientoCajaForm: React.FC<{
                         const isRetornable = prod?.tipo === TipoProducto.RETORNABLE;
                         
                         return (
-                            <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,80px,80px,100px,auto] gap-2 md:gap-2 items-center animate-fade-in bg-white md:bg-transparent dark:bg-gray-700/50 md:dark:bg-transparent p-3 md:p-0 rounded-lg border md:border-0 border-primary-100 dark:border-gray-600">
+                            <div key={index} className="grid grid-cols-[2fr,80px,80px,100px,auto] gap-2 items-center animate-fade-in">
                                 <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleMovimientoChange(index, 'productoId', v)} placeholder="Producto..." />
-                                
-                                <div className="grid grid-cols-3 gap-2 md:contents">
-                                    <div className="flex flex-col md:block">
-                                        <span className="md:hidden text-[10px] uppercase font-bold text-gray-500 text-center">Venta</span>
-                                        <AppInput type="number" value={mov.cantidad} onChange={(e) => handleMovimientoChange(index, 'cantidad', e.target.value)} className="text-center font-bold" min="1" />
-                                    </div>
-                                    <div className="flex flex-col md:block">
-                                        <span className="md:hidden text-[10px] uppercase font-bold text-gray-500 text-center">Retira</span>
-                                        <AppInput 
-                                            type="number" 
-                                            value={mov.recibidos || 0} 
-                                            onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
-                                            className={`text-center font-bold ${isRetornable ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 opacity-30 cursor-not-allowed'}`} 
-                                            min="0" 
-                                            disabled={!isRetornable}
-                                        />
-                                    </div>
-                                    <div className="flex flex-col md:block">
-                                        <span className="md:hidden text-[10px] uppercase font-bold text-gray-500 text-center">Precio</span>
-                                        <AppInput type="number" value={mov.precioUnitario || ''} onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} className="text-right font-mono" placeholder="$" />
-                                    </div>
+                                <input type="number" value={mov.cantidad} onChange={(e) => handleMovimientoChange(index, 'cantidad', e.target.value)} className="w-full p-2 bg-white dark:bg-gray-700 rounded-md text-center font-bold" min="1" />
+                                <input 
+                                    type="number" 
+                                    value={mov.recibidos || 0} 
+                                    onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
+                                    className={`w-full p-2 rounded-md text-center font-bold transition-opacity ${isRetornable ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 opacity-30 cursor-not-allowed'}`} 
+                                    min="0" 
+                                    disabled={!isRetornable}
+                                />
+                                <div className="relative">
+                                    <span className="absolute left-1 top-2 text-xs text-gray-400">$</span>
+                                    <input type="number" value={mov.precioUnitario || ''} onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} className="w-full p-2 pl-4 bg-white dark:bg-gray-700 rounded-md text-right font-mono" placeholder="Precio..." />
                                 </div>
-                                <div className="flex justify-end md:block">
-                                    <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} className="!p-2"><TrashIcon className="h-5 w-5"/></AppButton>
-                                </div>
+                                <button type="button" onClick={() => removeMovimiento(index)} className="text-red-500 p-1 hover:bg-red-50 rounded-full"><TrashIcon/></button>
                             </div>
                         );
                     })}
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-primary-200 dark:border-primary-800">
-                        <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="border-dashed border-2">+ AGREGAR PRODUCTO</AppButton>
+                        <button type="button" onClick={addMovimiento} className="text-xs font-black text-primary-600 hover:scale-105 transition-transform flex items-center gap-1">
+                            <span className="bg-primary-600 text-white w-5 h-5 flex items-center justify-center rounded-full">+</span> AGREGAR PRODUCTO
+                        </button>
                         <div className="text-right">
                             <span className="text-[10px] text-gray-500 uppercase font-black block">Total Venta Sugerido</span>
                             <span className="text-2xl font-black text-primary-700 dark:text-primary-400 tracking-tighter">${totalVentaCalculado.toLocaleString()}</span>
@@ -283,22 +279,29 @@ const MovimientoCajaForm: React.FC<{
         )}
 
         <fieldset className="border-t dark:border-gray-600 pt-4">
-            <legend className="text-sm font-bold text-gray-500 dark:text-gray-400 px-2 uppercase tracking-widest mb-2">Detalle de Cobro</legend>
-            <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
+            <legend className="text-sm font-bold text-gray-500 dark:text-gray-400 px-2 uppercase tracking-widest">Detalle de Cobro</legend>
+            <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                 {(formData.pagos || []).map((pago: PagoDetalle, index: number) => (
-                    <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                        <AppInput type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} className="font-black text-lg text-green-700 dark:text-green-400" placeholder="0.00" step="0.01" required />
-                        <AppSelect value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                        <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-5 w-5"/></AppButton>
+                    <div key={index} className="flex gap-2 items-center">
+                        <div className="relative flex-grow">
+                            <span className="absolute left-3 top-2 font-bold text-gray-400">$</span>
+                            <input type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} className="w-full p-2 pl-7 bg-gray-200 dark:bg-gray-700 rounded-md font-black text-lg text-green-700 dark:text-green-400" placeholder="0.00" step="0.01" required />
+                        </div>
+                        <select value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} className="w-48 p-2 bg-gray-200 dark:bg-gray-700 rounded-md font-medium">
+                        {Object.values(MetodoPago).map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <button type="button" onClick={() => removePago(index)} className="text-red-500 p-2 hover:bg-red-100 rounded-full"><TrashIcon className="h-5 w-5" /></button>
                     </div>
                 ))}
             </div>
-            <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2">+ Agregar otro medio de pago</AppButton>
+            <button type="button" onClick={addPago} className="mt-3 px-4 py-2 text-xs font-bold rounded-md border border-dashed border-gray-400 text-gray-500 hover:border-primary-500 hover:text-primary-500">+ Agregar otro medio de pago</button>
         </fieldset>
 
         <div className="flex justify-end gap-3 pt-6 border-t dark:border-gray-700">
-            <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-            <AppButton type="submit" variant="primary">Confirmar Operación</AppButton>
+            <button type="button" onClick={onClose} className="px-6 py-2 rounded-md bg-gray-300 dark:bg-gray-600 font-bold transition-colors">Cancelar</button>
+            <button type="submit" className="px-8 py-2 rounded-md bg-primary-600 text-white font-black hover:bg-primary-700 shadow-xl transform active:scale-95 transition-all uppercase tracking-wider">
+                Confirmar Operación
+            </button>
         </div>
       </form>
     </div>
@@ -511,16 +514,16 @@ const CajaView: React.FC<CajaViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0 pb-12">
+    <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
-        <div className="flex gap-2">
-            <AppButton variant="success" onClick={() => handleOpenModal('ingreso')}>
-                + Ingreso / Venta
-            </AppButton>
-            <AppButton variant="danger" onClick={() => handleOpenModal('gasto')}>
+        <div className="space-x-2">
+            <button onClick={() => handleOpenModal('ingreso')} className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 font-bold shadow-lg transform active:scale-95 transition-all">
+                + Nuevo Ingreso / Venta
+            </button>
+            <button onClick={() => handleOpenModal('gasto')} className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 font-bold shadow-lg transform active:scale-95 transition-all">
                 - Registrar Gasto
-            </AppButton>
+            </button>
         </div>
       </div>
       
@@ -563,17 +566,17 @@ const CajaView: React.FC<CajaViewProps> = ({
                                     </td>
                                     <td className="px-6 py-4 text-right font-black text-green-600">{mov.type === 'ingreso' ? `$${mov.total.toLocaleString()}` : ''}</td>
                                     <td className="px-6 py-4 text-right font-black text-red-600">{mov.type === 'gasto' ? `$${mov.total.toLocaleString()}` : ''}</td>
-                                    <td className="px-6 py-4 text-right flex justify-end gap-1">
+                                    <td className="px-6 py-4 text-right flex justify-end gap-2">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleOpenModal(mov.type, true, mov); }}
-                                            className="text-blue-500 hover:text-blue-700 p-2 disabled:opacity-30 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                                            className="text-blue-500 hover:text-blue-700 p-1 disabled:opacity-30"
                                             disabled={isEditDisabled}
                                         >
                                             <PencilIcon />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }}
-                                            className="text-red-500 hover:text-red-700 p-2 disabled:opacity-30 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
+                                            className="text-red-500 hover:text-red-700 p-1 disabled:opacity-30"
                                             disabled={isEditDisabled}
                                         >
                                             <TrashIcon />
@@ -654,13 +657,13 @@ const CajaView: React.FC<CajaViewProps> = ({
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">¿Eliminar Movimiento?</h2>
                 <p className="text-gray-500 mb-6">Si esta operación generó movimientos de stock (Venta Directa), estos también serán eliminados para mantener la integridad.</p>
                 <div className="flex justify-center gap-3">
-                    <AppButton variant="secondary" onClick={() => setMovimientoParaBorrar(null)}>Cancelar</AppButton>
-                    <AppButton variant="danger" onClick={() => {
+                    <button onClick={() => setMovimientoParaBorrar(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md">Cancelar</button>
+                    <button onClick={() => {
                         if (movimientoParaBorrar.type === 'gasto') deleteGasto(movimientoParaBorrar.id);
                         else (movimientoParaBorrar.original as RegistroPago[]).forEach(p => deleteRegistroPago(p.id));
                         setMovimientoParaBorrar(null);
                         showNotification('Operación eliminada.', 'success');
-                    }}>Sí, Eliminar</AppButton>
+                    }} className="px-4 py-2 bg-red-600 text-white rounded-md font-bold">Sí, Eliminar</button>
                 </div>
             </div>
         </Modal>
