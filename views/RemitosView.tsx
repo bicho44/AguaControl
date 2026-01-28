@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, TipoProducto, PagoDetalle, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -208,8 +208,8 @@ const RemitoForm: React.FC<{
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-40">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{remitos.find(r => r.id === remito.id) ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
       
        {deudaPendiente > 0 && (
         <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-400 dark:text-yellow-300 rounded-md" role="alert">
@@ -247,7 +247,7 @@ const RemitoForm: React.FC<{
         </div>
         <div>
              <AppSelect 
-                label="Sucursal (Opcional)"
+                label="Sucursal"
                 name="sucursalId" 
                 value={formData.sucursalId || ''} 
                 onChange={handleChange} 
@@ -270,7 +270,8 @@ const RemitoForm: React.FC<{
 
     <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
         <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimiento de Productos</legend>
-        <div className="space-y-6 md:space-y-4 mt-2">
+        <div className="space-y-4 md:space-y-2 mt-2">
+            {/* Headers solo visibles en MD o superior */}
             <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-xs uppercase text-gray-500 dark:text-gray-400">
                 <span className="text-left pl-2">Producto</span>
                 <span>Entrega</span>
@@ -286,7 +287,7 @@ const RemitoForm: React.FC<{
                             options={productosOptions}
                             value={mov.productoId}
                             onChange={(value) => handleProductoChange(index, value)}
-                            placeholder="Seleccionar producto..."
+                            placeholder="Producto..."
                             disabled={isReadOnly}
                         />
                     </div>
@@ -322,7 +323,7 @@ const RemitoForm: React.FC<{
                 </div>
             ))}
         </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-4 w-full border-dashed border-2 py-3 text-base">+ Agregar Producto</AppButton>}
+        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-4 md:mt-3 w-full border-dashed border-2 py-3">+ Agregar Producto</AppButton>}
     </fieldset>
 
     <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -594,8 +595,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       <Card>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={[{value: "", label: "Todos los Clientes"}, ...clientes.map(c => ({value: c.id, label: c.nombre}))]} />
-                <AppSelect label="Filtrar Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as PaymentStatusFilter)} options={[{value: "todos", label: "Todos los Estados"}, {value: "pendiente", label: "Pendientes"}, {value: "pagado", label: "Pagados"}, {value: "facturado", label: "Facturados"}]} />
+                <AppSelect value={clienteFilter} onChange={(e) => setClienteFilter(e.target.value)} options={[{value: "", label: "Todos los Clientes"}, ...clientes.map(c => ({value: c.id, label: c.nombre}))]} />
+                <AppSelect value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as PaymentStatusFilter)} options={[{value: "todos", label: "Todos los Estados"}, {value: "pendiente", label: "Pendientes"}, {value: "pagado", label: "Pagados"}, {value: "facturado", label: "Facturados"}]} />
             </div>
             {currentUser.rol === Rol.ADMINISTRADOR && (
                 <div className="flex flex-col md:flex-row gap-4 items-end">

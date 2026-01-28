@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contrato, Cliente, Producto, TipoServicio, EstadoContrato, TipoProducto, Sucursal, Servicio, EstadoServicio, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -8,10 +7,6 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
-import AppTextarea from '../components/ui/AppTextarea';
 
 interface ContratosViewProps {
   contratos: Contrato[];
@@ -100,75 +95,78 @@ const ContratoForm: React.FC<{
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{contrato.id ? 'Editar' : 'Nuevo'} Contrato</h2>
       
        <div>
-          <SearchableSelect label="Servicio" options={servicioOptions} value={formData.servicioId || ''} onChange={(value) => handleSelectChange('servicioId', value)} placeholder="Seleccionar un Servicio..." />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Servicio</label>
+          <SearchableSelect options={servicioOptions} value={formData.servicioId || ''} onChange={(value) => handleSelectChange('servicioId', value)} placeholder="Seleccionar un Servicio..." />
         </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <SearchableSelect label="Cliente" options={clienteOptions} value={formData.clienteId || ''} onChange={(value) => handleSelectChange('clienteId', value)} placeholder="Seleccionar Cliente" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
+          <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(value) => handleSelectChange('clienteId', value)} placeholder="Seleccionar Cliente" />
         </div>
         <div>
-          <AppSelect 
-            label="Sucursal (Opcional)"
-            name="sucursalId" 
-            value={formData.sucursalId || ''} 
-            onChange={handleChange} 
-            options={[
-                { value: "", label: "Casa Central / Sin especificar" },
-                ...sucursalesCliente.map(s => ({ value: s.id, label: s.nombre }))
-            ]}
-            disabled={!formData.clienteId || sucursalesCliente.length === 0}
-          />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sucursal (Opcional)</label>
+          <select name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" disabled={!formData.clienteId || sucursalesCliente.length === 0}>
+            <option value="">Casa Central / Sin especificar</option>
+            {sucursalesCliente.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          </select>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AppInput label="Fecha de Inicio" type="date" name="fechaInicio" value={formData.fechaInicio || ''} onChange={handleChange} required />
-        <AppSelect 
-            label="Estado"
-            name="estado" 
-            value={formData.estado || ''} 
-            onChange={handleChange} 
-            options={Object.values(EstadoContrato).map(e => ({ value: e, label: e }))}
-            required
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Inicio</label>
+          <input type="date" name="fechaInicio" value={formData.fechaInicio || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+        </div>
+         <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+          <select name="estado" value={formData.estado || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+            {Object.values(EstadoContrato).map(e => <option key={e} value={e}>{e}</option>)}
+          </select>
+        </div>
       </div>
       
       {showEquipo && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <SearchableSelect label="Equipo Asociado" options={equiposOptions} value={formData.productoId || ''} onChange={(value) => handleSelectChange('productoId', value)} placeholder="Seleccionar Equipo" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Equipo Asociado</label>
+              <SearchableSelect options={equiposOptions} value={formData.productoId || ''} onChange={(value) => handleSelectChange('productoId', value)} placeholder="Seleccionar Equipo" />
             </div>
             <div>
-              <AppInput label="Número de Serie (Opcional)" type="text" name="numeroSerie" placeholder="Ej: EQ-12345" value={formData.numeroSerie || ''} onChange={handleChange} />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Serie (Opcional)</label>
+              <input type="text" name="numeroSerie" placeholder="Ej: EQ-12345" value={formData.numeroSerie || ''} onChange={handleChange} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
             </div>
         </div>
       )}
       
       {showMonto && (
         <div>
-          <AppInput label="Monto Mensual Fijo ($)" type="number" name="montoMensual" placeholder="5000" value={formData.montoMensual ?? ''} onChange={handleChange} required min="0" step="0.01" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto Mensual Fijo ($)</label>
+          <input type="number" name="montoMensual" placeholder="5000" value={formData.montoMensual ?? ''} onChange={handleChange} required min="0" step="0.01" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
         </div>
       )}
 
       {showConsumo && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <SearchableSelect label="Producto de Consumo" options={consumoOptions} value={formData.productoConsumoId || ''} onChange={(value) => handleSelectChange('productoConsumoId', value)} placeholder="Seleccionar Producto" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto de Consumo</label>
+              <SearchableSelect options={consumoOptions} value={formData.productoConsumoId || ''} onChange={(value) => handleSelectChange('productoConsumoId', value)} placeholder="Seleccionar Producto" />
             </div>
             <div>
-              <AppInput label="Cantidad Incluida" type="number" name="consumoIncluido" placeholder="4" value={formData.consumoIncluido ?? ''} onChange={handleChange} min="0" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad Incluida</label>
+              <input type="number" name="consumoIncluido" placeholder="4" value={formData.consumoIncluido ?? ''} onChange={handleChange} required min="0" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
             </div>
         </div>
       )}
 
        <div>
-          <AppTextarea label="Condiciones Especiales (Opcional)" name="condicionesEspeciales" value={formData.condicionesEspeciales || ''} onChange={(e) => setFormData(prev => ({ ...prev, condicionesEspeciales: e.target.value }))} rows={3} />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condiciones Especiales (Opcional)</label>
+          <textarea name="condicionesEspeciales" value={formData.condicionesEspeciales || ''} onChange={(e) => setFormData(prev => ({ ...prev, condicionesEspeciales: e.target.value }))} rows={3} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
         </div>
 
       <div className="flex justify-end space-x-2 pt-4">
-        <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton type="submit">Guardar</AppButton>
+        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
+        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
       </div>
     </form>
   )
@@ -254,18 +252,19 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Contratos de Servicio</h1>
-        <AppButton onClick={openNewModal}>
+        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
           + Nuevo Contrato
-        </AppButton>
+        </button>
       </div>
 
       <Card>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <AppInput
+          <input
             type="text"
             placeholder="Buscar por cliente..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
           />
         </div>
         <div className="space-y-2 p-2">
@@ -348,7 +347,9 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
         <Modal isOpen={!!contratoParaBorrar} onClose={() => setContratoParaBorrar(null)}>
             <div className="p-4 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
-                    <TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <svg className="h-6 w-6 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-4">Confirmar Eliminación</h2>
                 <p className="text-gray-600 dark:text-gray-300 my-4">
@@ -357,10 +358,14 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                     Esta acción no afectará a las facturas ya generadas, pero el servicio no se considerará para futuras facturaciones.
                 </p>
                 <div className="flex justify-center space-x-4">
-                    <AppButton variant="secondary" onClick={() => setContratoParaBorrar(null)}>
+                    <button
+                        onClick={() => setContratoParaBorrar(null)}
+                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
                         Cancelar
-                    </AppButton>
-                    <AppButton variant="danger" onClick={() => {
+                    </button>
+                    <button
+                        onClick={() => {
                             if (!contratoParaBorrar) return;
                             try {
                                 deleteContrato(contratoParaBorrar.id);
@@ -371,9 +376,10 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                             }
                             setContratoParaBorrar(null);
                         }}
+                        className="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
                     >
                         Sí, Eliminar
-                    </AppButton>
+                    </button>
                 </div>
             </div>
         </Modal>

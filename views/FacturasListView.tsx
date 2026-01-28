@@ -8,9 +8,6 @@ import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
 
 interface FacturasListViewProps {
   facturas: Factura[];
@@ -61,25 +58,27 @@ const PagoFacturaForm: React.FC<{
                     <span>Saldo Restante: <strong>${montoRestante.toLocaleString('es-AR')}</strong></span>
                 </div>
             </div>
-            <AppInput type="date" value={fecha} onChange={e => setFecha(e.target.value)} required />
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
             
             <fieldset className="border-t dark:border-gray-600 pt-4">
                 <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Detalle de Pago</legend>
                 <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                     {pagos.map((pago, index) => (
-                        <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                            <AppInput type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} placeholder="Monto" step="0.01" required />
-                            <AppSelect value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                            <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-5 w-5" /></AppButton>
+                        <div key={index} className="flex gap-2 items-center">
+                            <input type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" placeholder="Monto" step="0.01" required />
+                            <select value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                                {Object.values(MetodoPago).map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                            <button type="button" onClick={() => removePago(index)} className="text-red-500 p-2 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full"><TrashIcon className="h-5 w-5" /></button>
                         </div>
                     ))}
                 </div>
-                <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-2 w-full border-dashed border-2">+ Agregar forma de pago</AppButton>
+                <button type="button" onClick={addPago} className="text-sm text-primary-600 hover:underline mt-2">+ Agregar forma de pago</button>
             </fieldset>
 
-            <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit" variant="primary">Guardar Pago</AppButton>
+            <div className="flex justify-end gap-2 pt-4">
+                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white">Guardar Pago</button>
             </div>
         </form>
     );
@@ -262,12 +261,14 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
             />
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
+            <label className="text-sm font-medium">Desde:</label>
+            <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+            <label className="text-sm font-medium">Hasta:</label>
+            <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
           </div>
-          <AppButton variant="secondary" onClick={() => { setClienteFilter(''); setDateFilter({ from: '', to: '' }); }} className="w-full md:w-auto mt-6">Limpiar</AppButton>
+          <button onClick={() => { setClienteFilter(''); setDateFilter({ from: '', to: '' }); }} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 w-full md:w-auto">Limpiar</button>
         </div>
         <div className="space-y-2 p-2">
             {filteredFacturas.map(factura => {
@@ -317,9 +318,9 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
                             </div>
                             <div className="flex items-center pl-4 gap-2">
                                 {factura.estado !== EstadoFactura.PAGADO && factura.estado !== EstadoFactura.ANULADO && (
-                                    <AppButton size="sm" variant="success" onClick={(e) => { e.stopPropagation(); handleOpenPagoModal(factura); }}>
+                                    <button onClick={(e) => { e.stopPropagation(); handleOpenPagoModal(factura); }} className="px-3 py-1 text-sm rounded-md bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300">
                                         Pagar
-                                    </AppButton>
+                                    </button>
                                 )}
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleDownloadPDF(factura); }} 

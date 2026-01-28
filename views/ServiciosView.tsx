@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Servicio, Producto, TipoServicio, TipoProducto, EstadoServicio, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -8,10 +7,6 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
-import AppTextarea from '../components/ui/AppTextarea';
 
 interface ServiciosViewProps {
   servicios: Servicio[];
@@ -58,49 +53,58 @@ const ServicioForm: React.FC<{
     <form onSubmit={handleSubmit} className="space-y-4">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{servicio.id ? 'Editar' : 'Nuevo'} Servicio</h2>
       
-      <AppInput label="Nombre del Servicio" name="nombre" placeholder="Ej: Abono 4 Bidones" value={formData.nombre || ''} onChange={handleChange} required />
+      <div>
+        <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Servicio</label>
+        <input id="nombre" type="text" name="nombre" placeholder="Ej: Abono 4 Bidones" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+      </div>
 
-      <AppSelect 
-        label="Tipo de Servicio"
-        name="tipo" 
-        value={formData.tipo || ''} 
-        onChange={handleChange} 
-        options={[{value:"", label: "Seleccionar tipo"}, ...Object.values(TipoServicio).map(t => ({value: t, label: t}))]}
-        required 
-      />
+      <div>
+        <label htmlFor="tipo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Servicio</label>
+        <select id="tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+          <option value="">Seleccionar tipo</option>
+          {Object.values(TipoServicio).map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
       
-      <AppTextarea label="Descripción (Opcional)" name="descripcion" placeholder="Detalles del servicio..." value={formData.descripcion || ''} onChange={handleChange} rows={2} />
+      <div>
+        <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción (Opcional)</label>
+        <textarea id="descripcion" name="descripcion" placeholder="Detalles del servicio..." value={formData.descripcion || ''} onChange={handleChange} rows={2} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+      </div>
 
       <fieldset className="border-t dark:border-gray-600 pt-4 space-y-4">
         <legend className="text-lg font-medium text-gray-800 dark:text-white px-2 -mb-2">Valores por Defecto</legend>
         
         {showEquipo && (
           <div>
-            <SearchableSelect label="Equipo por Defecto" options={equiposOptions} value={formData.productoId || ''} onChange={(value) => handleSelectChange('productoId', value)} placeholder="Seleccionar Equipo" />
+            <label htmlFor="productoId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Equipo por Defecto</label>
+            <SearchableSelect options={equiposOptions} value={formData.productoId || ''} onChange={(value) => handleSelectChange('productoId', value)} placeholder="Seleccionar Equipo" />
           </div>
         )}
         
         {showMonto && (
           <div>
-            <AppInput label="Monto Mensual por Defecto ($)" type="number" name="montoMensual" placeholder="5000" value={formData.montoMensual ?? ''} onChange={handleChange} min="0" step="0.01" />
+            <label htmlFor="montoMensual" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto Mensual por Defecto ($)</label>
+            <input id="montoMensual" type="number" name="montoMensual" placeholder="5000" value={formData.montoMensual ?? ''} onChange={handleChange} min="0" step="0.01" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
           </div>
         )}
 
         {showConsumo && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <SearchableSelect label="Producto de Consumo" options={consumoOptions} value={formData.productoConsumoId || ''} onChange={(value) => handleSelectChange('productoConsumoId', value)} placeholder="Seleccionar Producto" />
+              <label htmlFor="productoConsumoId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto de Consumo</label>
+              <SearchableSelect options={consumoOptions} value={formData.productoConsumoId || ''} onChange={(value) => handleSelectChange('productoConsumoId', value)} placeholder="Seleccionar Producto" />
             </div>
             <div>
-              <AppInput label="Cantidad Incluida" type="number" name="consumoIncluido" placeholder="4" value={formData.consumoIncluido ?? ''} onChange={handleChange} min="0" />
+              <label htmlFor="consumoIncluido" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad Incluida</label>
+              <input id="consumoIncluido" type="number" name="consumoIncluido" placeholder="4" value={formData.consumoIncluido ?? ''} onChange={handleChange} min="0" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
             </div>
           </div>
         )}
       </fieldset>
 
       <div className="flex justify-end space-x-2 pt-4">
-        <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton type="submit">Guardar</AppButton>
+        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
+        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
       </div>
     </form>
   )
@@ -163,9 +167,9 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Servicios</h1>
-        <AppButton onClick={openNewModal}>
+        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
           + Nuevo Servicio
-        </AppButton>
+        </button>
       </div>
       
       <div className="flex items-center space-x-4 bg-gray-200 dark:bg-gray-700 p-2 rounded-md w-fit">
@@ -244,7 +248,9 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
         <Modal isOpen={!!servicioParaBaja} onClose={() => setServicioParaBaja(null)}>
             <div className="p-4 text-center">
                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
-                    <TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <svg className="h-6 w-6 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-4">Confirmar Baja de Servicio</h2>
                 <p className="text-gray-600 dark:text-gray-300 my-4">
@@ -253,12 +259,18 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
                     El servicio pasará a estado 'Inactivo' y no podrá ser seleccionado para nuevos contratos.
                 </p>
                 <div className="flex justify-center space-x-4">
-                    <AppButton variant="secondary" onClick={() => setServicioParaBaja(null)}>
+                    <button
+                        onClick={() => setServicioParaBaja(null)}
+                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
                         Cancelar
-                    </AppButton>
-                    <AppButton variant="danger" onClick={handleBajaConfirm}>
+                    </button>
+                    <button
+                        onClick={handleBajaConfirm}
+                        className="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                    >
                         Sí, Dar de Baja
-                    </AppButton>
+                    </button>
                 </div>
             </div>
         </Modal>

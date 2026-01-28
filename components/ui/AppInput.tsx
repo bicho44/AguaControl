@@ -25,11 +25,11 @@ const AppInput: React.FC<AppInputProps> = ({ label, error, helperText, className
           bg-gray-50 dark:bg-gray-700/50 
           border border-gray-300 dark:border-gray-600 
           rounded-lg 
-          focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none
+          focus:ring-2 focus:ring-primary-500 focus:border-primary-500 
           disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
           transition-colors duration-200
           placeholder-gray-400 dark:placeholder-gray-500
-          text-base
+          text-base md:text-sm
           ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}
         `}
         {...props}

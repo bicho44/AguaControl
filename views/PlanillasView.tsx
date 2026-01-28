@@ -8,10 +8,6 @@ import SearchableSelect from '../components/SearchableSelect';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { CubeIcon } from '../components/icons/CubeIcon';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
-import AppTextarea from '../components/ui/AppTextarea';
 
 interface PlanillasViewProps {
   planillas: PlanillaDiaria[];
@@ -68,8 +64,28 @@ const PlanillaForm: React.FC<{
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Abrir Nueva Planilla de Carga</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AppInput label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
-                <SearchableSelect label="Repartidor" options={repartidores.map(r => ({value: r.id, label: r.nombre}))} value={repartidorId} onChange={setRepartidorId} placeholder="Seleccionar Repartidor" />
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+                    <input 
+                        type="date" 
+                        value={fecha} 
+                        onChange={(e) => setFecha(e.target.value)} 
+                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
+                        required 
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Repartidor</label>
+                    <select 
+                        value={repartidorId} 
+                        onChange={(e) => setRepartidorId(e.target.value)} 
+                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
+                        required
+                    >
+                        <option value="">Seleccionar Repartidor</option>
+                        {repartidores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                    </select>
+                </div>
             </div>
 
             <fieldset className="border-t dark:border-gray-600 pt-4">
@@ -88,23 +104,29 @@ const PlanillaForm: React.FC<{
                                 onChange={(val) => handleItemChange(index, 'productoId', val)}
                                 placeholder="Producto..."
                             />
-                            <AppInput 
+                            <input 
                                 type="number" 
                                 value={item.cantidad} 
                                 onChange={(e) => handleItemChange(index, 'cantidad', parseInt(e.target.value) || 0)}
-                                className="text-center"
+                                className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-center"
                                 min="1"
                             />
-                            <AppButton variant="danger" size="sm" onClick={() => handleRemoveItem(index)} className="!p-2"><TrashIcon className="h-5 w-5"/></AppButton>
+                            <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 p-2 hover:bg-red-100 rounded-full">
+                                <TrashIcon className="h-5 w-5" />
+                            </button>
                         </div>
                     ))}
                 </div>
-                <AppButton variant="secondary" size="sm" onClick={handleAddItem} className="mt-3 border-dashed border-2">+ Agregar Producto</AppButton>
+                <button type="button" onClick={handleAddItem} className="mt-3 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">
+                    + Agregar Producto
+                </button>
             </fieldset>
 
-            <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit" disabled={!repartidorId || cargaInicial.length === 0}>Confirmar Apertura</AppButton>
+            <div className="flex justify-end gap-2 pt-4">
+                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200">Cancelar</button>
+                <button type="submit" disabled={!repartidorId || cargaInicial.length === 0} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Confirmar Apertura
+                </button>
             </div>
         </form>
     );
@@ -162,13 +184,14 @@ const RecargaForm: React.FC<{
                         {itemsCarga.map((item, index) => (
                             <div key={index} className="grid grid-cols-[1fr,80px,auto] gap-2 items-center">
                                 <SearchableSelect options={productosOptions} value={item.productoId} onChange={(val) => handleCargaChange(index, 'productoId', val)} placeholder="Prod..." />
-                                <AppInput 
+                                <input 
                                     type="number" 
                                     value={item.cantidad} 
                                     onChange={(e) => handleCargaChange(index, 'cantidad', parseInt(e.target.value))} 
+                                    className="w-full p-2 rounded-md border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600" 
                                     min="1"
                                 />
-                                <AppButton variant="danger" size="sm" onClick={() => handleRemoveCarga(index)} className="!p-2"><TrashIcon className="h-5 w-5"/></AppButton>
+                                <button type="button" onClick={() => handleRemoveCarga(index)} className="text-red-500"><TrashIcon/></button>
                             </div>
                         ))}
                         <button type="button" onClick={handleAddCarga} className="mt-2 text-sm text-green-700 font-medium hover:underline">+ Agregar Producto</button>
@@ -184,13 +207,14 @@ const RecargaForm: React.FC<{
                         {itemsDescarga.map((item, index) => (
                             <div key={index} className="grid grid-cols-[1fr,80px,auto] gap-2 items-center">
                                 <SearchableSelect options={productosRetornables} value={item.productoId} onChange={(val) => handleDescargaChange(index, 'productoId', val)} placeholder="Envase..." />
-                                <AppInput 
+                                <input 
                                     type="number" 
                                     value={item.cantidad} 
                                     onChange={(e) => handleDescargaChange(index, 'cantidad', parseInt(e.target.value))} 
+                                    className="w-full p-2 rounded-md border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600" 
                                     min="1"
                                 />
-                                <AppButton variant="danger" size="sm" onClick={() => handleRemoveDescarga(index)} className="!p-2"><TrashIcon className="h-5 w-5"/></AppButton>
+                                <button type="button" onClick={() => handleRemoveDescarga(index)} className="text-red-500"><TrashIcon/></button>
                             </div>
                         ))}
                         <button type="button" onClick={handleAddDescarga} className="mt-2 text-sm text-yellow-700 font-medium hover:underline">+ Agregar Vacíos</button>
@@ -199,8 +223,8 @@ const RecargaForm: React.FC<{
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit">Guardar Recarga</AppButton>
+                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar Recarga</button>
             </div>
         </form>
     );
@@ -524,7 +548,8 @@ const PlanillaDetailModal: React.FC<{
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones del Cierre</label>
-                    <AppTextarea 
+                    <textarea 
+                        className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded-md border dark:border-gray-600" 
                         rows={3}
                         placeholder="Anotar roturas, faltantes o incidencias..."
                         value={observaciones}
@@ -534,16 +559,16 @@ const PlanillaDetailModal: React.FC<{
                 </div>
 
                 <div className="flex justify-end pt-4 gap-4 border-t dark:border-gray-700">
-                    <AppButton variant="secondary" onClick={onClose}>
+                    <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400">
                         {isClosed ? 'Cerrar Vista' : 'Cancelar'}
-                    </AppButton>
+                    </button>
                     {!isClosed && (
-                        <AppButton 
-                            variant="danger"
+                        <button 
                             onClick={() => setIsCloseConfirmOpen(true)} 
+                            className="px-6 py-2 rounded-md bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg"
                         >
                             Cerrar Planilla y Auditar
-                        </AppButton>
+                        </button>
                     )}
                 </div>
             </div>
@@ -564,12 +589,18 @@ const PlanillaDetailModal: React.FC<{
                             <strong>No podrá modificar estos datos una vez cerrada.</strong>
                         </p>
                         <div className="flex justify-center gap-3">
-                            <AppButton variant="secondary" onClick={() => setIsCloseConfirmOpen(false)}>
+                            <button 
+                                onClick={() => setIsCloseConfirmOpen(false)}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300"
+                            >
                                 Volver a revisar
-                            </AppButton>
-                            <AppButton variant="danger" onClick={confirmClosePlanilla}>
+                            </button>
+                            <button 
+                                onClick={confirmClosePlanilla}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold"
+                            >
                                 Sí, Cerrar Planilla
-                            </AppButton>
+                            </button>
                         </div>
                     </div>
                 </Modal>
@@ -612,17 +643,18 @@ const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, prod
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Control de Stock y Reparto</h1>
-        <AppButton onClick={() => setIsFormOpen(true)}>
+        <button onClick={() => setIsFormOpen(true)} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
           + Nueva Planilla
-        </AppButton>
+        </button>
       </div>
 
       <div className="flex items-center gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
           <label className="font-medium text-gray-700 dark:text-gray-300">Fecha:</label>
-          <AppInput 
+          <input 
             type="date" 
             value={filterDate} 
             onChange={(e) => setFilterDate(e.target.value)} 
+            className="p-2 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600"
           />
       </div>
 

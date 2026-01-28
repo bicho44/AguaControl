@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Cliente, Remito, Factura, Producto, RegistroPago, EstadoFactura, MetodoPago, PagoDetalle } from '../types';
 import Card from '../components/Card';
@@ -8,9 +7,6 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
-import AppButton from '../components/ui/AppButton';
-import AppInput from '../components/ui/AppInput';
-import AppSelect from '../components/ui/AppSelect';
 
 interface CuentaCorrienteViewProps {
   clientes: Cliente[];
@@ -62,25 +58,27 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
                     <span>Saldo Restante: <strong>${montoRestante.toLocaleString('es-AR')}</strong></span>
                 </div>
             </div>
-            <AppInput type="date" value={fecha} onChange={e => setFecha(e.target.value)} required />
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
             
             <fieldset className="border-t dark:border-gray-600 pt-4">
                 <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Detalle de Pago</legend>
                 <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
                     {pagos.map((pago, index) => (
-                        <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                            <AppInput type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} placeholder="Monto" step="0.01" required />
-                            <AppSelect value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                            <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-5 w-5" /></AppButton>
+                        <div key={index} className="flex gap-2 items-center">
+                            <input type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" placeholder="Monto" step="0.01" required />
+                            <select value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
+                                {Object.values(MetodoPago).map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                            <button type="button" onClick={() => removePago(index)} className="text-red-500 p-2 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full"><TrashIcon className="h-5 w-5" /></button>
                         </div>
                     ))}
                 </div>
-                <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-2 w-full border-dashed border-2">+ Agregar forma de pago</AppButton>
+                <button type="button" onClick={addPago} className="mt-2 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">+ Agregar forma de pago</button>
             </fieldset>
 
-            <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit" variant="primary">Guardar Pago</AppButton>
+            <div className="flex justify-end gap-2 pt-4">
+                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white">Guardar Pago</button>
             </div>
         </form>
     );
@@ -231,13 +229,14 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
             <Card>
                 <div className="p-4 border-b dark:border-gray-700">
                     <div className="relative">
-                        <AppInput
+                        <input
+                            type="text"
                             placeholder="Buscar cliente..."
                             value={clientSearchTerm}
                             onChange={(e) => setClientSearchTerm(e.target.value)}
-                            className="pl-8"
+                            className="w-full p-2 pl-10 bg-gray-200 dark:bg-gray-700 rounded-md"
                         />
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none mt-6">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <SearchIcon className="h-5 w-5 text-gray-400" />
                         </div>
                     </div>
@@ -283,14 +282,13 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
                                     <span className="font-semibold">Monto a Facturar:</span>
                                     <span className="font-bold text-xl text-primary-600">${totalSeleccionado.toLocaleString('es-AR')}</span>
                                 </div>
-                                <AppButton 
+                                <button 
                                     onClick={handleGenerarFactura}
                                     disabled={selectedRemitos.size === 0}
-                                    fullWidth
-                                    icon={<ReceiptIcon className="h-5 w-5"/>}
+                                    className="w-full px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-400"
                                 >
-                                   Generar Factura
-                                </AppButton>
+                                   <ReceiptIcon className="inline h-5 w-5 mr-2"/> Generar Factura
+                                </button>
                             </div>
                         </Card>
                     </div>
@@ -359,9 +357,9 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
                                             </div>
                                             <div className="flex items-center pl-4">
                                                 {factura.estado !== EstadoFactura.PAGADO && factura.estado !== EstadoFactura.ANULADO && (
-                                                    <AppButton size="sm" variant="success" onClick={(e) => { e.stopPropagation(); handleOpenPagoModal(factura); }} className="mr-2">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleOpenPagoModal(factura); }} className="px-3 py-1 text-sm rounded-md bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 mr-2">
                                                         Pagar
-                                                    </AppButton>
+                                                    </button>
                                                 )}
                                                 <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                             </div>

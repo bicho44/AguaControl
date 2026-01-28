@@ -22,16 +22,16 @@ const AppSelect: React.FC<AppSelectProps> = ({ label, options, placeholder, erro
         <select
           id={selectId}
           className={`
-            w-full px-4 py-2.5 pr-10
+            w-full px-4 py-2.5 
             text-gray-900 dark:text-white 
             bg-gray-50 dark:bg-gray-700/50 
             border border-gray-300 dark:border-gray-600 
             rounded-lg 
-            focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none
+            focus:ring-2 focus:ring-primary-500 focus:border-primary-500 
             disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
             appearance-none
             transition-colors duration-200
-            text-base
+            text-base md:text-sm
             ${error ? 'border-red-500 focus:ring-red-500' : ''}
           `}
           {...props}
