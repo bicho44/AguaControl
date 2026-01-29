@@ -11,6 +11,7 @@ import SearchableSelect from '../components/SearchableSelect';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
+import { MapIcon } from '../components/icons/MapIcon';
 
 type PaymentStatus = 'facturado' | 'pagado' | 'pagado_parcial' | 'pendiente' | 'gratis';
 type PaymentStatusFilter = 'todos' | 'pendiente' | 'pagado' | 'facturado';
@@ -28,34 +29,98 @@ interface RemitosViewProps {
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; // ID del nuevo cliente
 }
 
-// Modal interno para carga rápida de cliente
+// Modal interno para carga rápida de cliente con detección de GPS
 const QuickClientModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: { nombre: string; direccion: string; telefono: string }) => Promise<void>;
+    onSave: (data: { nombre: string; direccion: string; telefono: string; lat?: number; lng?: number }) => Promise<void>;
 }> = ({ isOpen, onClose, onSave }) => {
     const [nombre, setNombre] = useState('');
     const [direccion, setDireccion] = useState('');
     const [telefono, setTelefono] = useState('');
+    const [coords, setCoords] = useState<{ lat?: number; lng?: number }>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [isLocating, setIsLocating] = useState(false);
+    const { showNotification } = useNotification();
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            showNotification('Tu navegador no soporta geolocalización', 'error');
+            return;
+        }
+
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                setCoords({ lat: latitude, lng: longitude });
+
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    const data = await response.json();
+                    
+                    if (data && data.address) {
+                        const road = data.address.road || '';
+                        const houseNumber = data.address.house_number || '';
+                        const city = data.address.city || data.address.town || data.address.village || '';
+                        const estimatedAddr = `${road} ${houseNumber}${city ? `, ${city}` : ''}`.trim();
+                        
+                        setDireccion(estimatedAddr || data.display_name);
+                        showNotification('Dirección estimada por GPS', 'success');
+                    }
+                } catch (error) {
+                    console.error("Error reverse geocoding:", error);
+                    showNotification('No se pudo estimar la dirección, pero se guardaron las coordenadas.', 'success');
+                } finally {
+                    setIsLocating(false);
+                }
+            },
+            (error) => {
+                console.error("GPS Error:", error);
+                showNotification('Error al obtener ubicación. Asegúrate de dar permisos.', 'error');
+                setIsLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!nombre.trim()) return;
         setIsSaving(true);
-        await onSave({ nombre, direccion, telefono });
+        await onSave({ nombre, direccion, telefono, ...coords });
         setIsSaving(false);
         onClose();
-        setNombre(''); setDireccion(''); setTelefono('');
+        setNombre(''); setDireccion(''); setTelefono(''); setCoords({});
     };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
             <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase">Nuevo Cliente Rápido</h3>
+                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Nuevo Cliente Rápido</h3>
                 <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Juan Gomez" required />
-                <AppInput label="Dirección de Entrega" value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Ej: Mitre 450" />
+                
+                <div className="relative">
+                    <AppInput 
+                        label="Dirección de Entrega" 
+                        value={direccion} 
+                        onChange={e => setDireccion(e.target.value)} 
+                        placeholder="Ej: Mitre 450" 
+                    />
+                    <button 
+                        type="button"
+                        onClick={handleGetLocation}
+                        disabled={isLocating}
+                        className={`absolute right-2 top-8 p-1.5 rounded-lg transition-all ${isLocating ? 'animate-pulse text-primary-600' : 'text-gray-400 hover:text-primary-600 hover:bg-primary-50'}`}
+                        title="Obtener mi ubicación actual"
+                    >
+                        <MapIcon className="w-6 h-6" />
+                    </button>
+                    {coords.lat && <p className="text-[10px] text-green-600 font-bold mt-1 ml-1 uppercase tracking-tighter">✓ Ubicación GPS capturada</p>}
+                </div>
+
                 <AppInput label="Teléfono / WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej: 2944123456" />
+                
                 <div className="flex justify-end gap-2 pt-4">
                     <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
                     <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear y Seleccionar</AppButton>
@@ -201,7 +266,7 @@ const RemitoForm: React.FC<{
     setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
   }
 
-  const handleSaveQuickClient = async (data: { nombre: string; direccion: string; telefono: string }) => {
+  const handleSaveQuickClient = async (data: { nombre: string; direccion: string; telefono: string; lat?: number; lng?: number }) => {
     try {
         const newClientId = await onAddCliente({
             nombre: data.nombre,
@@ -209,6 +274,8 @@ const RemitoForm: React.FC<{
                 id: 'main', 
                 nombre: 'Casa Central', 
                 direccion: data.direccion,
+                lat: data.lat,
+                lng: data.lng,
                 diasReparto: []
             }],
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],

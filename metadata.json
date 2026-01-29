@@ -1,5 +1,7 @@
 {
   "name": "Control de Remitos de Bidones",
   "description": "Una aplicación para gestionar remitos de entrega y devolución de bidones de agua, clientes, y visualizar estadísticas de reparto.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }
