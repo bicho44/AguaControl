@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto, EstadoCliente, TipoTelefono } from '../types';
 import Card from '../components/Card';
@@ -194,7 +195,14 @@ const RemitoForm: React.FC<{
   useEffect(() => {
     if (formData.clienteId) {
       const cliente = clientes.find(c => c.id === formData.clienteId);
-      setClienteSucursales(cliente?.sucursales || []);
+      const sucs = cliente?.sucursales || [];
+      setClienteSucursales(sucs);
+      
+      // Auto-selección si hay una sola sucursal
+      if (sucs.length === 1 && formData.sucursalId !== sucs[0].id) {
+          setFormData(prev => ({ ...prev, sucursalId: sucs[0].id }));
+      }
+      
       const tieneCtaCte = cliente?.tieneCuentaCorriente || false;
       setIsCtaCte(tieneCtaCte);
       
@@ -293,7 +301,7 @@ const RemitoForm: React.FC<{
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
             estado: EstadoCliente.ACTIVO
         });
-        // Seleccionamos el nuevo cliente y su sucursal automáticamente
+        // Seleccionamos el nuevo cliente y su sucursal 'main' automáticamente
         setFormData(prev => ({ ...prev, clienteId: newClientId, sucursalId: 'main' }));
         showNotification('Cliente creado y seleccionado.', 'success');
     } catch (e) {
@@ -341,10 +349,13 @@ const RemitoForm: React.FC<{
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const vendedoresInternosOptions = useMemo(() => vendedoresInternos.map(v => ({ value: v.id, label: v.nombre })), [vendedoresInternos]);
   
-  const sucursalOptions = useMemo(() => [
-      { value: "", label: "Casa Central / Única" },
-      ...clienteSucursales.map(s => ({ value: s.id, label: s.nombre }))
-  ], [clienteSucursales]);
+  const sucursalOptions = useMemo(() => {
+      if (clienteSucursales.length <= 1) return [];
+      return [
+          { value: "", label: "Seleccionar Sucursal..." },
+          ...clienteSucursales.map(s => ({ value: s.id, label: s.nombre }))
+      ];
+  }, [clienteSucursales]);
 
   const productosOptions = useMemo(() => {
     const productosActivos = productos.filter(p => p.estado === EstadoProducto.ACTIVO);
@@ -391,16 +402,19 @@ const RemitoForm: React.FC<{
                     disabled={isReadOnly}
                 />
             </div>
-            <div>
-                <AppSelect 
-                    label="Sucursal (Opcional)"
-                    name="sucursalId" 
-                    value={formData.sucursalId || ''} 
-                    onChange={handleChange} 
-                    options={sucursalOptions}
-                    disabled={isReadOnly || (formData.clienteId ? clienteSucursales.length === 0 : true)}
-                />
-            </div>
+            {clienteSucursales.length > 1 && (
+                <div>
+                    <AppSelect 
+                        label="Sucursal de Entrega"
+                        name="sucursalId" 
+                        value={formData.sucursalId || ''} 
+                        onChange={handleChange} 
+                        options={sucursalOptions}
+                        disabled={isReadOnly}
+                        required
+                    />
+                </div>
+            )}
         </div>
 
         {/* 2. NUMERO DE REMITO Y FECHA */}
