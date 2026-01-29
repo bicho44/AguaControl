@@ -25,7 +25,7 @@ interface ClientesViewProps {
   servicios: Servicio[];
   registrosPago: RegistroPago[];
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'> & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
-  updateCliente: (cliente: Cliente) => void;
+  updateCliente: (cliente: Cliente & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   deleteCliente: (clienteId: string) => void;
   reactivarCliente: (clienteId: string) => void;
 }
@@ -226,8 +226,8 @@ const ClienteForm: React.FC<{
     e.preventDefault();
     onSave({
         ...formData as Cliente,
-        stockInicial: isNew ? stockInicial.filter(s => s.productoId && s.cantidad > 0) : undefined,
-        contratosIniciales: isNew ? contratosIniciales.filter(c => c.servicioId) : undefined
+        stockInicial: stockInicial.filter(s => s.productoId && s.cantidad > 0),
+        contratosIniciales: contratosIniciales.filter(c => c.servicioId)
     });
   };
   
@@ -347,59 +347,63 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          {/* SOLO ALTA: STOCK INICIAL Y SERVICIOS */}
-          {isNew && (
-              <Card title="Alta Rápida: Stock y Servicios">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* STOCK INICIAL */}
-                      <div className="space-y-3">
-                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">Stock Inicial (Bidones en comodato)</h4>
-                          <p className="text-xs text-gray-500">¿El cliente ya tiene envases vacíos o llenos? Cárgalos acá para generar el saldo inicial.</p>
-                          {stockInicial.map((stock, index) => (
-                              <div key={index} className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
-                                  <SearchableSelect 
-                                      options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
-                                      value={stock.productoId} 
-                                      onChange={(val) => handleStockChange(index, 'productoId', val)} 
-                                      placeholder="Producto..."
-                                  />
-                                  <div className="flex gap-2">
-                                      <input type="number" placeholder="Cant." value={stock.cantidad} onChange={(e) => handleStockChange(index, 'cantidad', e.target.value)} className="w-24 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
-                                      <select value={stock.sucursalId || ''} onChange={(e) => handleStockChange(index, 'sucursalId', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700">
-                                          <option value="">Sucursal...</option>
-                                          {sucursalOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                                      </select>
-                                      <button type="button" onClick={() => removeStockInicial(index)} className="text-red-500"><TrashIcon/></button>
-                                  </div>
+          {/* STOCK INICIAL Y SERVICIOS - AHORA DISPONIBLE SIEMPRE */}
+          <Card title={isNew ? "Alta Rápida: Stock y Servicios" : "Configuración de Stock y Servicios Adicionales"}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* STOCK INICIAL */}
+                  <div className="space-y-3">
+                      <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">
+                          {isNew ? "Stock Inicial (Comodato)" : "Agregar Ajuste de Stock"}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                          {isNew ? "¿El cliente ya tiene envases? Cárgalos acá." : "Genere un remito de ajuste positivo para este cliente."}
+                      </p>
+                      {stockInicial.map((stock, index) => (
+                          <div key={index} className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
+                              <SearchableSelect 
+                                  options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
+                                  value={stock.productoId} 
+                                  onChange={(val) => handleStockChange(index, 'productoId', val)} 
+                                  placeholder="Producto..."
+                              />
+                              <div className="flex gap-2">
+                                  <input type="number" placeholder="Cant." value={stock.cantidad} onChange={(e) => handleStockChange(index, 'cantidad', e.target.value)} className="w-24 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
+                                  <select value={stock.sucursalId || ''} onChange={(e) => handleStockChange(index, 'sucursalId', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700">
+                                      <option value="">Sucursal...</option>
+                                      {sucursalOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                  </select>
+                                  <button type="button" onClick={() => removeStockInicial(index)} className="text-red-500"><TrashIcon/></button>
                               </div>
-                          ))}
-                          <button type="button" onClick={addStockInicial} className="text-xs font-bold text-blue-600 hover:underline">+ Agregar Stock Inicial</button>
-                      </div>
-
-                      {/* CONTRATOS INICIALES */}
-                      <div className="space-y-3">
-                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">Servicios a Contratar</h4>
-                          <p className="text-xs text-gray-500">Asignar abonos o alquileres desde el inicio.</p>
-                          {contratosIniciales.map((contrato, index) => (
-                              <div key={index} className="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-800 space-y-2">
-                                  <SearchableSelect 
-                                      options={serviciosActivos.map(s => ({value: s.id, label: s.nombre}))} 
-                                      value={contrato.servicioId} 
-                                      onChange={(val) => handleContratoChange(index, 'servicioId', val)} 
-                                      placeholder="Servicio..."
-                                  />
-                                  <div className="flex gap-2 items-center">
-                                      <label className="text-xs whitespace-nowrap">Inicio:</label>
-                                      <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
-                                      <button type="button" onClick={() => removeContratoInicial(index)} className="text-red-500"><TrashIcon/></button>
-                                  </div>
-                              </div>
-                          ))}
-                          <button type="button" onClick={addContratoInicial} className="text-xs font-bold text-purple-600 hover:underline">+ Agregar Servicio</button>
-                      </div>
+                          </div>
+                      ))}
+                      <button type="button" onClick={addStockInicial} className="text-xs font-bold text-blue-600 hover:underline">+ Agregar Stock / Ajuste</button>
                   </div>
-              </Card>
-          )}
+
+                  {/* CONTRATOS INICIALES */}
+                  <div className="space-y-3">
+                      <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">
+                          {isNew ? "Servicios a Contratar" : "Agregar Nuevo Servicio"}
+                      </h4>
+                      <p className="text-xs text-gray-500">Asignar abonos o alquileres (dispensers, máquinas).</p>
+                      {contratosIniciales.map((contrato, index) => (
+                          <div key={index} className="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-800 space-y-2">
+                              <SearchableSelect 
+                                  options={serviciosActivos.map(s => ({value: s.id, label: s.nombre}))} 
+                                  value={contrato.servicioId} 
+                                  onChange={(val) => handleContratoChange(index, 'servicioId', val)} 
+                                  placeholder="Servicio..."
+                              />
+                              <div className="flex gap-2 items-center">
+                                  <label className="text-xs whitespace-nowrap">Inicio:</label>
+                                  <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
+                                  <button type="button" onClick={() => removeContratoInicial(index)} className="text-red-500"><TrashIcon/></button>
+                              </div>
+                          </div>
+                      ))}
+                      <button type="button" onClick={addContratoInicial} className="text-xs font-bold text-purple-600 hover:underline">+ Agregar Servicio</button>
+                  </div>
+              </div>
+          </Card>
       </div>
 
       {mapModalConfig.isOpen && (

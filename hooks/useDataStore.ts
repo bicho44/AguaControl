@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { Remito, Cliente, Usuario, Factura, Producto, VentaVendedor, RegistroPago, PagoDetalle, Gasto, EmpresaSettings, Contrato, Servicio, PlanillaDiaria, Rol, EstadoCliente, EstadoProducto, EstadoServicio } from '../types';
 import { db } from '../firebase/config';
@@ -171,10 +172,39 @@ export const useDataStore = () => {
     return clienteRef.id; // Retornamos el ID para usos como el QuickAdd
   }, [usuarios]);
 
-  const updateCliente = useCallback(async (updatedCliente: Cliente) => {
-    const { id, ...data } = updatedCliente;
+  const updateCliente = useCallback(async (updatedCliente: Cliente & { 
+    stockInicial?: { productoId: string; cantidad: number; sucursalId?: string }[];
+    contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
+  }) => {
+    const { id, stockInicial, contratosIniciales, ...data } = updatedCliente;
     await updateDoc(doc(db, 'clientes', id), cleanUndefineds(data));
-  }, []);
+
+    // Lógica para añadir stock a cliente existente
+    if (stockInicial && stockInicial.length > 0) {
+        const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
+        const today = new Date().toISOString().split('T')[0];
+
+        const remitosDeAjuste = stockInicial.map(stock => ({
+            fecha: today,
+            clienteId: id,
+            sucursalId: stock.sucursalId || null,
+            vendedorId: adminUser?.id || usuarios[0]?.id,
+            puntoVenta: '0000',
+            numero: `AJU-${Date.now()}`,
+            movimientos: [{
+                productoId: stock.productoId,
+                entregados: stock.cantidad,
+                recibidos: 0
+            }]
+        }));
+        remitosDeAjuste.forEach(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
+    }
+
+    // Lógica para añadir contratos a cliente existente
+    if (contratosIniciales && contratosIniciales.length > 0) {
+        contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id })));
+    }
+  }, [usuarios]);
 
   const deleteCliente = useCallback(async (clienteId: string) => {
     await updateDoc(doc(db, 'clientes', clienteId), { estado: EstadoCliente.INACTIVO });
