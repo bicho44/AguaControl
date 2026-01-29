@@ -1,19 +1,18 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { Remito, Cliente, Usuario, Factura, Producto, VentaVendedor, RegistroPago, PagoDetalle, Gasto, EmpresaSettings, Contrato, Servicio, PlanillaDiaria, Rol, EstadoCliente, EstadoProducto, EstadoServicio } from '../types';
 import { db } from '../firebase/config';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, limit, where, QueryConstraint } from 'firebase/firestore';
 import { mockEmpresaSettings } from '../data/mockData';
 
-// Helper para limpiar undefineds
-const cleanUndefineds = <T extends Record<string, any>>(obj: T): T => {
-    const newObj = { ...obj };
-    Object.keys(newObj).forEach(key => {
-        if (newObj[key] === undefined) {
-            delete newObj[key];
-        }
-    });
-    return newObj;
+// Helper recursivo para limpiar undefineds (Firestore arroja error si encuentra uno en cualquier nivel)
+const cleanUndefineds = (obj: any): any => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(v => cleanUndefineds(v));
+    return Object.fromEntries(
+        Object.entries(obj)
+            .filter(([_, v]) => v !== undefined)
+            .map(([k, v]) => [k, cleanUndefineds(v)])
+    );
 };
 
 /**

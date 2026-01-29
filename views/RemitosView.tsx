@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto, EstadoCliente, TipoTelefono } from '../types';
 import Card from '../components/Card';
@@ -254,7 +253,7 @@ const RemitoForm: React.FC<{
     const newPagos = [...(formData.pagos || [])];
     const updatedValue = field === 'monto' ? (value === '' ? 0 : Number(value)) : value;
     newPagos[index] = { ...newPagos[index], [field]: updatedValue };
-    setFormData(prev => ({ ...prev, pagos: newPagos }));
+    setFormData((prev: any) => ({ ...prev, pagos: newPagos }));
   }
 
   const addPago = () => {
@@ -281,8 +280,8 @@ const RemitoForm: React.FC<{
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
             estado: EstadoCliente.ACTIVO
         });
-        // Seleccionamos el nuevo cliente automáticamente
-        setFormData(prev => ({ ...prev, clienteId: newClientId, sucursalId: '' }));
+        // Seleccionamos el nuevo cliente y su sucursal automáticamente
+        setFormData(prev => ({ ...prev, clienteId: newClientId, sucursalId: 'main' }));
         showNotification('Cliente creado y seleccionado.', 'success');
     } catch (e) {
         showNotification('Error al crear el cliente rápido.', 'error');
