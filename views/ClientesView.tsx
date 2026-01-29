@@ -141,7 +141,6 @@ const ClienteForm: React.FC<{
       });
   };
 
-  // ADDED: handleMapConfirm function to fix line 251 error
   const handleMapConfirm = (lat: number, lng: number, address: string) => {
       if (mapModalConfig.sucursalIndex !== null) {
           handleUpdateSucursalLocation(mapModalConfig.sucursalIndex, lat, lng, address);
@@ -182,7 +181,19 @@ const ClienteForm: React.FC<{
       <div className="space-y-6">
           <Card title="Información Comercial">
             <div className="space-y-4">
-                <AppInput label="Nombre del Cliente" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <AppInput label="Nombre del Cliente" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
+                    <AppSelect 
+                        label="Estado" 
+                        name="estado" 
+                        value={formData.estado || EstadoCliente.ACTIVO} 
+                        onChange={handleChange} 
+                        options={[
+                            { value: EstadoCliente.ACTIVO, label: 'Activo' },
+                            { value: EstadoCliente.INACTIVO, label: 'Inactivo' }
+                        ]} 
+                    />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <AppInput label="CUIT" name="cuit" value={formatCuit(formData.cuit)} onChange={handleChange} error={cuitExistente ? `CUIT de ${cuitExistente}` : undefined} />
                     <AppSelect label="Condición Fiscal" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
