@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto, EstadoCliente, TipoTelefono } from '../types';
 import Card from '../components/Card';
@@ -85,12 +86,18 @@ const QuickClientModal: React.FC<{
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        e.stopPropagation(); // Evitar que el evento suba al formulario del remito
         if (!nombre.trim()) return;
         setIsSaving(true);
-        await onSave({ nombre, direccion, telefono, ...coords });
-        setIsSaving(false);
-        onClose();
-        setNombre(''); setDireccion(''); setTelefono(''); setCoords({});
+        try {
+            await onSave({ nombre, direccion, telefono, ...coords });
+            setNombre(''); setDireccion(''); setTelefono(''); setCoords({});
+            onClose();
+        } catch (error) {
+            console.error("Error saving quick client:", error);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -364,166 +371,168 @@ const RemitoForm: React.FC<{
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
-      
-       {deudaPendiente > 0 && (
-        <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-400 dark:text-yellow-300 rounded-md" role="alert">
-          <p className="font-bold">Cobranza Pendiente</p>
-          <p>Este cliente debe ${deudaPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de entregas anteriores.</p>
-        </div>
-      )}
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6 pb-20">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
+        
+        {deudaPendiente > 0 && (
+          <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-400 dark:text-yellow-300 rounded-md" role="alert">
+            <p className="font-bold">Cobranza Pendiente</p>
+            <p>Este cliente debe ${deudaPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de entregas anteriores.</p>
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-1">
-            <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/>
-        </div>
-        <div className="md:col-span-2">
-            <div className="flex gap-2">
-                <div className="w-1/3">
-                    <AppInput label="Punto Venta" type="number" name="puntoVenta" placeholder="1" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/>
-                </div>
-                <div className="w-2/3">
-                    <AppInput label="Número" type="number" name="numero" placeholder="1234" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="relative">
-             <div className="flex justify-between items-end mb-1">
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>
-                {!isReadOnly && (
-                    <button 
-                        type="button" 
-                        onClick={() => setIsQuickClientOpen(true)}
-                        className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-tighter"
-                    >
-                        + Nuevo Cliente
-                    </button>
-                )}
-             </div>
-             <SearchableSelect
-                options={clienteOptions}
-                value={formData.clienteId || ''}
-                onChange={(value) => handleSelectChange('clienteId', value)}
-                placeholder="Seleccionar Cliente"
-                disabled={isReadOnly}
-             />
-        </div>
-        <div>
-             <AppSelect 
-                label="Sucursal (Opcional)"
-                name="sucursalId" 
-                value={formData.sucursalId || ''} 
-                onChange={handleChange} 
-                options={sucursalOptions}
-                disabled={isReadOnly || clienteSucursales.length === 0}
-             />
-        </div>
-    </div>
-    
-    <div>
-        <SearchableSelect
-            label="Repartidor (Internos)"
-            options={vendedoresInternosOptions}
-            value={formData.vendedorId || ''}
-            onChange={(value) => handleSelectChange('vendedorId', value)}
-            placeholder="Seleccionar Repartidor"
-            disabled={isReadOnly || currentUser.rol === Rol.REPARTIDOR}
-        />
-    </div>
-
-    <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
-        <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimiento de Productos</legend>
-        <div className="space-y-6 md:space-y-2 mt-2">
-            <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-xs uppercase text-gray-500 dark:text-gray-400">
-                <span className="text-left pl-2">Producto</span>
-                <span>Entrega</span>
-                <span>Retira</span>
-                <span></span>
-            </div>
-            
-            {(formData.movimientos || []).map((mov, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-4 md:gap-2 p-4 md:p-0 bg-gray-50 md:bg-transparent dark:bg-gray-700/30 md:dark:bg-transparent rounded-lg border md:border-0 dark:border-gray-600">
-                    <div className="w-full">
-                        <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block">Producto</span>
-                        <SearchableSelect
-                            options={productosOptions}
-                            value={mov.productoId}
-                            onChange={(value) => handleProductoChange(index, value)}
-                            placeholder="Seleccionar producto..."
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 md:contents">
-                        <div>
-                            <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Entrega</span>
-                            <AppInput 
-                                type="number" 
-                                value={mov.entregados} 
-                                onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
-                                required 
-                                min="0" 
-                                className="text-center font-bold text-lg md:text-base" 
-                                disabled={isReadOnly}
-                            />
-                        </div>
-                        <div>
-                            <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Retira</span>
-                            <AppInput 
-                                type="number" 
-                                value={mov.recibidos} 
-                                onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
-                                required 
-                                min="0" 
-                                className="text-center font-bold text-lg md:text-base" 
-                                disabled={isReadOnly}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end md:block mt-2 md:mt-0">
-                        <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon className="w-5 h-5"/></AppButton>
-                    </div>
-                </div>
-            ))}
-        </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-3 w-full border-dashed border-2 py-3 text-base" type="button">+ Agregar Producto</AppButton>}
-    </fieldset>
-
-    <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-        <span className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
-            Total: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </span>
-    </div>
-
-    <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4 relative" disabled={isCtaCte || isReadOnly}>
-        <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Cobranza (Opcional)</legend>
-        {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md z-10 backdrop-blur-[1px]"><p className="text-sm font-bold text-gray-600 dark:text-gray-300 p-3 bg-white dark:bg-gray-700 rounded-md shadow border dark:border-gray-600">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
-        <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
-            {(formData.pagos || []).map((pago, index) => (
-                <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                    <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
-                    <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                    <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2" type="button"><TrashIcon className="h-5 w-5" /></AppButton>
-                </div>
-            ))}
-        </div>
-        {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2" type="button">+ Agregar Pago</AppButton>}
-    </fieldset>
-
-      <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
-        <AppButton variant="secondary" onClick={onClose} type="button">{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-        {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</AppButton>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-1">
+              <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/>
+          </div>
+          <div className="md:col-span-2">
+              <div className="flex gap-2">
+                  <div className="w-1/3">
+                      <AppInput label="Punto Venta" type="number" name="puntoVenta" placeholder="1" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/>
+                  </div>
+                  <div className="w-2/3">
+                      <AppInput label="Número" type="number" name="numero" placeholder="1234" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/>
+                  </div>
+              </div>
+          </div>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+              <div className="flex justify-between items-end mb-1">
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>
+                  {!isReadOnly && (
+                      <button 
+                          type="button" 
+                          onClick={() => setIsQuickClientOpen(true)}
+                          className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-tighter"
+                      >
+                          + Nuevo Cliente
+                      </button>
+                  )}
+              </div>
+              <SearchableSelect
+                  options={clienteOptions}
+                  value={formData.clienteId || ''}
+                  onChange={(value) => handleSelectChange('clienteId', value)}
+                  placeholder="Seleccionar Cliente"
+                  disabled={isReadOnly}
+              />
+          </div>
+          <div>
+              <AppSelect 
+                  label="Sucursal (Opcional)"
+                  name="sucursalId" 
+                  value={formData.sucursalId || ''} 
+                  onChange={handleChange} 
+                  options={sucursalOptions}
+                  disabled={isReadOnly || clienteSucursales.length === 0}
+              />
+          </div>
+      </div>
+      
+      <div>
+          <SearchableSelect
+              label="Repartidor (Internos)"
+              options={vendedoresInternosOptions}
+              value={formData.vendedorId || ''}
+              onChange={(value) => handleSelectChange('vendedorId', value)}
+              placeholder="Seleccionar Repartidor"
+              disabled={isReadOnly || currentUser.rol === Rol.REPARTIDOR}
+          />
+      </div>
+
+      <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
+          <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimiento de Productos</legend>
+          <div className="space-y-6 md:space-y-2 mt-2">
+              <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-xs uppercase text-gray-500 dark:text-gray-400">
+                  <span className="text-left pl-2">Producto</span>
+                  <span>Entrega</span>
+                  <span>Retira</span>
+                  <span></span>
+              </div>
+              
+              {(formData.movimientos || []).map((mov, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-4 md:gap-2 p-4 md:p-0 bg-gray-50 md:bg-transparent dark:bg-gray-700/30 md:dark:bg-transparent rounded-lg border md:border-0 dark:border-gray-600">
+                      <div className="w-full">
+                          <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block">Producto</span>
+                          <SearchableSelect
+                              options={productosOptions}
+                              value={mov.productoId}
+                              onChange={(value) => handleProductoChange(index, value)}
+                              placeholder="Seleccionar producto..."
+                              disabled={isReadOnly}
+                          />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 md:contents">
+                          <div>
+                              <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Entrega</span>
+                              <AppInput 
+                                  type="number" 
+                                  value={mov.entregados} 
+                                  onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
+                                  required 
+                                  min="0" 
+                                  className="text-center font-bold text-lg md:text-base" 
+                                  disabled={isReadOnly}
+                              />
+                          </div>
+                          <div>
+                              <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Retira</span>
+                              <AppInput 
+                                  type="number" 
+                                  value={mov.recibidos} 
+                                  onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
+                                  required 
+                                  min="0" 
+                                  className="text-center font-bold text-lg md:text-base" 
+                                  disabled={isReadOnly}
+                              />
+                          </div>
+                      </div>
+                      <div className="flex justify-end md:block mt-2 md:mt-0">
+                          <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon className="w-5 h-5"/></AppButton>
+                      </div>
+                  </div>
+              ))}
+          </div>
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-3 w-full border-dashed border-2 py-3 text-base" type="button">+ Agregar Producto</AppButton>}
+      </fieldset>
+
+      <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+          <span className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
+              Total: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+      </div>
+
+      <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4 relative" disabled={isCtaCte || isReadOnly}>
+          <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Cobranza (Opcional)</legend>
+          {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md z-10 backdrop-blur-[1px]"><p className="text-sm font-bold text-gray-600 dark:text-gray-300 p-3 bg-white dark:bg-gray-700 rounded-md shadow border dark:border-gray-600">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
+          <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
+              {(formData.pagos || []).map((pago, index) => (
+                  <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
+                      <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
+                      <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
+                      <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2" type="button"><TrashIcon className="h-5 w-5" /></AppButton>
+                  </div>
+              ))}
+          </div>
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2" type="button">+ Agregar Pago</AppButton>}
+      </fieldset>
+
+        <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
+          <AppButton variant="secondary" onClick={onClose} type="button">{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</AppButton>}
+        </div>
+      </form>
 
       <QuickClientModal 
         isOpen={isQuickClientOpen} 
         onClose={() => setIsQuickClientOpen(false)} 
         onSave={handleSaveQuickClient} 
       />
-    </form>
+    </>
   )
 }
 
