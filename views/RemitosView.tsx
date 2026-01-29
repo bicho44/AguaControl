@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto, EstadoCliente, TipoTelefono } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -25,7 +25,45 @@ interface RemitosViewProps {
   addRemito: (remito: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => Promise<void>;
   updateRemito: (remito: Remito & { pagos?: PagoDetalle[] }) => Promise<void>;
   deleteRemito: (remitoId: string) => Promise<void>;
+  addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; // ID del nuevo cliente
 }
+
+// Modal interno para carga rápida de cliente
+const QuickClientModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (data: { nombre: string; direccion: string; telefono: string }) => Promise<void>;
+}> = ({ isOpen, onClose, onSave }) => {
+    const [nombre, setNombre] = useState('');
+    const [direccion, setDireccion] = useState('');
+    const [telefono, setTelefono] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!nombre.trim()) return;
+        setIsSaving(true);
+        await onSave({ nombre, direccion, telefono });
+        setIsSaving(false);
+        onClose();
+        setNombre(''); setDireccion(''); setTelefono('');
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase">Nuevo Cliente Rápido</h3>
+                <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Juan Gomez" required />
+                <AppInput label="Dirección de Entrega" value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Ej: Mitre 450" />
+                <AppInput label="Teléfono / WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej: 2944123456" />
+                <div className="flex justify-end gap-2 pt-4">
+                    <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear y Seleccionar</AppButton>
+                </div>
+            </form>
+        </Modal>
+    );
+};
 
 const RemitoForm: React.FC<{
   remito: Partial<Remito> & { pagos?: PagoDetalle[] };
@@ -34,16 +72,18 @@ const RemitoForm: React.FC<{
   productos: Producto[];
   currentUser: Usuario;
   onSave: (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => Promise<void>;
+  onAddCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   onClose: () => void;
   remitos: Remito[];
   registrosPago: RegistroPago[];
   isReadOnly?: boolean;
-}> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onClose, remitos, registrosPago, isReadOnly = false }) => {
+}> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, isReadOnly = false }) => {
   const [formData, setFormData] = useState<Partial<Remito> & { pagos?: PagoDetalle[] }>({});
   const [clienteSucursales, setClienteSucursales] = useState<Sucursal[]>([]);
   const [isCtaCte, setIsCtaCte] = useState(false);
   const [deudaPendiente, setDeudaPendiente] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const { showNotification } = useNotification();
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -161,11 +201,31 @@ const RemitoForm: React.FC<{
     setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
   }
 
+  const handleSaveQuickClient = async (data: { nombre: string; direccion: string; telefono: string }) => {
+    try {
+        const newClientId = await onAddCliente({
+            nombre: data.nombre,
+            sucursales: [{ 
+                id: 'main', 
+                nombre: 'Casa Central', 
+                direccion: data.direccion,
+                diasReparto: []
+            }],
+            telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
+            estado: EstadoCliente.ACTIVO
+        });
+        // Seleccionamos el nuevo cliente automáticamente
+        setFormData(prev => ({ ...prev, clienteId: newClientId, sucursalId: '' }));
+        showNotification('Cliente creado y seleccionado.', 'success');
+    } catch (e) {
+        showNotification('Error al crear el cliente rápido.', 'error');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
 
-    // VALIDACION ANTES DE GUARDAR
     if (!formData.clienteId) {
         showNotification('Debe seleccionar un cliente antes de guardar.', 'error');
         return;
@@ -239,7 +299,7 @@ const RemitoForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
       
        {deudaPendiente > 0 && (
         <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-400 dark:text-yellow-300 rounded-md" role="alert">
@@ -265,9 +325,20 @@ const RemitoForm: React.FC<{
     </div>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+        <div className="relative">
+             <div className="flex justify-between items-end mb-1">
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>
+                {!isReadOnly && (
+                    <button 
+                        type="button" 
+                        onClick={() => setIsQuickClientOpen(true)}
+                        className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-tighter"
+                    >
+                        + Nuevo Cliente
+                    </button>
+                )}
+             </div>
              <SearchableSelect
-                label="Cliente"
                 options={clienteOptions}
                 value={formData.clienteId || ''}
                 onChange={(value) => handleSelectChange('clienteId', value)}
@@ -380,6 +451,12 @@ const RemitoForm: React.FC<{
         <AppButton variant="secondary" onClick={onClose} type="button">{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
         {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</AppButton>}
       </div>
+
+      <QuickClientModal 
+        isOpen={isQuickClientOpen} 
+        onClose={() => setIsQuickClientOpen(false)} 
+        onSave={handleSaveQuickClient} 
+      />
     </form>
   )
 }
@@ -419,7 +496,7 @@ const PaymentStatusBadge: React.FC<{
 }
 
 
-const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito }) => {
+const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRemito, setEditingRemito] = useState<Partial<Remito> & { pagos?: PagoDetalle[] } | null>(null);
   const [clienteFilter, setClienteFilter] = useState('');
@@ -618,6 +695,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     productos={productos}
                     currentUser={currentUser}
                     onSave={handleSave}
+                    onAddCliente={addCliente}
                     onClose={() => setIsFormOpen(false)}
                     remitos={remitos}
                     registrosPago={registrosPago}

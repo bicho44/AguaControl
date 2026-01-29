@@ -67,40 +67,18 @@ function useFirestoreCollection<T>(
 }
 
 export const useDataStore = () => {
-  // --- LEER DATOS (OPTIMIZADO PARA COSTOS) ---
-  
-  // Clientes: Los necesitamos todos para los buscadores (500 docs = 1 lectura c/u al abrir)
+  // --- LEER DATOS ---
   const clientes = useFirestoreCollection<Cliente>('clientes', { orderByField: 'nombre' });
-  
-  // Remitos: Solo cargamos los últimos 500 para evitar miles de lecturas innecesarias.
-  // En las vistas de Cta. Cte se pueden hacer búsquedas específicas si se necesitara más.
-  const remitos = useFirestoreCollection<Remito>('remitos', { 
-    orderByField: 'fecha',
-    limitTo: 500 
-  });
-
+  const remitos = useFirestoreCollection<Remito>('remitos', { orderByField: 'fecha', limitTo: 500 });
   const usuarios = useFirestoreCollection<Usuario>('usuarios');
-  
-  // Pagos: Traemos los últimos 200
-  const registrosPago = useFirestoreCollection<RegistroPago>('registrosPago', { 
-    orderByField: 'fecha',
-    limitTo: 200
-  });
-
-  const facturas = useFirestoreCollection<Factura>('facturas', { 
-    orderByField: 'fecha',
-    limitTo: 100
-  });
-
+  const registrosPago = useFirestoreCollection<RegistroPago>('registrosPago', { orderByField: 'fecha', limitTo: 200 });
+  const facturas = useFirestoreCollection<Factura>('facturas', { orderByField: 'fecha', limitTo: 100 });
   const productos = useFirestoreCollection<Producto>('productos');
   const ventasVendedor = useFirestoreCollection<VentaVendedor>('ventasVendedor', { limitTo: 100 });
   const gastos = useFirestoreCollection<Gasto>('gastos', { limitTo: 100 });
   const contratos = useFirestoreCollection<Contrato>('contratos');
   const servicios = useFirestoreCollection<Servicio>('servicios');
-  const planillas = useFirestoreCollection<PlanillaDiaria>('planillas', { 
-    orderByField: 'fecha',
-    limitTo: 30 // Solo el último mes de planillas
-  });
+  const planillas = useFirestoreCollection<PlanillaDiaria>('planillas', { orderByField: 'fecha', limitTo: 30 });
   
   const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>(mockEmpresaSettings);
   
@@ -114,7 +92,6 @@ export const useDataStore = () => {
   }, []);
 
   // --- ESCRITURA DATOS ---
-  // (Las funciones add/update/delete permanecen igual ya que el volumen de 300/día es muy bajo para Firebase)
 
   const addRemito = useCallback(async (remitoData: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => {
     const cliente = clientes.find(c => c.id === remitoData.clienteId);
@@ -146,7 +123,6 @@ export const useDataStore = () => {
   }, [clientes]);
 
   const updateRemito = useCallback(async (updatedRemitoData: Remito & { pagos?: PagoDetalle[] }) => {
-    // Destructuring id and pagos to ensure they are not sent in the update body
     const { id, pagos, ...dataToSave } = updatedRemitoData;
     const remitoRef = doc(db, 'remitos', id);
     await updateDoc(remitoRef, cleanUndefineds(dataToSave));
@@ -192,10 +168,11 @@ export const useDataStore = () => {
     if (contratosIniciales && contratosIniciales.length > 0) {
         contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: clienteRef.id })));
     }
+
+    return clienteRef.id; // Retornamos el ID para usos como el QuickAdd
   }, [usuarios]);
 
   const updateCliente = useCallback(async (updatedCliente: Cliente) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedCliente;
     await updateDoc(doc(db, 'clientes', id), cleanUndefineds(data));
   }, []);
@@ -218,7 +195,6 @@ export const useDataStore = () => {
   }, []);
 
   const updateUsuario = useCallback(async (updatedUsuario: Usuario) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedUsuario;
     await updateDoc(doc(db, 'usuarios', id), cleanUndefineds(data));
   }, []);
@@ -245,7 +221,6 @@ export const useDataStore = () => {
   }, []);
   
   const updateRegistroPago = useCallback(async (updatedPago: RegistroPago) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedPago;
     await updateDoc(doc(db, 'registrosPago', id), cleanUndefineds(data));
   }, []);
@@ -275,7 +250,6 @@ export const useDataStore = () => {
   }, []);
   
   const updateVentaVendedor = useCallback(async (updatedVentaData: VentaVendedor & { pagos?: PagoDetalle[] }) => {
-     // Destructuring id and pagos to ensure they are not sent in the update payload
      const { id, pagos, ...data } = updatedVentaData;
      await updateDoc(doc(db, 'ventasVendedor', id), cleanUndefineds(data));
   }, []);
@@ -285,7 +259,6 @@ export const useDataStore = () => {
   }, []);
 
   const updateGasto = useCallback(async (updatedGasto: Gasto) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedGasto;
     await updateDoc(doc(db, 'gastos', id), cleanUndefineds(data));
   }, []);
@@ -341,7 +314,6 @@ export const useDataStore = () => {
   }, []);
 
   const updateProducto = useCallback(async (updatedProducto: Producto) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedProducto;
     await updateDoc(doc(db, 'productos', id), cleanUndefineds(data));
   }, []);
@@ -363,7 +335,6 @@ export const useDataStore = () => {
   }, []);
 
   const updateContrato = useCallback(async (updatedContrato: Contrato) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedContrato;
     await updateDoc(doc(db, 'contratos', id), cleanUndefineds(data));
   }, []);
@@ -377,7 +348,6 @@ export const useDataStore = () => {
   }, []);
 
   const updateServicio = useCallback(async (updatedServicio: Servicio) => {
-    // Destructuring id to ensure it's not sent in the update payload
     const { id, ...data } = updatedServicio;
     await updateDoc(doc(db, 'servicios', id), cleanUndefineds(data));
   }, []);
@@ -395,7 +365,6 @@ export const useDataStore = () => {
   }, []);
 
   const updatePlanilla = useCallback(async (updatedPlanilla: PlanillaDiaria) => {
-      // Destructuring id to ensure it's not sent in the update payload
       const { id, ...data } = updatedPlanilla;
       await updateDoc(doc(db, 'planillas', id), cleanUndefineds(data));
   }, []);

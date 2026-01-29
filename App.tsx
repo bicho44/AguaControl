@@ -77,6 +77,7 @@ function AppContent() {
                 addRemito={dataStore.addRemito}
                 updateRemito={dataStore.updateRemito}
                 deleteRemito={dataStore.deleteRemito}
+                addCliente={dataStore.addCliente}
                 currentUser={user}
               />;
     }
@@ -102,12 +103,10 @@ function AppContent() {
                   remitos={dataStore.remitos}
                   facturas={dataStore.facturas}
                   ventasVendedor={dataStore.ventasVendedor}
-                  // FIX: Se agregaron las props productos y addVentaVendedor requeridas por CajaViewProps
                   productos={dataStore.productos}
                   addPagoManual={dataStore.addPagoManual}
                   addGasto={dataStore.addGasto}
                   addVentaVendedor={dataStore.addVentaVendedor}
-                  // FIX: Add missing addCliente prop
                   addCliente={dataStore.addCliente}
                   updateRegistroPago={dataStore.updateRegistroPago}
                   updateGasto={dataStore.updateGasto}
@@ -147,6 +146,7 @@ function AppContent() {
                   addRemito={dataStore.addRemito}
                   updateRemito={dataStore.updateRemito}
                   deleteRemito={dataStore.deleteRemito}
+                  addCliente={dataStore.addCliente}
                   currentUser={user}
                 />;
       case 'clientes':
@@ -280,10 +280,9 @@ function AppContent() {
 }
 
 function App() {
-  // Comprobamos si Firebase está inicializado (via config.ts que chequea localStorage o env)
+  // Comprobamos si Firebase está inicializado
   const [isConfigured, setIsConfigured] = useState(!!firebaseApp);
 
-  // Callback para recargar la app tras configurar (para asegurar que db/auth se re-importen correctamente en todos los hooks)
   const handleConfigured = () => {
       window.location.reload();
   };
