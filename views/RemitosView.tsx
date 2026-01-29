@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Remito, Cliente, Usuario, Sucursal, MetodoPago, TipoVendedor, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoProducto, EstadoCliente, TipoTelefono } from '../types';
 import Card from '../components/Card';
@@ -172,7 +171,8 @@ const RemitoForm: React.FC<{
       return map;
   }, [registrosPago]);
 
-  const getRemitoTotal = useCallback((r: Remito) => {
+  const getRemitoTotal = useCallback((r: Remito | Partial<Remito>) => {
+    if (!r.clienteId || !r.movimientos) return 0;
     const cliente = clientes.find(c => c.id === r.clienteId);
     if (!cliente) return 0;
     const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
@@ -222,6 +222,8 @@ const RemitoForm: React.FC<{
     }
   }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id]);
 
+  const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
      if ((name === 'puntoVenta' || name === 'numero') && value !== '' && !/^\d*$/.test(value)) {
@@ -264,7 +266,11 @@ const RemitoForm: React.FC<{
   }
 
   const addPago = () => {
-    const newPago: PagoDetalle = { monto: 0, metodo: MetodoPago.EFECTIVO };
+    const totalActual = totalRemito;
+    const pagadoHastaAhora = (formData.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+    const saldoPendiente = Math.max(0, totalActual - pagadoHastaAhora);
+
+    const newPago: PagoDetalle = { monto: saldoPendiente, metodo: MetodoPago.EFECTIVO };
     setFormData(prev => ({...prev, pagos: [...(prev.pagos || []), newPago]}));
   }
 
@@ -350,26 +356,6 @@ const RemitoForm: React.FC<{
   }, [productos, formData.movimientos]);
 
 
-  const totalRemito = useMemo(() => {
-    if (!formData.clienteId || !formData.movimientos) return 0;
-
-    const cliente = clientes.find(c => c.id === formData.clienteId);
-    if (!cliente) return 0;
-    const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-
-    return formData.movimientos.reduce((total, mov) => {
-        if (!mov.productoId) return total;
-        
-        const producto = productos.find(p => p.id === mov.productoId);
-        if (!producto) return total;
-        
-        const precio = preciosEspecialesMap.get(mov.productoId) ?? producto.precio;
-        
-        return total + (mov.entregados * precio);
-    }, 0);
-  }, [formData.clienteId, formData.movimientos, clientes, productos]);
-
-
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6 pb-20">
@@ -382,10 +368,43 @@ const RemitoForm: React.FC<{
           </div>
         )}
 
+        {/* 1. SELECCION DE CLIENTE Y SUCURSAL */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="relative">
+                <div className="flex justify-between items-end mb-1.5">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>
+                    {!isReadOnly && (
+                        <button 
+                            type="button" 
+                            onClick={() => setIsQuickClientOpen(true)}
+                            className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-tighter"
+                        >
+                            + Nuevo Cliente
+                        </button>
+                    )}
+                </div>
+                <SearchableSelect
+                    options={clienteOptions}
+                    value={formData.clienteId || ''}
+                    onChange={(value) => handleSelectChange('clienteId', value)}
+                    placeholder="Seleccionar Cliente"
+                    disabled={isReadOnly}
+                />
+            </div>
+            <div>
+                <AppSelect 
+                    label="Sucursal (Opcional)"
+                    name="sucursalId" 
+                    value={formData.sucursalId || ''} 
+                    onChange={handleChange} 
+                    options={sucursalOptions}
+                    disabled={isReadOnly || (formData.clienteId ? clienteSucursales.length === 0 : true)}
+                />
+            </div>
+        </div>
+
+        {/* 2. NUMERO DE REMITO Y FECHA */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-1">
-              <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/>
-          </div>
           <div className="md:col-span-2">
               <div className="flex gap-2">
                   <div className="w-1/3">
@@ -396,54 +415,13 @@ const RemitoForm: React.FC<{
                   </div>
               </div>
           </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-              <div className="flex justify-between items-end mb-1">
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>
-                  {!isReadOnly && (
-                      <button 
-                          type="button" 
-                          onClick={() => setIsQuickClientOpen(true)}
-                          className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-tighter"
-                      >
-                          + Nuevo Cliente
-                      </button>
-                  )}
-              </div>
-              <SearchableSelect
-                  options={clienteOptions}
-                  value={formData.clienteId || ''}
-                  onChange={(value) => handleSelectChange('clienteId', value)}
-                  placeholder="Seleccionar Cliente"
-                  disabled={isReadOnly}
-              />
+          <div className="md:col-span-1">
+              <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/>
           </div>
-          <div>
-              <AppSelect 
-                  label="Sucursal (Opcional)"
-                  name="sucursalId" 
-                  value={formData.sucursalId || ''} 
-                  onChange={handleChange} 
-                  options={sucursalOptions}
-                  disabled={isReadOnly || clienteSucursales.length === 0}
-              />
-          </div>
-      </div>
-      
-      <div>
-          <SearchableSelect
-              label="Repartidor (Internos)"
-              options={vendedoresInternosOptions}
-              value={formData.vendedorId || ''}
-              onChange={(value) => handleSelectChange('vendedorId', value)}
-              placeholder="Seleccionar Repartidor"
-              disabled={isReadOnly || currentUser.rol === Rol.REPARTIDOR}
-          />
-      </div>
+        </div>
 
-      <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
+        {/* 3. MOVIMIENTO DE PRODUCTOS */}
+        <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
           <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimiento de Productos</legend>
           <div className="space-y-6 md:space-y-2 mt-2">
               <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-xs uppercase text-gray-500 dark:text-gray-400">
@@ -498,28 +476,45 @@ const RemitoForm: React.FC<{
               ))}
           </div>
           {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-3 w-full border-dashed border-2 py-3 text-base" type="button">+ Agregar Producto</AppButton>}
-      </fieldset>
+        </fieldset>
 
-      <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-          <span className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
-              Total: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-      </div>
+        {/* 4. TOTAL Y COBRANZA */}
+        <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <span className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
+                Total: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+        </div>
 
-      <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4 relative" disabled={isCtaCte || isReadOnly}>
-          <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Cobranza (Opcional)</legend>
-          {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md z-10 backdrop-blur-[1px]"><p className="text-sm font-bold text-gray-600 dark:text-gray-300 p-3 bg-white dark:bg-gray-700 rounded-md shadow border dark:border-gray-600">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
-          <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
-              {(formData.pagos || []).map((pago, index) => (
-                  <div key={index} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                      <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
-                      <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                      <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2" type="button"><TrashIcon className="h-5 w-5" /></AppButton>
-                  </div>
-              ))}
-          </div>
-          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2" type="button">+ Agregar Pago</AppButton>}
-      </fieldset>
+        <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4 relative" disabled={isCtaCte || isReadOnly}>
+            <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Cobranza (Opcional)</legend>
+            {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md z-10 backdrop-blur-[1px]"><p className="text-sm font-bold text-gray-600 dark:text-gray-300 p-3 bg-white dark:bg-gray-700 rounded-md shadow border dark:border-gray-600">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
+            <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
+                {(formData.pagos || []).map((pago: PagoDetalle, index: number) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3">
+                        <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
+                        <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
+                        <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2" type="button"><TrashIcon className="h-5 w-5" /></AppButton>
+                    </div>
+                ))}
+            </div>
+            {!isReadOnly && (
+                <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2 py-3" type="button">
+                    + Agregar Cobro {totalRemito > 0 ? `($${Math.max(0, totalRemito - (formData.pagos?.reduce((s,p)=>s+p.monto, 0) || 0)).toLocaleString()})` : ''}
+                </AppButton>
+            )}
+        </fieldset>
+
+        {/* 5. REPARTIDOR AL FINAL */}
+        <div className="pt-4 border-t border-gray-300 dark:border-gray-600">
+            <SearchableSelect
+                label="Repartidor (Internos)"
+                options={vendedoresInternosOptions}
+                value={formData.vendedorId || ''}
+                onChange={(value) => handleSelectChange('vendedorId', value)}
+                placeholder="Seleccionar Repartidor"
+                disabled={isReadOnly || currentUser.rol === Rol.REPARTIDOR}
+            />
+        </div>
 
         <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
           <AppButton variant="secondary" onClick={onClose} type="button">{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
@@ -736,7 +731,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         numero: nextNumero,
         movimientos: defaultMovimientos,
         pagos: [],
-        vendedorId: currentUser.rol === Rol.REPARTIDOR ? currentUser.id : undefined,
+        vendedorId: currentUser.id, // Preselección automática del usuario logueado
     });
     setIsFormOpen(true);
   }
