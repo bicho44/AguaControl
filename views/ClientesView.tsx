@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol } from '../types';
+import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -49,9 +50,10 @@ const ClienteForm: React.FC<{
   onClose: () => void;
 }> = ({ cliente, productos, servicios, clientes, onSave, onClose }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
+  // Estados para configuración inicial (Solo creación)
   const [stockInicial, setStockInicial] = useState<{ productoId: string; cantidad: number; sucursalId?: string }[]>([]);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
-  const [openSection, setOpenSection] = useState<string | null>(null);
+  
   const [cuitExistente, setCuitExistente] = useState<string | null>(null);
   const [nombreExistente, setNombreExistente] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -66,6 +68,12 @@ const ClienteForm: React.FC<{
   }>({ isOpen: false, sucursalIndex: null, initialAddress: '' });
 
   const isNew = !cliente.id;
+  const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
+  const serviciosActivos = useMemo(() => servicios.filter(s => s.estado === EstadoServicio.ACTIVO), [servicios]);
+  const sucursalOptions = useMemo(() => [
+      { value: '', label: 'Casa Central' }, 
+      ...(formData.sucursales || []).map(s => ({ value: s.id, label: s.nombre }))
+  ], [formData.sucursales]);
   
   useEffect(() => {
     if (!isNew) return;
@@ -92,6 +100,7 @@ const ClienteForm: React.FC<{
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
+  // --- LOGICA SUCURSALES ---
   const handleSucursalChange = (index: number, field: keyof Sucursal, value: any) => {
       const newSucursales = [...(formData.sucursales || [])];
       newSucursales[index] = { ...newSucursales[index], [field]: value };
@@ -150,6 +159,7 @@ const ClienteForm: React.FC<{
   const addSucursal = () => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `new_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]}));
   const removeSucursal = (index: number) => setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
 
+  // --- CONTACTO ---
   const handleTelefonoChange = (index: number, field: keyof Telefono, value: string) => {
     const newTelefonos = [...(formData.telefonos || [])];
     newTelefonos[index] = { ...newTelefonos[index], [field]: value };
@@ -166,19 +176,67 @@ const ClienteForm: React.FC<{
   const addEmail = () => setFormData(prev => ({ ...prev, emails: [...(prev.emails || []), ''] }));
   const removeEmail = (index: number) => setFormData(prev => ({ ...prev, emails: prev.emails?.filter((_, i) => i !== index) }));
 
+  // --- PRECIOS ESPECIALES ---
+  const handlePrecioEspecialChange = (index: number, field: keyof PrecioEspecial, value: string) => {
+      const newPrecios = [...(formData.preciosEspeciales || [])];
+      newPrecios[index] = { 
+          ...newPrecios[index], 
+          [field]: field === 'precio' ? (value === '' ? 0 : Number(value)) : value 
+      };
+      setFormData(prev => ({ ...prev, preciosEspeciales: newPrecios }));
+  };
+  const addPrecioEspecial = () => setFormData(prev => ({ ...prev, preciosEspeciales: [...(prev.preciosEspeciales || []), { productoId: '', precio: 0 }] }));
+  const removePrecioEspecial = (index: number) => setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
+
+  // --- STOCK INICIAL (Solo Alta) ---
+  const handleStockChange = (index: number, field: keyof typeof stockInicial[0], value: any) => {
+      const newStock = [...stockInicial];
+      newStock[index] = { ...newStock[index], [field]: field === 'cantidad' ? Number(value) : value };
+      setStockInicial(newStock);
+  };
+  const addStockInicial = () => setStockInicial([...stockInicial, { productoId: '', cantidad: 1, sucursalId: '' }]);
+  const removeStockInicial = (index: number) => setStockInicial(prev => prev.filter((_, i) => i !== index));
+
+  // --- CONTRATOS INICIALES (Solo Alta) ---
+  const handleContratoChange = (index: number, field: keyof typeof contratosIniciales[0], value: any) => {
+      const newContratos = [...contratosIniciales];
+      if (field === 'servicioId') {
+          const servicio = servicios.find(s => s.id === value);
+          if (servicio) {
+              newContratos[index] = {
+                  ...newContratos[index],
+                  servicioId: servicio.id,
+                  tipo: servicio.tipo,
+                  productoId: servicio.productoId,
+                  montoMensual: servicio.montoMensual,
+                  productoConsumoId: servicio.productoConsumoId,
+                  consumoIncluido: servicio.consumoIncluido,
+              };
+          }
+      } else {
+          newContratos[index] = { ...newContratos[index], [field]: value };
+      }
+      setContratosIniciales(newContratos);
+  };
+  const addContratoInicial = () => setContratosIniciales([...contratosIniciales, { servicioId: '', fechaInicio: new Date().toISOString().split('T')[0], tipo: TipoServicio.COMODATO, estado: EstadoContrato.ACTIVO }]);
+  const removeContratoInicial = (index: number) => setContratosIniciales(prev => prev.filter((_, i) => i !== index));
+
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData as Cliente);
+    onSave({
+        ...formData as Cliente,
+        stockInicial: isNew ? stockInicial.filter(s => s.productoId && s.cantidad > 0) : undefined,
+        contratosIniciales: isNew ? contratosIniciales.filter(c => c.servicioId) : undefined
+    });
   };
   
-  const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
-  const sucursalOptions = useMemo(() => [{ value: '', label: 'Casa Central' }, ...(formData.sucursales || []).map(s => ({ value: s.id, label: s.nombre }))], [formData.sucursales]);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-20">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Cliente</h2>
       
       <div className="space-y-6">
+          {/* INFO BASICA */}
           <Card title="Información Comercial">
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -205,6 +263,7 @@ const ClienteForm: React.FC<{
             </div>
           </Card>
 
+          {/* CONTACTO */}
           <Card title="Contacto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
@@ -231,6 +290,7 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
+          {/* SUCURSALES */}
           <Card title="Sucursales y Rutas">
               <div className="space-y-4">
                   {(formData.sucursales || []).map((suc, index) => (
@@ -262,6 +322,84 @@ const ClienteForm: React.FC<{
                   <AppButton variant="secondary" onClick={addSucursal} className="w-full border-dashed border-2 py-4">+ Agregar Nueva Sucursal / Punto de Entrega</AppButton>
               </div>
           </Card>
+
+          {/* PRECIOS ESPECIALES */}
+          <Card title="Precios Especiales / Pactados">
+              <div className="space-y-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Defina precios fijos para este cliente que sobreescriben el precio de lista.</p>
+                  {(formData.preciosEspeciales || []).map((precio, index) => (
+                      <div key={index} className="flex gap-2 items-end">
+                          <div className="flex-1">
+                              <SearchableSelect 
+                                options={productosActivos.map(p => ({value: p.id, label: `${p.nombre} (Lista: $${p.precio})`}))} 
+                                value={precio.productoId} 
+                                onChange={(val) => handlePrecioEspecialChange(index, 'productoId', val)} 
+                                placeholder="Producto..."
+                              />
+                          </div>
+                          <div className="w-32">
+                              <AppInput type="number" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} step="0.01" />
+                          </div>
+                          <AppButton variant="danger" size="sm" onClick={() => removePrecioEspecial(index)} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
+                      </div>
+                  ))}
+                  <AppButton variant="secondary" size="sm" onClick={addPrecioEspecial} className="w-full border-dashed border-2">+ Agregar Precio Especial</AppButton>
+              </div>
+          </Card>
+
+          {/* SOLO ALTA: STOCK INICIAL Y SERVICIOS */}
+          {isNew && (
+              <Card title="Alta Rápida: Stock y Servicios">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* STOCK INICIAL */}
+                      <div className="space-y-3">
+                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">Stock Inicial (Bidones en comodato)</h4>
+                          <p className="text-xs text-gray-500">¿El cliente ya tiene envases vacíos o llenos? Cárgalos acá para generar el saldo inicial.</p>
+                          {stockInicial.map((stock, index) => (
+                              <div key={index} className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
+                                  <SearchableSelect 
+                                      options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
+                                      value={stock.productoId} 
+                                      onChange={(val) => handleStockChange(index, 'productoId', val)} 
+                                      placeholder="Producto..."
+                                  />
+                                  <div className="flex gap-2">
+                                      <input type="number" placeholder="Cant." value={stock.cantidad} onChange={(e) => handleStockChange(index, 'cantidad', e.target.value)} className="w-24 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
+                                      <select value={stock.sucursalId || ''} onChange={(e) => handleStockChange(index, 'sucursalId', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700">
+                                          <option value="">Sucursal...</option>
+                                          {sucursalOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                      </select>
+                                      <button type="button" onClick={() => removeStockInicial(index)} className="text-red-500"><TrashIcon/></button>
+                                  </div>
+                              </div>
+                          ))}
+                          <button type="button" onClick={addStockInicial} className="text-xs font-bold text-blue-600 hover:underline">+ Agregar Stock Inicial</button>
+                      </div>
+
+                      {/* CONTRATOS INICIALES */}
+                      <div className="space-y-3">
+                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">Servicios a Contratar</h4>
+                          <p className="text-xs text-gray-500">Asignar abonos o alquileres desde el inicio.</p>
+                          {contratosIniciales.map((contrato, index) => (
+                              <div key={index} className="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-800 space-y-2">
+                                  <SearchableSelect 
+                                      options={serviciosActivos.map(s => ({value: s.id, label: s.nombre}))} 
+                                      value={contrato.servicioId} 
+                                      onChange={(val) => handleContratoChange(index, 'servicioId', val)} 
+                                      placeholder="Servicio..."
+                                  />
+                                  <div className="flex gap-2 items-center">
+                                      <label className="text-xs whitespace-nowrap">Inicio:</label>
+                                      <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
+                                      <button type="button" onClick={() => removeContratoInicial(index)} className="text-red-500"><TrashIcon/></button>
+                                  </div>
+                              </div>
+                          ))}
+                          <button type="button" onClick={addContratoInicial} className="text-xs font-bold text-purple-600 hover:underline">+ Agregar Servicio</button>
+                      </div>
+                  </div>
+              </Card>
+          )}
       </div>
 
       {mapModalConfig.isOpen && (
@@ -407,6 +545,22 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                 </div>
                             </div>
                         </div>
+                        {/* Resumen de Precios Especiales si existen */}
+                        {cliente.preciosEspeciales && cliente.preciosEspeciales.length > 0 && (
+                            <div className="mt-4 pt-2 border-t dark:border-gray-700">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Precios Pactados</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {cliente.preciosEspeciales.map((pe, idx) => {
+                                        const prod = productosMap.get(pe.productoId);
+                                        return prod ? (
+                                            <span key={idx} className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded">
+                                                {prod.nombre}: <b>${pe.precio}</b>
+                                            </span>
+                                        ) : null;
+                                    })}
+                                </div>
+                            </div>
+                        )}
                         {currentUser?.rol === Rol.ADMINISTRADOR && (
                             <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-end">
                                 {cliente.estado === 'Activo' ? (
