@@ -20,6 +20,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
   const [isMobileMode, setIsMobileMode] = useState(false);
   
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
@@ -39,7 +40,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     const spaceAbove = rect.top;
     const dropdownHeight = 300;
 
-    const openUpwards = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+    const openUpwards = spaceBelow < 200 && spaceAbove > spaceBelow;
 
     setDropdownStyle({
         position: 'fixed',
@@ -68,7 +69,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     if (!isOpen) {
         setSearchTerm(selectedOption ? selectedOption.label : '');
     }
-  }, [value, selectedOption, isOpen]);
+  }, [selectedOption, isOpen]);
 
   useEffect(() => {
     if (isOpen && isMobileMode && mobileInputRef.current) {
@@ -89,6 +90,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     <div 
         className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto animate-fade-in" 
         style={dropdownStyle}
+        onMouseDown={(e) => e.preventDefault()}
     >
       {filteredOptions.length > 0 ? (
         <ul className="py-1">
@@ -114,7 +116,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
       <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
           <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shadow-sm">
               <button 
-                type="button" // IMPORTANTE
+                type="button" 
                 onClick={() => setIsOpen(false)} 
                 className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
               >
@@ -127,7 +129,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Buscar..."
-                      className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full border-none focus:ring-2 focus:ring-primary-500"
+                      className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <SearchIcon className="h-5 w-5 text-gray-400" />
@@ -169,35 +171,80 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
           {label}
         </label>
       )}
-      <div 
-        className={`
-          w-full px-4 py-2.5 pr-10
-          text-gray-900 dark:text-white 
-          bg-gray-50 dark:bg-gray-700/50 
-          border border-gray-300 dark:border-gray-600 
-          rounded-xl cursor-pointer
-          flex items-center
-          min-h-[44px]
-          ${isOpen && !isMobileMode ? 'ring-2 ring-primary-500 border-primary-500' : ''}
-          ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-800' : ''}
-        `}
-        onClick={() => !disabled && setIsOpen(true)}
-      >
-        <span className={`block truncate ${!selectedOption && !searchTerm ? 'text-gray-400' : ''}`}>
-          {searchTerm || selectedOption?.label || placeholder}
-        </span>
+      <div className="relative">
+        <input
+            ref={inputRef}
+            type="text"
+            className={`
+                w-full px-4 py-2.5 pr-10
+                text-gray-900 dark:text-white 
+                bg-gray-50 dark:bg-gray-700/50 
+                border border-gray-300 dark:border-gray-600 
+                rounded-xl
+                focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+                disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200 dark:disabled:bg-gray-800
+                transition-all duration-200 outline-none
+            `}
+            value={searchTerm}
+            onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (!isOpen) setIsOpen(true);
+            }}
+            onFocus={() => {
+                if (!disabled) {
+                    setIsOpen(true);
+                    if (!isMobileMode && inputRef.current && searchTerm) {
+                        inputRef.current.select();
+                    }
+                }
+            }}
+            onClick={() => {
+                if (!disabled && !isOpen) setIsOpen(true);
+            }}
+            placeholder={placeholder}
+            disabled={disabled}
+            readOnly={isMobileMode}
+        />
+        
+        {value && !disabled && (
+            <button
+                type="button"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onChange('');
+                    setSearchTerm('');
+                    inputRef.current?.focus();
+                }}
+                className="absolute inset-y-0 right-8 flex items-center px-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                tabIndex={-1}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+            </button>
+        )}
+
         <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
           <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
+
       {isOpen && !disabled && createPortal(
           isMobileMode ? renderMobileContent() : renderDesktopContent(), 
           document.body
       )}
+      
       {isOpen && !isMobileMode && (
           <div 
             className="fixed inset-0 z-[9998] bg-transparent" 
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+                setIsOpen(false);
+                if (selectedOption) {
+                    setSearchTerm(selectedOption.label);
+                } else {
+                    setSearchTerm('');
+                }
+            }}
           />
       )}
     </div>
