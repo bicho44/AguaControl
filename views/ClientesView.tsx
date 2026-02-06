@@ -50,7 +50,6 @@ const ClienteForm: React.FC<{
   onClose: () => void;
 }> = ({ cliente, productos, servicios, clientes, onSave, onClose }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
-  // Estados para configuración inicial (Solo creación)
   const [stockInicial, setStockInicial] = useState<{ productoId: string; cantidad: number; sucursalId?: string }[]>([]);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   
@@ -100,7 +99,6 @@ const ClienteForm: React.FC<{
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
-  // --- LOGICA SUCURSALES ---
   const handleSucursalChange = (index: number, field: keyof Sucursal, value: any) => {
       const newSucursales = [...(formData.sucursales || [])];
       newSucursales[index] = { ...newSucursales[index], [field]: value };
@@ -159,7 +157,6 @@ const ClienteForm: React.FC<{
   const addSucursal = () => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `new_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]}));
   const removeSucursal = (index: number) => setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
 
-  // --- CONTACTO ---
   const handleTelefonoChange = (index: number, field: keyof Telefono, value: string) => {
     const newTelefonos = [...(formData.telefonos || [])];
     newTelefonos[index] = { ...newTelefonos[index], [field]: value };
@@ -176,7 +173,6 @@ const ClienteForm: React.FC<{
   const addEmail = () => setFormData(prev => ({ ...prev, emails: [...(prev.emails || []), ''] }));
   const removeEmail = (index: number) => setFormData(prev => ({ ...prev, emails: prev.emails?.filter((_, i) => i !== index) }));
 
-  // --- PRECIOS ESPECIALES ---
   const handlePrecioEspecialChange = (index: number, field: keyof PrecioEspecial, value: string) => {
       const newPrecios = [...(formData.preciosEspeciales || [])];
       newPrecios[index] = { 
@@ -188,7 +184,6 @@ const ClienteForm: React.FC<{
   const addPrecioEspecial = () => setFormData(prev => ({ ...prev, preciosEspeciales: [...(prev.preciosEspeciales || []), { productoId: '', precio: 0 }] }));
   const removePrecioEspecial = (index: number) => setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
 
-  // --- STOCK INICIAL (Solo Alta) ---
   const handleStockChange = (index: number, field: keyof typeof stockInicial[0], value: any) => {
       const newStock = [...stockInicial];
       newStock[index] = { ...newStock[index], [field]: field === 'cantidad' ? Number(value) : value };
@@ -197,7 +192,6 @@ const ClienteForm: React.FC<{
   const addStockInicial = () => setStockInicial([...stockInicial, { productoId: '', cantidad: 1, sucursalId: '' }]);
   const removeStockInicial = (index: number) => setStockInicial(prev => prev.filter((_, i) => i !== index));
 
-  // --- CONTRATOS INICIALES (Solo Alta) ---
   const handleContratoChange = (index: number, field: keyof typeof contratosIniciales[0], value: any) => {
       const newContratos = [...contratosIniciales];
       if (field === 'servicioId') {
@@ -236,11 +230,10 @@ const ClienteForm: React.FC<{
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Cliente</h2>
       
       <div className="space-y-6">
-          {/* INFO BASICA */}
           <Card title="Información Comercial">
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <AppInput label="Nombre del Cliente" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
+                    <AppInput label="Nombre de Fantasía (Local)" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
                     <AppSelect 
                         label="Estado" 
                         name="estado" 
@@ -253,17 +246,19 @@ const ClienteForm: React.FC<{
                     />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <AppInput label="Nombre Fiscal (Razón Social)" name="nombreFiscal" value={formData.nombreFiscal || ''} onChange={handleChange} placeholder="Ej: Perez Juan SRL" />
                     <AppInput label="CUIT" name="cuit" value={formatCuit(formData.cuit)} onChange={handleChange} error={cuitExistente ? `CUIT de ${cuitExistente}` : undefined} />
-                    <AppSelect label="Condición Fiscal" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
-                    <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" />
-                    <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer select-none">Habilitar Cuenta Corriente (Venta a crédito)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <AppSelect label="Condición Fiscal" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
+                        <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" />
+                        <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer select-none">Habilitar Cuenta Corriente</label>
+                    </div>
                 </div>
             </div>
           </Card>
 
-          {/* CONTACTO */}
           <Card title="Contacto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
@@ -290,7 +285,6 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          {/* SUCURSALES */}
           <Card title="Sucursales y Rutas">
               <div className="space-y-4">
                   {(formData.sucursales || []).map((suc, index) => (
@@ -323,7 +317,6 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          {/* PRECIOS ESPECIALES */}
           <Card title="Precios Especiales / Pactados">
               <div className="space-y-3">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Defina precios fijos para este cliente que sobreescriben el precio de lista.</p>
@@ -347,10 +340,8 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          {/* STOCK INICIAL Y SERVICIOS - AHORA DISPONIBLE SIEMPRE */}
           <Card title={isNew ? "Alta Rápida: Stock y Servicios" : "Configuración de Stock y Servicios Adicionales"}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* STOCK INICIAL */}
                   <div className="space-y-3">
                       <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">
                           {isNew ? "Stock Inicial (Comodato)" : "Agregar Ajuste de Stock"}
@@ -379,7 +370,6 @@ const ClienteForm: React.FC<{
                       <button type="button" onClick={addStockInicial} className="text-xs font-bold text-blue-600 hover:underline">+ Agregar Stock / Ajuste</button>
                   </div>
 
-                  {/* CONTRATOS INICIALES */}
                   <div className="space-y-3">
                       <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">
                           {isNew ? "Servicios a Contratar" : "Agregar Nuevo Servicio"}
@@ -527,9 +517,11 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                     <div className="px-4 pb-4 pt-0 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                             <div className="space-y-2">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Contacto</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Datos Fiscales y Contacto</p>
                                 <ul className="text-sm space-y-1">
+                                    {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
                                     {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
+                                    {cliente.tipoFacturacion && <li><span className="text-gray-400">Cond:</span> {cliente.tipoFacturacion}</li>}
                                     {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
                                     {(cliente.emails || []).map((email, i) => <li key={i}><span className="text-gray-400">Email:</span> {email}</li>)}
                                 </ul>
@@ -549,7 +541,6 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                 </div>
                             </div>
                         </div>
-                        {/* Resumen de Precios Especiales si existen */}
                         {cliente.preciosEspeciales && cliente.preciosEspeciales.length > 0 && (
                             <div className="mt-4 pt-2 border-t dark:border-gray-700">
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Precios Pactados</p>

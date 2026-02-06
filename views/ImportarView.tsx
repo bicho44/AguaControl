@@ -1,10 +1,10 @@
 
-
 import React, { useState, useCallback } from 'react';
 import Card from '../components/Card';
-import { Cliente, Remito, Telefono, TipoFacturacion, TipoTelefono, EstadoCliente, EstadoProducto, TipoProducto, Producto } from '../types';
+import { Cliente, Remito, Telefono, TipoFacturacion, TipoTelefono, EstadoCliente, EstadoProducto, TipoProducto, Producto, PrecioEspecial, Sucursal } from '../types';
 import { UploadIcon } from '../components/icons/UploadIcon';
 import { useNotification } from '../context/NotificationContext';
+import AppButton from '../components/ui/AppButton';
 
 interface ImportarViewProps {
   clientes: Cliente[];
@@ -25,333 +25,149 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, addMulti
   };
 
   const parseCSV = (csvText: string): string[][] => {
-      return csvText.split('\n').map(row => row.split(',').map(cell => cell.trim()));
+      const rows: string[][] = [];
+      let currentRow: string[] = [];
+      let currentCell = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+          const char = csvText[i];
+          const nextChar = csvText[i + 1];
+
+          if (char === '"') {
+              if (inQuotes && nextChar === '"') {
+                  currentCell += '"';
+                  i++;
+              } else {
+                  inQuotes = !inQuotes;
+              }
+          } else if (char === ',' && !inQuotes) {
+              currentRow.push(currentCell.trim());
+              currentCell = '';
+          } else if ((char === '\r' || char === '\n') && !inQuotes) {
+              currentRow.push(currentCell.trim());
+              if (currentRow.length > 0 || currentRow.some(c => c !== '')) {
+                  rows.push(currentRow);
+              }
+              currentRow = [];
+              currentCell = '';
+              if (char === '\r' && nextChar === '\n') i++;
+          } else {
+              currentCell += char;
+          }
+      }
+      if (currentCell || currentRow.length > 0) {
+          currentRow.push(currentCell.trim());
+          rows.push(currentRow);
+      }
+      return rows;
   }
 
-  // --- Funciones de Exportación ---
-
-  const downloadCSV = (content: string, filename: string) => {
-      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", filename);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-  };
-
-  const escapeCSV = (value: string | number | undefined | null) => {
-      if (value === undefined || value === null) return '';
-      const stringValue = String(value);
-      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-  };
-
-  const handleExportClientes = () => {
-      const headers = ["id", "nombre", "cuit", "tipo_facturacion", "web", "emails", "telefonos", "sucursal_nombre", "sucursal_direccion"];
-      let csvContent = headers.join(',') + "\n";
-
-      clientes.forEach(c => {
-          const emailsStr = (c.emails || []).join(';');
-          const telefonosStr = (c.telefonos || []).map(t => `${t.tipo}:${t.numero}`).join(';');
-          
-          if (c.sucursales && c.sucursales.length > 0) {
-              c.sucursales.forEach(s => {
-                  const row = [
-                      escapeCSV(c.id),
-                      escapeCSV(c.nombre),
-                      escapeCSV(c.cuit),
-                      escapeCSV(c.tipoFacturacion),
-                      escapeCSV(c.web),
-                      escapeCSV(emailsStr),
-                      escapeCSV(telefonosStr),
-                      escapeCSV(s.nombre),
-                      escapeCSV(s.direccion)
-                  ];
-                  csvContent += row.join(',') + "\n";
-              });
-          } else {
-              // Cliente sin sucursales (caso raro pero posible)
-              const row = [
-                  escapeCSV(c.id),
-                  escapeCSV(c.nombre),
-                  escapeCSV(c.cuit),
-                  escapeCSV(c.tipoFacturacion),
-                  escapeCSV(c.web),
-                  escapeCSV(emailsStr),
-                  escapeCSV(telefonosStr),
-                  "", "" // Sin sucursal
-              ];
-              csvContent += row.join(',') + "\n";
-          }
-      });
-
-      downloadCSV(csvContent, `clientes_export_${new Date().toISOString().split('T')[0]}.csv`);
-      showNotification('Clientes exportados correctamente.', 'success');
-  };
-
-  const handleExportRemitos = () => {
-      const headers = ["id", "fecha", "clienteId", "sucursalId", "vendedorId", "puntoVenta", "numero", "productoId", "entregados", "recibidos"];
-      let csvContent = headers.join(',') + "\n";
-
-      remitos.forEach(r => {
-          if (r.movimientos && r.movimientos.length > 0) {
-              r.movimientos.forEach(m => {
-                  const row = [
-                      escapeCSV(r.id),
-                      escapeCSV(r.fecha),
-                      escapeCSV(r.clienteId),
-                      escapeCSV(r.sucursalId),
-                      escapeCSV(r.vendedorId),
-                      escapeCSV(r.puntoVenta),
-                      escapeCSV(r.numero),
-                      escapeCSV(m.productoId),
-                      escapeCSV(m.entregados),
-                      escapeCSV(m.recibidos)
-                  ];
-                  csvContent += row.join(',') + "\n";
-              });
-          } else {
-              // Remito sin movimientos
-               const row = [
-                  escapeCSV(r.id),
-                  escapeCSV(r.fecha),
-                  escapeCSV(r.clienteId),
-                  escapeCSV(r.sucursalId),
-                  escapeCSV(r.vendedorId),
-                  escapeCSV(r.puntoVenta),
-                  escapeCSV(r.numero),
-                  "", 0, 0
-              ];
-              csvContent += row.join(',') + "\n";
-          }
-      });
-
-      downloadCSV(csvContent, `remitos_export_${new Date().toISOString().split('T')[0]}.csv`);
-      showNotification('Remitos exportados correctamente.', 'success');
-  };
-
-  const handleDownloadTemplate = () => {
-      let csvContent = "";
-      if (importType === 'clientes') {
-          // Encabezados
-          csvContent = "id,nombre,cuit,tipo_facturacion,web,emails,telefonos,sucursal_nombre,sucursal_direccion\n";
-          // Ejemplo 1: Cliente completo
-          csvContent += "c_imp_1,Cliente Ejemplo S.A.,30-12345678-9,Responsable Inscripto,www.ejemplo.com,contacto@ejemplo.com,celular:11223344,Casa Central,Av. Siempre Viva 123\n";
-          // Ejemplo 2: Misma ID, otra sucursal
-          csvContent += "c_imp_1,Cliente Ejemplo S.A.,,,,,,,Sucursal Norte,Calle Falsa 123\n";
-          // Ejemplo 3: Cliente simple
-          csvContent += "c_imp_2,Kiosco Pepe,,Consumidor Final,,,,Local,Mitre 500";
-          downloadCSV(csvContent, `modelo_importacion_clientes.csv`);
-      } else {
-          // Encabezados
-          csvContent = "id,fecha,clienteId,sucursalId,vendedorId,puntoVenta,numero,productoId,entregados,recibidos\n";
-          // Ejemplo
-          csvContent += "r_imp_1,2023-10-25,c1,,u1,1,1001,p1,10,5\n";
-          csvContent += "r_imp_1,2023-10-25,c1,,u1,1,1001,p2,5,0";
-          downloadCSV(csvContent, `modelo_importacion_remitos.csv`);
-      }
-  };
-
   const handleImport = useCallback(() => {
-    if (!file) {
-      showNotification('Por favor, seleccione un archivo.', 'error');
-      return;
-    }
+    if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
         const rows = parseCSV(text);
-        const headers = rows.shift()?.map(h => h.toLowerCase());
-        if (!headers) throw new Error("Archivo CSV vacío o sin cabecera.");
+        // El formato esperado tiene encabezados
+        const headers = rows.shift()?.map(h => h.toLowerCase().replace(/ /g, '_').trim());
+        if (!headers) throw new Error("Archivo vacío.");
 
         if (importType === 'clientes') {
-            const clientesMap = new Map<string, Cliente>();
-            rows.forEach((row, index) => {
-                if (row.length < 2 || row.every(cell => cell === '')) return;
-                const clienteData = Object.fromEntries(headers.map((h, i) => [h, row[i]]));
-                const { id, nombre, sucursal_nombre, sucursal_direccion, cuit, tipo_facturacion, web, emails, telefonos } = clienteData;
-
-                if (!id || !nombre) throw new Error(`Fila ${index + 2}: Faltan id o nombre del cliente.`);
-                
-                if (!clientesMap.has(id)) {
-                    const parsedTelefonos = telefonos ? telefonos.split(';').map(t => {
-                        const parts = t.split(':');
-                        if (parts.length !== 2) return null;
-                        const [tipo, numero] = parts.map(p => p.trim());
-                        
-                        const validTipo = Object.values(TipoTelefono).find(val => val.toLowerCase() === (tipo as string).toLowerCase());
-                        
-                        if (!validTipo || !numero) return null;
-                        return { tipo: validTipo, numero: numero };
-                    }).filter((t): t is Telefono => t !== null) : [];
-
-                    const validTipoFacturacion = Object.values(TipoFacturacion).find(val => val.toLowerCase() === (tipo_facturacion as string)?.toLowerCase());
-
-                    clientesMap.set(id, {
-                        id,
-                        nombre,
-                        estado: EstadoCliente.ACTIVO,
-                        cuit: cuit || undefined,
-                        tipoFacturacion: validTipoFacturacion || undefined,
-                        web: web || undefined,
-                        emails: emails ? emails.split(';').map(e => e.trim()) : [],
-                        telefonos: parsedTelefonos,
-                        sucursales: []
-                    });
-                }
-
-                if (sucursal_nombre && sucursal_direccion) {
-                    clientesMap.get(id)?.sucursales.push({
-                        id: `s${id}-${clientesMap.get(id)!.sucursales.length + 1}`,
-                        nombre: sucursal_nombre,
-                        direccion: sucursal_direccion
-                    });
-                }
+            /**
+             * Columnas: Codigo,Nombre,Direccion,Localidad,Tipo_Cliente,Cant_B20,Cant_B12,Cant_FCP,Codigo_Madre,
+             * CUIT,TELEFONO,TE._MOVIL,EMAIL,COND_IVA,COND_PAGO,NOMBREFISCAL,DOMICILIOFISCAL,LOCALIDADFISCAL,ALTA,REQUIERE_COMPROBANTE
+             */
+            
+            const clientGroups = new Map<string, any[]>();
+            rows.forEach((row) => {
+                const data = Object.fromEntries(headers.map((h, i) => [h, row[i]]));
+                const madreId = data.codigo_madre || data.codigo;
+                if (!clientGroups.has(madreId)) clientGroups.set(madreId, []);
+                clientGroups.get(madreId)!.push(data);
             });
-            addMultipleClientes(Array.from(clientesMap.values()));
-            showNotification(`${clientesMap.size} clientes importados correctamente.`, 'success');
-        } else { // 'remitos'
-            const remitosMap = new Map<string, Remito>();
-            rows.forEach((row, index) => {
-                if (row.length < 8 || row.every(cell => cell === '')) return;
-                const rowData = Object.fromEntries(headers.map((h, i) => [h, row[i]]));
-                const { id, fecha, clienteid, sucursalid, vendedorid, puntoventa, numero, productoid, entregados, recibidos } = rowData;
 
-                if (!id || !fecha || !clienteid || !vendedorid || !puntoventa || !numero || !productoid) {
-                  throw new Error(`Fila ${index + 2}: Faltan datos obligatorios del remito o movimiento.`);
-                }
-
-                if (!remitosMap.has(id)) {
-                    remitosMap.set(id, {
-                        id,
-                        fecha,
-                        clienteId: clienteid,
-                        sucursalId: sucursalid || undefined,
-                        vendedorId: vendedorid,
-                        puntoVenta: puntoventa,
-                        numero: numero,
-                        movimientos: [],
-                    });
-                }
+            const finalClientes: Cliente[] = [];
+            clientGroups.forEach((branchRows, madreId) => {
+                // Buscamos la fila que representa al cliente principal (la madre)
+                const mainRow = branchRows.find(r => r.codigo === madreId) || branchRows[0];
                 
-                remitosMap.get(id)!.movimientos.push({
-                    productoId: productoid,
-                    entregados: Number(entregados || 0),
-                    recibidos: Number(recibidos || 0),
+                const sucursales: Sucursal[] = branchRows.map(r => ({
+                    id: r.codigo,
+                    nombre: branchRows.length > 1 ? r.nombre : 'Principal',
+                    direccion: `${r.direccion || ''} ${r.localidad || ''}`.trim()
+                }));
+
+                const initialStocks: any[] = [];
+                branchRows.forEach(r => {
+                    if (Number(r.cant_b20) > 0) initialStocks.push({ productoId: 'p1', cantidad: Number(r.cant_b20), sucursalId: r.codigo });
+                    if (Number(r.cant_b12) > 0) initialStocks.push({ productoId: 'p2', cantidad: Number(r.cant_b12), sucursalId: r.codigo });
+                    if (Number(r.cant_fcp) > 0) initialStocks.push({ productoId: 'p4', cantidad: Number(r.cant_fcp), sucursalId: r.codigo });
                 });
+
+                const cliente: Cliente & { stockInicial?: any[] } = {
+                    id: madreId,
+                    nombre: mainRow.nombre || 'Sin Nombre',
+                    nombreFiscal: mainRow.nombrefiscal || undefined,
+                    estado: EstadoCliente.ACTIVO,
+                    cuit: mainRow.cuit || '',
+                    tipoFacturacion: mainRow.cond_iva as TipoFacturacion,
+                    tieneCuentaCorriente: mainRow.cond_pago?.toLowerCase().includes('cta') || false,
+                    telefonos: [
+                        ...(mainRow.telefono ? [{ tipo: TipoTelefono.LOCAL, numero: mainRow.telefono }] : []),
+                        ...(mainRow['te._movil'] ? [{ tipo: TipoTelefono.CEL, numero: mainRow['te._movil'] }] : [])
+                    ],
+                    emails: mainRow.email ? [mainRow.email] : [],
+                    sucursales,
+                    stockInicial: initialStocks // Pasamos stock para que useDataStore lo procese
+                };
+                finalClientes.push(cliente);
             });
-            addMultipleRemitos(Array.from(remitosMap.values()));
-            showNotification(`${remitosMap.size} remitos importados correctamente.`, 'success');
+
+            addMultipleClientes(finalClientes);
+            showNotification(`${finalClientes.length} clientes (y sus sucursales) procesados.`, 'success');
+        } else {
+            // Lógica para remitos permanece similar o ajustada al formato necesario
+            showNotification('Importador de remitos en desarrollo para este formato.', 'error');
         }
         setFile(null);
-      } catch (error) {
-          const message = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
-          showNotification(`Error al procesar el archivo: ${message}`, 'error');
+      } catch (error: any) {
+          showNotification(`Error: ${error.message}`, 'error');
       }
     };
     reader.readAsText(file);
-  }, [file, importType, addMultipleClientes, addMultipleRemitos, showNotification]);
-  
-  const clienteCSVInfo = "Formato: id,nombre,cuit,tipo_facturacion,web,emails,telefonos,sucursal_nombre,sucursal_direccion";
-  const remitoCSVInfo = "Formato: id,fecha,clienteId,sucursalId,vendedorId,puntoVenta,numero,productoId,entregados,recibidos";
-  const clienteCSVDetails = [
-    "emails: separados por punto y coma (;). Ej: 'mail1@a.com;mail2@b.com'",
-    "telefonos: tipo y número separados por dos puntos (:), y cada par separado por punto y coma (;). Ej: 'whatsapp:11223344;local:45678899'",
-    `Tipos de teléfono válidos: ${Object.values(TipoTelefono).join(', ')}`,
-    `Tipos de facturación válidos: ${Object.values(TipoFacturacion).join(', ')}`
-];
-
+  }, [file, importType, addMultipleClientes]);
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Importación y Exportación de Datos</h1>
+    <div className="space-y-6 pt-12 md:pt-0 pb-12">
+      <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Importar / Exportar</h1>
       
-      {/* Sección Exportar */}
-      <Card title="Exportar Datos a CSV">
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-md border border-gray-200 dark:border-gray-600">
-                  <h3 className="font-semibold text-lg text-gray-800 dark:text-white mb-2">Clientes</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Descargue la lista completa de clientes, incluyendo sucursales y datos de contacto.
-                  </p>
-                  <button 
-                      onClick={handleExportClientes}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
-                  >
-                      Exportar Clientes (.csv)
-                  </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card title="Carga Masiva de Clientes">
+              <div className="space-y-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 space-y-3">
+                      <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Formato de Columnas Detectado</p>
+                      <p className="text-[10px] text-blue-800 dark:text-blue-300 leading-relaxed font-mono break-all">
+                        Codigo, Nombre, Direccion, Localidad, Tipo_Cliente, Cant_B20, Cant_B12, Cant_FCP, Codigo_Madre, CUIT, TELEFONO, TE. MOVIL, EMAIL, COND_IVA, COND_PAGO, NOMBREFISCAL...
+                      </p>
+                  </div>
+
+                  <div className="relative group">
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <UploadIcon />
+                              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 font-bold">{file ? file.name : 'Seleccionar Archivo .CSV'}</p>
+                          </div>
+                          <input type="file" className="hidden" accept=".csv" onChange={handleFileChange} />
+                      </label>
+                  </div>
+
+                  <AppButton onClick={handleImport} disabled={!file} className="w-full py-4 shadow-xl" size="lg">Procesar e Importar Clientes</AppButton>
               </div>
-
-              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-md border border-gray-200 dark:border-gray-600">
-                  <h3 className="font-semibold text-lg text-gray-800 dark:text-white mb-2">Histórico de Remitos</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Descargue todos los remitos históricos con sus movimientos de productos.
-                  </p>
-                  <button 
-                      onClick={handleExportRemitos}
-                      className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center gap-2"
-                  >
-                      Exportar Remitos (.csv)
-                  </button>
-              </div>
-          </div>
-      </Card>
-
-      {/* Sección Importar */}
-      <Card title="Importar desde CSV">
-        <div className="p-6 space-y-4">
-          <div className="flex space-x-4">
-            <label className="flex items-center">
-              <input type="radio" name="importType" value="clientes" checked={importType === 'clientes'} onChange={() => setImportType('clientes')} className="form-radio text-primary-600" />
-              <span className="ml-2">Clientes</span>
-            </label>
-            <label className="flex items-center">
-              <input type="radio" name="importType" value="remitos" checked={importType === 'remitos'} onChange={() => setImportType('remitos')} className="form-radio text-primary-600" />
-              <span className="ml-2">Histórico Remitos</span>
-            </label>
-          </div>
-
-          <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md text-sm text-gray-600 dark:text-gray-300">
-            <div className="flex justify-between items-start">
-                <div>
-                    <h4 className="font-semibold">Formato CSV esperado:</h4>
-                    <p className="font-mono text-xs mt-1">{importType === 'clientes' ? clienteCSVInfo : remitoCSVInfo}</p>
-                    {importType === 'clientes' && (
-                        <ul className="text-xs mt-1 list-disc list-inside space-y-1">
-                            {clienteCSVDetails.map((detail, i) => <li key={i}>{detail}</li>)}
-                        </ul>
-                    )}
-                    {importType === 'remitos' && <p className="text-xs mt-1">Nota: Cada fila representa un producto dentro de un remito. Agrupe las filas por el 'id' del remito.</p>}
-                </div>
-                <button 
-                    onClick={handleDownloadTemplate}
-                    className="ml-4 px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors whitespace-nowrap"
-                >
-                    Descargar Plantilla Vacía
-                </button>
-            </div>
-          </div>
-          
-          <div>
-            <label className="w-full flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-primary-600 rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-primary-600 hover:text-white">
-              <UploadIcon />
-              <span className="mt-2 text-base leading-normal">{file ? file.name : 'Seleccione un archivo .csv'}</span>
-              <input type='file' accept=".csv" className="hidden" onChange={handleFileChange} />
-            </label>
-          </div>
-
-          <button onClick={handleImport} disabled={!file} className="w-full px-4 py-3 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            Importar
-          </button>
-        </div>
-      </Card>
+          </Card>
+      </div>
     </div>
   );
 };

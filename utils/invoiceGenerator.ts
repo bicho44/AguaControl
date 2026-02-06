@@ -13,22 +13,13 @@ export const generateInvoicePDF = async (
 ): Promise<boolean> => {
     return new Promise((resolve) => {
         try {
-            // Configuración inicial según modo
-            // print: Landscape (apaisado) para doble copia A5
-            // email: Portrait (vertical) para lectura en celular/PC
             const orientation = mode === 'print' ? 'landscape' : 'portrait';
             const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
             
             const productosMap = new Map(productos.map(p => [p.id, p]));
             const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
 
-            // Función para dibujar una factura en un área específica
-            // offsetX: Desplazamiento horizontal (0 para original, 148.5 para duplicado)
             const drawInvoice = (offsetX: number, label: string) => {
-                
-                // --- Header ---
-                
-                // Logo
                 if (empresa.logo) {
                     try {
                         doc.addImage(empresa.logo, 'JPEG', offsetX + 10, 10, 25, 25);
@@ -37,7 +28,6 @@ export const generateInvoicePDF = async (
                     }
                 }
 
-                // Datos Empresa
                 doc.setFontSize(12);
                 doc.setFont("helvetica", "bold");
                 doc.text(empresa.nombreFantasia || empresa.nombre, offsetX + 40, 15);
@@ -53,11 +43,8 @@ export const generateInvoicePDF = async (
                 doc.text(`CUIT: ${empresa.cuit || '-'} | IIBB: ${empresa.iibb || '-'}`, offsetX + 40, 28);
                 doc.text(empresa.condicionIVA || '', offsetX + 40, 32);
 
-                // Cuadro Factura (X o Presupuesto)
                 doc.setDrawColor(0);
                 doc.setFillColor(245, 245, 245);
-                // Ancho de la mitad A4 (297/2) = 148.5. Cuadro a la derecha de esa mitad.
-                // En modo email (Portrait 210mm), ajustamos
                 const boxX = mode === 'print' ? offsetX + 95 : 130;
                 
                 doc.rect(boxX, 10, 45, 25, 'FD');
@@ -73,19 +60,18 @@ export const generateInvoicePDF = async (
                 
                 if (mode === 'print') {
                     doc.setFontSize(6);
-                    doc.text(label, boxX + 42, 33, { align: 'right' }); // ORIGINAL / DUPLICADO
+                    doc.text(label, boxX + 42, 33, { align: 'right' });
                 }
 
-                // --- Divider ---
                 const pageWidth = mode === 'print' ? 148.5 : 210;
                 doc.line(offsetX + 10, 40, offsetX + pageWidth - 10, 40);
 
-                // --- Datos Cliente ---
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "bold");
                 doc.text("Cliente:", offsetX + 10, 48);
                 doc.setFont("helvetica", "normal");
-                doc.text(cliente.nombre, offsetX + 25, 48);
+                // Priorizar NOMBRE FISCAL sobre nombre comercial
+                doc.text(cliente.nombreFiscal || cliente.nombre, offsetX + 25, 48);
                 
                 doc.setFontSize(8);
                 const clientCuit = cliente.cuit || '-';
@@ -96,7 +82,6 @@ export const generateInvoicePDF = async (
                 doc.text(`Condición: ${clientCond}`, offsetX + 60, 53);
                 doc.text(`Dirección: ${clientAddress}`, offsetX + 10, 58);
 
-                // --- Tabla de Items ---
                 const itemsMap = new Map<string, { name: string, quantity: number, price: number, total: number }>();
 
                 remitos.forEach(remito => {
@@ -149,25 +134,20 @@ export const generateInvoicePDF = async (
 
                 const finalY = (doc as any).lastAutoTable.finalY || 80;
 
-                // --- Totales ---
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(12);
                 doc.text(`Total: $${factura.monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, offsetX + pageWidth - 10, finalY + 10, { align: 'right' });
 
-                // --- Pie de Página (Remitos y Bancos) ---
                 let footerY = finalY + 18;
                 
-                // Lista de Remitos
                 doc.setFontSize(7);
                 doc.setFont("helvetica", "normal");
                 doc.setTextColor(100);
                 const remitosStr = "Remitos incluidos: " + remitos.map(r => `${r.puntoVenta}-${r.numero}`).join(', ');
-                // Split text to fit width
                 const splitRemitos = doc.splitTextToSize(remitosStr, pageWidth - 20);
                 doc.text(splitRemitos, offsetX + 10, footerY);
                 footerY += (splitRemitos.length * 3) + 3;
 
-                // Datos Bancarios
                 if (empresa.cbu || empresa.alias) {
                     doc.setTextColor(0);
                     doc.setFont("helvetica", "bold");
@@ -184,7 +164,6 @@ export const generateInvoicePDF = async (
                     footerY += 8;
                 }
 
-                // Observaciones
                 if (empresa.observacionesFactura) {
                     footerY += 2;
                     doc.setFontSize(6);
@@ -195,28 +174,19 @@ export const generateInvoicePDF = async (
             };
 
             if (mode === 'print') {
-                // Dibujar Original (Izquierda)
                 drawInvoice(0, "ORIGINAL");
-                
-                // Línea de corte (Punteada al medio)
                 doc.setDrawColor(150);
                 (doc as any).setLineDash([2, 2], 0);
                 doc.line(148.5, 10, 148.5, 200);
-                (doc as any).setLineDash([], 0); // Reset
-
-                // Dibujar Duplicado (Derecha)
+                (doc as any).setLineDash([], 0);
                 drawInvoice(148.5, "DUPLICADO");
             } else {
-                // Modo Email (Solo una copia centrada en A4 vertical)
                 drawInvoice(0, "");
             }
 
-            // SIEMPRE guardar/descargar el archivo, incluso en modo email.
-            // Esto es crucial porque el navegador NO puede adjuntar automáticamente el blob al mailto.
             const fileName = `Factura_${factura.numero}.pdf`;
             doc.save(fileName);
 
-            // Siempre abrir pestaña extra para feedback visual (corrige problema de modo email)
             try {
                 const pdfBlob = doc.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);

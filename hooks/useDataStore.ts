@@ -2,10 +2,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Remito, Cliente, Usuario, Factura, Producto, VentaVendedor, RegistroPago, PagoDetalle, Gasto, EmpresaSettings, Contrato, Servicio, PlanillaDiaria, Rol, EstadoCliente, EstadoProducto, EstadoServicio } from '../types';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, limit, where, QueryConstraint } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, limit, where, QueryConstraint, writeBatch } from 'firebase/firestore';
 import { mockEmpresaSettings } from '../data/mockData';
 
-// Helper recursivo para limpiar undefineds (Firestore arroja error si encuentra uno en cualquier nivel)
 const cleanUndefineds = (obj: any): any => {
     if (obj === null || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) return obj.map(v => cleanUndefineds(v));
@@ -16,10 +15,6 @@ const cleanUndefineds = (obj: any): any => {
     );
 };
 
-/**
- * Hook optimizado para Firestore.
- * Evita leer toda la base de datos de golpe para controlar costos.
- */
 function useFirestoreCollection<T>(
     collectionName: string, 
     options: { 
@@ -67,7 +62,6 @@ function useFirestoreCollection<T>(
 }
 
 export const useDataStore = () => {
-  // --- LEER DATOS ---
   const clientes = useFirestoreCollection<Cliente>('clientes', { orderByField: 'nombre' });
   const remitos = useFirestoreCollection<Remito>('remitos', { orderByField: 'fecha', limitTo: 500 });
   const usuarios = useFirestoreCollection<Usuario>('usuarios');
@@ -90,8 +84,6 @@ export const useDataStore = () => {
       });
       return () => unsub();
   }, []);
-
-  // --- ESCRITURA DATOS ---
 
   const addRemito = useCallback(async (remitoData: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => {
     const cliente = clientes.find(c => c.id === remitoData.clienteId);
@@ -155,7 +147,7 @@ export const useDataStore = () => {
             sucursalId: stock.sucursalId || null,
             vendedorId: adminUser?.id || usuarios[0]?.id,
             puntoVenta: '0000',
-            numero: `AJU-${Date.now()}`,
+            numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
             movimientos: [{
                 productoId: stock.productoId,
                 entregados: stock.cantidad,
@@ -169,7 +161,7 @@ export const useDataStore = () => {
         contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: clienteRef.id })));
     }
 
-    return clienteRef.id; // Retornamos el ID para usos como el QuickAdd
+    return clienteRef.id;
   }, [usuarios]);
 
   const updateCliente = useCallback(async (updatedCliente: Cliente & { 
@@ -179,7 +171,6 @@ export const useDataStore = () => {
     const { id, stockInicial, contratosIniciales, ...data } = updatedCliente;
     await updateDoc(doc(db, 'clientes', id), cleanUndefineds(data));
 
-    // Lógica para añadir stock a cliente existente
     if (stockInicial && stockInicial.length > 0) {
         const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
         const today = new Date().toISOString().split('T')[0];
@@ -200,7 +191,6 @@ export const useDataStore = () => {
         remitosDeAjuste.forEach(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
     }
 
-    // Lógica para añadir contratos a cliente existente
     if (contratosIniciales && contratosIniciales.length > 0) {
         contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id })));
     }
@@ -214,10 +204,41 @@ export const useDataStore = () => {
     await updateDoc(doc(db, 'clientes', clienteId), { estado: EstadoCliente.ACTIVO });
   }, []);
 
-  const addMultipleClientes = useCallback(async (newClientes: Cliente[]) => {
-      const batchPromises = newClientes.map(c => addDoc(collection(db, 'clientes'), cleanUndefineds(c)));
-      await Promise.all(batchPromises);
-  }, []);
+  const addMultipleClientes = useCallback(async (newClientes: (Cliente & { stockInicial?: any[] })[]) => {
+      // Usamos writeBatch para mayor eficiencia en importaciones masivas
+      const batch = writeBatch(db);
+      const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const fechaAjuste = yesterday.toISOString().split('T')[0];
+
+      newClientes.forEach(clienteData => {
+          const { stockInicial, ...cliente } = clienteData;
+          const clienteRef = doc(collection(db, 'clientes'));
+          batch.set(clienteRef, cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
+
+          if (stockInicial && stockInicial.length > 0) {
+              stockInicial.forEach((stock: any) => {
+                  const remitoRef = doc(collection(db, 'remitos'));
+                  const remitoAjuste = {
+                      fecha: fechaAjuste,
+                      clienteId: clienteRef.id,
+                      sucursalId: stock.sucursalId || null,
+                      vendedorId: adminUser?.id || usuarios[0]?.id,
+                      puntoVenta: '0000',
+                      numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+                      movimientos: [{
+                          productoId: stock.productoId,
+                          entregados: stock.cantidad,
+                          recibidos: 0
+                      }]
+                  };
+                  batch.set(remitoRef, cleanUndefineds(remitoAjuste));
+              });
+          }
+      });
+      await batch.commit();
+  }, [usuarios]);
 
   const addUsuario = useCallback(async (usuario: Omit<Usuario, 'id'>) => {
     await addDoc(collection(db, 'usuarios'), cleanUndefineds(usuario));

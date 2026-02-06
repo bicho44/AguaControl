@@ -12,7 +12,7 @@ export type View =
   | 'settings'
   | 'contratos'
   | 'servicios'
-  | 'planillas'; // Nueva vista
+  | 'planillas';
 
 export enum Rol {
   ADMINISTRADOR = 'Administrador',
@@ -31,7 +31,7 @@ export interface Usuario {
   password?: string;
   rol: Rol;
   tipo: TipoVendedor;
-  preciosEspeciales?: PrecioEspecial[]; // Precios de reventa para externos
+  preciosEspeciales?: PrecioEspecial[];
 }
 
 export enum TipoTelefono {
@@ -92,6 +92,7 @@ export enum EstadoCliente {
 export interface Cliente {
   id: string;
   nombre: string;
+  nombreFiscal?: string; // Nuevo campo para facturación
   estado: EstadoCliente;
   sucursales: Sucursal[];
   cuit?: string;
@@ -122,7 +123,7 @@ export interface Producto {
     estado: EstadoProducto;
     litros: number;
     precio: number;
-    precioReventa?: number; // Precio default para vendedores externos
+    precioReventa?: number;
     color?: string;
 }
 
@@ -189,21 +190,21 @@ export interface Factura {
     remitosIds: string[];
     pagoIds?: string[];
     estado: EstadoFactura;
-    enviada?: boolean; // Nuevo campo para tracking de envío
+    enviada?: boolean;
 }
 
 export interface MovimientoVenta {
     productoId: string;
     cantidad: number;
-    recibidos?: number; // Soporte para devolución de envases en local
-    precioUnitario?: number; // Precio pactado en la venta
+    recibidos?: number;
+    precioUnitario?: number;
 }
 
 export interface VentaVendedor {
     id: string;
     fecha: string;
     vendedorId: string;
-    clienteId?: string; // Nuevo: Soporte para cliente eventual o registrado en local
+    clienteId?: string;
     movimientos: MovimientoVenta[];
     pagoIds?: string[];
 }
@@ -234,14 +235,10 @@ export interface EmpresaSettings {
     iibb?: string;
     fechaInicioActividad?: string;
     logo?: string;
-    
-    // Datos Bancarios y Extras para Factura
     cbu?: string;
     alias?: string;
     banco?: string;
     observacionesFactura?: string;
-    
-    // Plantilla de Email
     emailTemplate?: EmailTemplate;
 }
 
@@ -291,8 +288,6 @@ export interface Contrato {
     condicionesEspeciales?: string;
 }
 
-// --- NUEVOS TYPES PARA CONTROL DE STOCK ---
-
 export enum EstadoPlanilla {
     ABIERTA = 'Abierta',
     CERRADA = 'Cerrada',
@@ -314,20 +309,12 @@ export interface PlanillaDiaria {
     fecha: string;
     repartidorId: string;
     estado: EstadoPlanilla;
-    
-    // Carga Inicial (Salida de Fábrica)
     cargaInicial: ItemStock[];
-    
-    // Recargas durante el día
     recargas?: { 
         hora: string; 
         items: ItemStock[];
         vaciosDescargados?: ItemStock[];
     }[];
-    
-    // Devolución / Rendición (Vuelta a Fábrica - Cierre final)
     devolucion?: ItemDevolucion[];
-    
-    // Observaciones del cierre
     observaciones?: string;
 }
