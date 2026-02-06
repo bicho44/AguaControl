@@ -42,12 +42,13 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
               currentRow.push(currentCell.trim()); currentCell = '';
           } else if ((char === '\r' || char === '\n') && !inQuotes) {
               currentRow.push(currentCell.trim());
-              if (currentRow.length > 0 || currentRow.some(c => c !== '')) { rows.push(currentRow); }
+              // Evitar filas vacías
+              if (currentRow.length > 0 && currentRow.some(c => c !== '')) { rows.push(currentRow); }
               currentRow = []; currentCell = '';
               if (char === '\r' && nextChar === '\n') i++;
           } else { currentCell += char; }
       }
-      if (currentCell || currentRow.length > 0) { currentRow.push(currentCell.trim()); rows.push(currentRow); }
+      if (currentCell || (currentRow.length > 0 && currentRow.some(c => c !== ''))) { currentRow.push(currentCell.trim()); rows.push(currentRow); }
       return rows;
   }
 
@@ -62,10 +63,14 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                 const rawHeaders = rows.shift();
                 if (!rawHeaders) throw new Error("Archivo vacío");
                 
-                // Normalizar cabeceras: minúsculas y sin espacios laterales
                 const headers = rawHeaders.map(h => h.toLowerCase().trim());
-                const dataRows = rows.map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]])));
+                // Filtrar filas basura que a veces vienen al final
+                const dataRows = rows
+                    .filter(row => row.length > 0 && row.some(cell => cell.trim() !== ''))
+                    .map(row => Object.fromEntries(headers.map((h, i) => [h, row[i] || ''])));
                 
+                if (dataRows.length === 0) throw new Error("No se encontraron datos válidos en el archivo.");
+
                 setFileData({ headers, rows: dataRows });
 
                 // 1. Mapeo Automático de IVA
@@ -83,7 +88,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                     setIvaMapping(initialIvaMap);
                 }
 
-                // 2. Mapeo Automático de Productos (Columnas Cant_...)
+                // 2. Mapeo Automático de Productos
                 const initialProdMap: Record<string, string> = {};
                 headers.forEach(h => {
                     if (h.startsWith('cant_')) {
@@ -115,8 +120,10 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
 
           const clientGroups = new Map<string, any[]>();
           fileData.rows.forEach(row => {
-              // El usuario usa Codigo_Madre para agrupar sucursales
-              const madreId = row.codigo_madre || row.codigo;
+              // Asegurarnos de tener un código, sino saltamos la fila
+              const madreId = (row.codigo_madre || row.codigo || '').toString().trim();
+              if (!madreId) return;
+
               if (!clientGroups.has(madreId)) clientGroups.set(madreId, []);
               clientGroups.get(madreId)!.push(row);
           });
@@ -126,7 +133,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
               const mainRow = branchRows.find(r => r.codigo === madreId) || branchRows[0];
               
               const sucursales: Sucursal[] = branchRows.map(r => ({
-                  id: r.codigo,
+                  id: (r.codigo || `suc_${Date.now()}_${Math.random()}`).toString(),
                   nombre: branchRows.length > 1 ? (r.nombre || `Sucursal ${r.codigo}`) : 'Principal',
                   direccion: `${r.direccion || ''} ${r.localidad || ''}`.trim()
               }));
@@ -134,8 +141,9 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
               const initialStocks: any[] = [];
               branchRows.forEach(r => {
                   Object.entries(productMapping).forEach(([col, pId]) => {
-                      if (pId && Number(r[col]) > 0) {
-                          initialStocks.push({ productoId: pId, cantidad: Number(r[col]), sucursalId: r.codigo });
+                      const qty = Number(r[col]);
+                      if (pId && !isNaN(qty) && qty > 0) {
+                          initialStocks.push({ productoId: pId, cantidad: qty, sucursalId: r.codigo });
                       }
                   });
               });
@@ -147,7 +155,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                   estado: EstadoCliente.ACTIVO,
                   cuit: mainRow.cuit || '',
                   tipoFacturacion: ivaMapping[mainRow.cond_iva] || TipoFacturacion.CONSUMIDOR_FINAL,
-                  tieneCuentaCorriente: mainRow.cond_pago?.toLowerCase().includes('cta') || false,
+                  tieneCuentaCorriente: (mainRow.cond_pago || '').toLowerCase().includes('cta') || false,
                   telefonos: [
                       ...(mainRow.telefono ? [{ tipo: TipoTelefono.LOCAL, numero: mainRow.telefono }] : []),
                       ...(mainRow['te. movil'] ? [{ tipo: TipoTelefono.CEL, numero: mainRow['te. movil'] }] : [])
@@ -157,6 +165,8 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                   stockInicial: initialStocks
               });
           });
+
+          if (finalClientes.length === 0) throw new Error("No hay clientes válidos para importar (falta columna Código).");
 
           await addMultipleClientes(finalClientes);
           showNotification(`¡Éxito! ${finalClientes.length} clientes procesados.`, 'success');

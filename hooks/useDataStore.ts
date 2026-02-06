@@ -234,8 +234,14 @@ export const useDataStore = () => {
           const batch = writeBatch(db);
           chunk.forEach(clienteData => {
               const { stockInicial, ...cliente } = clienteData;
-              // USAR ID PROPORCIONADO (madreId) PARA EL DOCUMENTO
-              const clienteRef = doc(db, 'clientes', clienteData.id);
+              
+              // FIX: Asegurar que el ID sea un string válido y no vacío.
+              // Si no hay ID, Firestore generará uno automáticamente usando doc(collection(...))
+              const clienteId = clienteData.id?.toString().trim();
+              const clienteRef = clienteId 
+                  ? doc(db, 'clientes', clienteId) 
+                  : doc(collection(db, 'clientes'));
+
               batch.set(clienteRef, cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
 
               if (stockInicial && stockInicial.length > 0) {
@@ -248,7 +254,7 @@ export const useDataStore = () => {
                           vendedorId: adminUser?.id || usuarios[0]?.id,
                           puntoVenta: '0000',
                           numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-                          esAjuste: true, // MARCAR COMO AJUSTE PARA $0 DEUDA
+                          esAjuste: true,
                           movimientos: [{
                               productoId: stock.productoId,
                               entregados: stock.cantidad,
