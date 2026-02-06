@@ -24,7 +24,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.5 (Firebase)';
+const APP_VERSION = '2.5.1 (Firebase Fix)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -214,8 +214,9 @@ function AppContent() {
         return <ImportarView 
                   clientes={dataStore.clientes} 
                   remitos={dataStore.remitos}   
+                  productos={dataStore.productos}
                   addMultipleClientes={dataStore.addMultipleClientes}
-                  addMultipleRemitos={dataStore.addMultipleRemitos}
+                  deleteAllClientes={dataStore.deleteAllClientes}
                 />;
       case 'settings':
           return <SettingsView
