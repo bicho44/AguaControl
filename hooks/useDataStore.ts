@@ -1,502 +1,359 @@
 
-import { useState, useCallback, useEffect } from 'react';
-import { Remito, Cliente, Usuario, Factura, Producto, VentaVendedor, RegistroPago, PagoDetalle, Gasto, EmpresaSettings, Contrato, Servicio, PlanillaDiaria, Rol, EstadoCliente, EstadoProducto, EstadoServicio } from '../types';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, limit, where, QueryConstraint, writeBatch, getDocs } from 'firebase/firestore';
-import { mockEmpresaSettings } from '../data/mockData';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  getDocs,
+  writeBatch,
+  setDoc
+} from 'firebase/firestore';
+import { 
+  Cliente, 
+  Remito, 
+  Producto, 
+  Usuario, 
+  RegistroPago, 
+  Gasto, 
+  VentaVendedor, 
+  Factura, 
+  EmpresaSettings, 
+  Contrato, 
+  Servicio, 
+  PlanillaDiaria,
+  Rol,
+  EstadoFactura,
+  PagoDetalle,
+  MetodoPago,
+  EstadoCliente,
+  EstadoProducto,
+  EstadoServicio
+} from '../types';
 
+/**
+ * Utility to remove undefined properties from objects before sending to Firestore
+ */
 const cleanUndefineds = (obj: any): any => {
-    if (obj === null || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) return obj.map(v => cleanUndefineds(v));
-    return Object.fromEntries(
-        Object.entries(obj)
-            .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => [k, cleanUndefineds(v)])
-    );
+    const newObj: any = {};
+    Object.keys(obj).forEach(key => {
+        if (obj[key] !== undefined && obj[key] !== null) {
+            newObj[key] = obj[key];
+        }
+    });
+    return newObj;
 };
 
-function useFirestoreCollection<T>(
-    collectionName: string, 
-    options: { 
-        orderByField?: string, 
-        limitTo?: number,
-        whereConstraints?: { field: string, op: any, value: any }[]
-    } = {}
-): T[] {
-  const [data, setData] = useState<T[]>([]);
-
-  useEffect(() => {
-    const colRef = collection(db, collectionName);
-    const constraints: QueryConstraint[] = [];
-
-    if (options.whereConstraints) {
-        options.whereConstraints.forEach(c => {
-            constraints.push(where(c.field, c.op, c.value));
-        });
-    }
-
-    if (options.orderByField) {
-        constraints.push(orderBy(options.orderByField, 'desc'));
-    }
-
-    if (options.limitTo) {
-        constraints.push(limit(options.limitTo));
-    }
-
-    const q = query(colRef, ...constraints);
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: T[] = [];
-      snapshot.forEach((doc) => {
-        items.push({ ...doc.data(), id: doc.id } as unknown as T);
-      });
-      setData(items);
-    }, (error) => {
-        console.error(`Error fetching ${collectionName}:`, error);
-    });
-
-    return () => unsubscribe();
-  }, [collectionName, options.orderByField, options.limitTo, JSON.stringify(options.whereConstraints)]);
-
-  return data;
-}
-
+/**
+ * Hook to manage application data state and Firestore synchronization
+ */
 export const useDataStore = () => {
-  const clientes = useFirestoreCollection<Cliente>('clientes', { orderByField: 'nombre' });
-  const remitos = useFirestoreCollection<Remito>('remitos', { orderByField: 'fecha', limitTo: 500 });
-  const usuarios = useFirestoreCollection<Usuario>('usuarios');
-  const registrosPago = useFirestoreCollection<RegistroPago>('registrosPago', { orderByField: 'fecha', limitTo: 200 });
-  const facturas = useFirestoreCollection<Factura>('facturas', { orderByField: 'fecha', limitTo: 100 });
-  const productos = useFirestoreCollection<Producto>('productos');
-  const ventasVendedor = useFirestoreCollection<VentaVendedor>('ventasVendedor', { limitTo: 100 });
-  const gastos = useFirestoreCollection<Gasto>('gastos', { limitTo: 100 });
-  const contratos = useFirestoreCollection<Contrato>('contratos');
-  const servicios = useFirestoreCollection<Servicio>('servicios');
-  const planillas = useFirestoreCollection<PlanillaDiaria>('planillas', { orderByField: 'fecha', limitTo: 30 });
-  
-  const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>(mockEmpresaSettings);
-  
-  useEffect(() => {
-      const unsub = onSnapshot(doc(db, 'settings', 'empresa'), (doc) => {
-          if (doc.exists()) {
-              setEmpresaSettings(doc.data() as EmpresaSettings);
-          }
-      });
-      return () => unsub();
-  }, []);
+    const [remitos, setRemitos] = useState<Remito[]>([]);
+    const [clientes, setClientes] = useState<Cliente[]>([]);
+    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+    const [productos, setProductos] = useState<Producto[]>([]);
+    const [registrosPago, setRegistrosPago] = useState<RegistroPago[]>([]);
+    const [gastos, setGastos] = useState<Gasto[]>([]);
+    const [ventasVendedor, setVentasVendedor] = useState<VentaVendedor[]>([]);
+    const [facturas, setFacturas] = useState<Factura[]>([]);
+    const [contratos, setContratos] = useState<Contrato[]>([]);
+    const [servicios, setServicios] = useState<Servicio[]>([]);
+    const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
+    const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ nombre: 'Aguas Puras' });
 
-  const addRemito = useCallback(async (remitoData: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => {
-    const cliente = clientes.find(c => c.id === remitoData.clienteId);
-    const { pagos, ...rawRemitoData } = remitoData;
+    // Synchronization with Firestore collections
+    useEffect(() => {
+        const unsub = [
+            onSnapshot(collection(db, 'remitos'), (s) => setRemitos(s.docs.map(d => ({ id: d.id, ...d.data() } as Remito)))),
+            onSnapshot(collection(db, 'clientes'), (s) => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() } as Cliente)))),
+            onSnapshot(collection(db, 'usuarios'), (s) => setUsuarios(s.docs.map(d => ({ id: d.id, ...d.data() } as Usuario)))),
+            onSnapshot(collection(db, 'productos'), (s) => setProductos(s.docs.map(d => ({ id: d.id, ...d.data() } as Producto)))),
+            onSnapshot(collection(db, 'registrosPago'), (s) => setRegistrosPago(s.docs.map(d => ({ id: d.id, ...d.data() } as RegistroPago)))),
+            onSnapshot(collection(db, 'gastos'), (s) => setGastos(s.docs.map(d => ({ id: d.id, ...d.data() } as Gasto)))),
+            onSnapshot(collection(db, 'ventasVendedor'), (s) => setVentasVendedor(s.docs.map(d => ({ id: d.id, ...d.data() } as VentaVendedor)))),
+            onSnapshot(collection(db, 'facturas'), (s) => setFacturas(s.docs.map(d => ({ id: d.id, ...d.data() } as Factura)))),
+            onSnapshot(collection(db, 'contratos'), (s) => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() } as Contrato)))),
+            onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
+            onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
+            onSnapshot(doc(db, 'settings', 'empresa'), (s) => s.exists() && setEmpresaSettings(s.data() as EmpresaSettings)),
+        ];
+        return () => unsub.forEach(fn => fn());
+    }, []);
+
+    // Operations
+    const addRemito = useCallback(async (r: any) => {
+        const { pagos, ...remitoData } = r;
+        const docRef = await addDoc(collection(db, 'remitos'), cleanUndefineds(remitoData));
+        if (pagos && pagos.length > 0) {
+            const pagoIds: string[] = [];
+            for (const p of pagos) {
+                const pDoc = await addDoc(collection(db, 'registrosPago'), {
+                    fecha: remitoData.fecha,
+                    monto: p.monto,
+                    metodo: p.metodo,
+                    origen: { tipo: 'remito', id: docRef.id },
+                    clienteId: remitoData.clienteId,
+                    vendedorId: remitoData.vendedorId
+                });
+                pagoIds.push(pDoc.id);
+            }
+            await updateDoc(doc(db, 'remitos', docRef.id), { pagoIds });
+        }
+    }, []);
+
+    const updateRemito = useCallback(async (r: any) => {
+        const { id, pagos, ...data } = r;
+        await updateDoc(doc(db, 'remitos', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteRemito = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'remitos', id));
+    }, []);
+
+    const addCliente = useCallback(async (c: any) => {
+        const { stockInicial, contratosIniciales, ...data } = c;
+        const docRef = await addDoc(collection(db, 'clientes'), cleanUndefineds(data));
+        return docRef.id;
+    }, []);
+
+    // FIX: Implementing updateCliente with all required imports and local names resolved
+    const updateCliente = useCallback(async (updatedCliente: Cliente & { 
+        stockInicial?: { productoId: string; cantidad: number; sucursalId?: string }[];
+        contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
+    }) => {
+        const { id, stockInicial, contratosIniciales, ...data } = updatedCliente;
+        await updateDoc(doc(db, 'clientes', id), cleanUndefineds(data));
     
-    const newRemitoData = {
-        ...rawRemitoData,
-        sucursalId: rawRemitoData.sucursalId || null,
-        pagoIds: [],
-        facturaId: null
+        if (stockInicial && stockInicial.length > 0) {
+            const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
+            const today = new Date().toISOString().split('T')[0];
+    
+            const remitosDeAjuste = stockInicial.map(stock => ({
+                fecha: today,
+                clienteId: id,
+                sucursalId: stock.sucursalId || null,
+                vendedorId: adminUser?.id || (usuarios.length > 0 ? usuarios[0].id : ''),
+                puntoVenta: '0000',
+                numero: `AJU-${Date.now()}-${Math.floor(Math.random()*100)}`,
+                esAjuste: true,
+                movimientos: [{
+                    productoId: stock.productoId,
+                    entregados: stock.cantidad > 0 ? stock.cantidad : 0,
+                    recibidos: stock.cantidad < 0 ? Math.abs(stock.cantidad) : 0
+                }]
+            }));
+            
+            for (const r of remitosDeAjuste) {
+                await addDoc(collection(db, 'remitos'), cleanUndefineds(r));
+            }
+        }
+    
+        if (contratosIniciales && contratosIniciales.length > 0) {
+            for (const c of contratosIniciales) {
+                await addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id }));
+            }
+        }
+    }, [usuarios]);
+
+    const deleteCliente = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'clientes', id), { estado: EstadoCliente.INACTIVO });
+    }, []);
+
+    const reactivarCliente = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'clientes', id), { estado: EstadoCliente.ACTIVO });
+    }, []);
+
+    const addPagoManual = useCallback(async (p: any) => {
+        const { pagos, ...base } = p;
+        for (const pago of pagos) {
+            await addDoc(collection(db, 'registrosPago'), {
+                ...base,
+                monto: pago.monto,
+                metodo: pago.metodo,
+                origen: { tipo: 'pago_manual', id: `PM-${Date.now()}` }
+            });
+        }
+    }, []);
+
+    const addGasto = useCallback(async (g: any) => {
+        await addDoc(collection(db, 'gastos'), cleanUndefineds(g));
+    }, []);
+
+    const addVentaVendedor = useCallback(async (v: any) => {
+        const { pagos, ...data } = v;
+        const docRef = await addDoc(collection(db, 'ventasVendedor'), cleanUndefineds(data));
+        if (pagos) {
+            const pagoIds = [];
+            for (const p of pagos) {
+                const pDoc = await addDoc(collection(db, 'registrosPago'), {
+                    fecha: data.fecha,
+                    monto: p.monto,
+                    metodo: p.metodo,
+                    origen: { tipo: 'venta_vendedor', id: docRef.id },
+                    vendedorId: data.vendedorId
+                });
+                pagoIds.push(pDoc.id);
+            }
+            await updateDoc(doc(db, 'ventasVendedor', docRef.id), { pagoIds });
+        }
+    }, []);
+
+    const updateRegistroPago = useCallback(async (p: any) => {
+        const { id, ...data } = p;
+        await updateDoc(doc(db, 'registrosPago', id), cleanUndefineds(data));
+    }, []);
+
+    const updateGasto = useCallback(async (g: any) => {
+        const { id, ...data } = g;
+        await updateDoc(doc(db, 'gastos', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteRegistroPago = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'registrosPago', id));
+    }, []);
+
+    const deleteGasto = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'gastos', id));
+    }, []);
+
+    const updateVentaVendedor = useCallback(async (v: any) => {
+        const { id, ...data } = v;
+        await updateDoc(doc(db, 'ventasVendedor', id), cleanUndefineds(data));
+    }, []);
+
+    const addUsuario = useCallback(async (u: any) => {
+        await addDoc(collection(db, 'usuarios'), cleanUndefineds(u));
+    }, []);
+
+    const updateUsuario = useCallback(async (u: any) => {
+        const { id, ...data } = u;
+        await updateDoc(doc(db, 'usuarios', id), cleanUndefineds(data));
+    }, []);
+
+    const addFactura = useCallback(async (f: any) => {
+        const docRef = await addDoc(collection(db, 'facturas'), { 
+            ...cleanUndefineds(f), 
+            estado: EstadoFactura.PENDIENTE,
+            numero: `F-${Date.now()}` 
+        });
+        for (const rid of f.remitosIds) {
+            await updateDoc(doc(db, 'remitos', rid), { facturaId: docRef.id });
+        }
+    }, []);
+
+    const addPagoToFactura = useCallback(async (facturaId: string, fecha: string, pagos: PagoDetalle[]) => {
+        const f = facturas.find(fact => fact.id === facturaId);
+        if (!f) return;
+        const currentPagos = registrosPago.filter(p => p.origen.tipo === 'factura' && p.origen.id === facturaId);
+        const pagoIds = [...(f.pagoIds || [])];
+        for (const p of pagos) {
+            const pDoc = await addDoc(collection(db, 'registrosPago'), {
+                fecha,
+                monto: p.monto,
+                metodo: p.metodo,
+                origen: { tipo: 'factura', id: facturaId },
+                clienteId: f.clienteId
+            });
+            pagoIds.push(pDoc.id);
+        }
+        const totalPagado = [...currentPagos.map(p => p.monto), ...pagos.map(p => p.monto)].reduce((s, p) => s + p, 0);
+        const nuevoEstado = totalPagado >= f.monto ? EstadoFactura.PAGADO : EstadoFactura.PAGADO_PARCIAL;
+        await updateDoc(doc(db, 'facturas', facturaId), { pagoIds, estado: nuevoEstado });
+    }, [facturas, registrosPago]);
+
+    const markFacturaAsSent = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'facturas', id), { enviada: true });
+    }, []);
+
+    const addProducto = useCallback(async (p: any) => {
+        await addDoc(collection(db, 'productos'), { ...cleanUndefineds(p), estado: EstadoProducto.ACTIVO });
+    }, []);
+
+    const updateProducto = useCallback(async (p: any) => {
+        const { id, ...data } = p;
+        await updateDoc(doc(db, 'productos', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteProducto = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'productos', id), { estado: EstadoProducto.INACTIVO });
+    }, []);
+
+    const reactivarProducto = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'productos', id), { estado: EstadoProducto.ACTIVO });
+    }, []);
+
+    const addServicio = useCallback(async (s: any) => {
+        await addDoc(collection(db, 'servicios'), { ...cleanUndefineds(s), estado: EstadoServicio.ACTIVO });
+    }, []);
+
+    const updateServicio = useCallback(async (s: any) => {
+        const { id, ...data } = s;
+        await updateDoc(doc(db, 'servicios', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteServicio = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'servicios', id), { estado: EstadoServicio.INACTIVO });
+    }, []);
+
+    const reactivarServicio = useCallback(async (id: string) => {
+        await updateDoc(doc(db, 'servicios', id), { estado: EstadoServicio.ACTIVO });
+    }, []);
+
+    const addContrato = useCallback(async (c: any) => {
+        await addDoc(collection(db, 'contratos'), cleanUndefineds(c));
+    }, []);
+
+    const updateContrato = useCallback(async (c: any) => {
+        const { id, ...data } = c;
+        await updateDoc(doc(db, 'contratos', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteContrato = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'contratos', id));
+    }, []);
+
+    const addMultipleClientes = useCallback(async (cls: Cliente[]) => {
+        const batch = writeBatch(db);
+        cls.forEach(c => {
+            const newDoc = doc(collection(db, 'clientes'));
+            batch.set(newDoc, cleanUndefineds(c));
+        });
+        await batch.commit();
+    }, []);
+
+    const deleteAllClientes = useCallback(async () => {
+        const snapshot = await getDocs(collection(db, 'clientes'));
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }, []);
+
+    const addPlanilla = useCallback(async (p: any) => {
+        await addDoc(collection(db, 'planillas'), cleanUndefineds(p));
+    }, []);
+
+    const updatePlanilla = useCallback(async (p: any) => {
+        const { id, ...data } = p;
+        await updateDoc(doc(db, 'planillas', id), cleanUndefineds(data));
+    }, []);
+
+    const updateEmpresaSettings = useCallback(async (s: any) => {
+        await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(s));
+    }, []);
+
+    return {
+        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings,
+        addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
+        addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor,
+        addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
+        addProducto, updateProducto, deleteProducto, reactivarProducto,
+        addServicio, updateServicio, deleteServicio, reactivarServicio,
+        addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
+        addPlanilla, updatePlanilla, updateEmpresaSettings
     };
-
-    const remitoRef = await addDoc(collection(db, 'remitos'), cleanUndefineds(newRemitoData));
-    
-    if (!cliente?.tieneCuentaCorriente && pagos && pagos.length > 0) {
-        const batchPagos = pagos.map(async (pago) => {
-            const pagoRef = await addDoc(collection(db, 'registrosPago'), {
-                ...pago,
-                fecha: remitoData.fecha,
-                origen: { tipo: 'remito', id: remitoRef.id },
-                clienteId: remitoData.clienteId,
-                vendedorId: remitoData.vendedorId,
-            });
-            return pagoRef.id;
-        });
-        const ids = await Promise.all(batchPagos);
-        await updateDoc(remitoRef, { pagoIds: ids });
-    }
-  }, [clientes]);
-
-  const updateRemito = useCallback(async (updatedRemitoData: Remito & { pagos?: PagoDetalle[] }) => {
-    const { id, pagos, ...dataToSave } = updatedRemitoData;
-    const remitoRef = doc(db, 'remitos', id);
-    await updateDoc(remitoRef, cleanUndefineds(dataToSave));
-  }, []);
-
-  const deleteRemito = useCallback(async (remitoId: string) => {
-    await deleteDoc(doc(db, 'remitos', remitoId));
-  }, []);
-  
-  const addMultipleRemitos = useCallback(async (newRemitos: Remito[]) => {
-      const batchPromises = newRemitos.map(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
-      await Promise.all(batchPromises);
-  }, []);
-
-  const addCliente = useCallback(async (clienteData: Omit<Cliente, 'id' | 'estado'> & { 
-    stockInicial?: { productoId: string; cantidad: number; sucursalId?: string }[];
-    contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
-  }) => {
-    const { stockInicial, contratosIniciales, ...cliente } = clienteData;
-    const clienteRef = await addDoc(collection(db, 'clientes'), cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
-
-    if (stockInicial && stockInicial.length > 0) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
-
-        const remitosDeAjuste = stockInicial.map(stock => ({
-            fecha: yesterday.toISOString().split('T')[0],
-            clienteId: clienteRef.id,
-            sucursalId: stock.sucursalId || null,
-            vendedorId: adminUser?.id || usuarios[0]?.id,
-            puntoVenta: '0000',
-            numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-            esAjuste: true,
-            movimientos: [{
-                productoId: stock.productoId,
-                entregados: stock.cantidad,
-                recibidos: 0
-            }]
-        }));
-        remitosDeAjuste.forEach(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
-    }
-
-    if (contratosIniciales && contratosIniciales.length > 0) {
-        contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: clienteRef.id })));
-    }
-
-    return clienteRef.id;
-  }, [usuarios]);
-
-  const updateCliente = useCallback(async (updatedCliente: Cliente & { 
-    stockInicial?: { productoId: string; cantidad: number; sucursalId?: string }[];
-    contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
-  }) => {
-    const { id, stockInicial, contratosIniciales, ...data } = updatedCliente;
-    await updateDoc(doc(db, 'clientes', id), cleanUndefineds(data));
-
-    if (stockInicial && stockInicial.length > 0) {
-        const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
-        const today = new Date().toISOString().split('T')[0];
-
-        const remitosDeAjuste = stockInicial.map(stock => ({
-            fecha: today,
-            clienteId: id,
-            sucursalId: stock.sucursalId || null,
-            vendedorId: adminUser?.id || usuarios[0]?.id,
-            puntoVenta: '0000',
-            numero: `AJU-${Date.now()}`,
-            esAjuste: true,
-            movimientos: [{
-                productoId: stock.productoId,
-                entregados: stock.cantidad,
-                recibidos: 0
-            }]
-        }));
-        remitosDeAjuste.forEach(r => addDoc(collection(db, 'remitos'), cleanUndefineds(r)));
-    }
-
-    if (contratosIniciales && contratosIniciales.length > 0) {
-        contratosIniciales.forEach(c => addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id })));
-    }
-  }, [usuarios]);
-
-  const deleteCliente = useCallback(async (clienteId: string) => {
-    await updateDoc(doc(db, 'clientes', clienteId), { estado: EstadoCliente.INACTIVO });
-  }, []);
-  
-  const reactivarCliente = useCallback(async (clienteId: string) => {
-    await updateDoc(doc(db, 'clientes', clienteId), { estado: EstadoCliente.ACTIVO });
-  }, []);
-
-  const deleteAllClientes = useCallback(async () => {
-      const collectionsToClear = ['clientes', 'remitos', 'registrosPago', 'facturas', 'contratos', 'planillas'];
-      for (const colName of collectionsToClear) {
-          const snapshot = await getDocs(collection(db, colName));
-          const chunks = [];
-          const items = snapshot.docs;
-          for (let i = 0; i < items.length; i += 500) { chunks.push(items.slice(i, i + 500)); }
-          for (const chunk of chunks) {
-              const batch = writeBatch(db);
-              chunk.forEach(d => batch.delete(d.ref));
-              await batch.commit();
-          }
-      }
-  }, []);
-
-  const addMultipleClientes = useCallback(async (newClientes: (Cliente & { stockInicial?: any[] })[]) => {
-      const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const fechaAjuste = yesterday.toISOString().split('T')[0];
-
-      const clientChunks = [];
-      for (let i = 0; i < newClientes.length; i += 50) { clientChunks.push(newClientes.slice(i, i + 50)); }
-
-      for (const chunk of clientChunks) {
-          const batch = writeBatch(db);
-          chunk.forEach(clienteData => {
-              const { stockInicial, ...cliente } = clienteData;
-              
-              // FIX: Asegurar que el ID sea un string válido y no vacío.
-              // Si no hay ID, Firestore generará uno automáticamente usando doc(collection(...))
-              const clienteId = clienteData.id?.toString().trim();
-              const clienteRef = clienteId 
-                  ? doc(db, 'clientes', clienteId) 
-                  : doc(collection(db, 'clientes'));
-
-              batch.set(clienteRef, cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
-
-              if (stockInicial && stockInicial.length > 0) {
-                  stockInicial.forEach((stock: any) => {
-                      const remitoRef = doc(collection(db, 'remitos'));
-                      const remitoAjuste = {
-                          fecha: fechaAjuste,
-                          clienteId: clienteRef.id,
-                          sucursalId: stock.sucursalId || null,
-                          vendedorId: adminUser?.id || usuarios[0]?.id,
-                          puntoVenta: '0000',
-                          numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-                          esAjuste: true,
-                          movimientos: [{
-                              productoId: stock.productoId,
-                              entregados: stock.cantidad,
-                              recibidos: 0
-                          }]
-                      };
-                      batch.set(remitoRef, cleanUndefineds(remitoAjuste));
-                  });
-              }
-          });
-          await batch.commit();
-      }
-  }, [usuarios]);
-
-  const addUsuario = useCallback(async (usuario: Omit<Usuario, 'id'>) => {
-    await addDoc(collection(db, 'usuarios'), cleanUndefineds(usuario));
-  }, []);
-
-  const updateUsuario = useCallback(async (updatedUsuario: Usuario) => {
-    const { id, ...data } = updatedUsuario;
-    await updateDoc(doc(db, 'usuarios', id), cleanUndefineds(data));
-  }, []);
-  
-  const addPagoManual = useCallback(async (pagoData: {
-    fecha: string;
-    clienteId?: string;
-    vendedorId?: string;
-    concepto?: string;
-    pagos: PagoDetalle[];
-  }) => {
-    const { fecha, clienteId, vendedorId, concepto, pagos } = pagoData;
-    pagos.forEach(async (pago) => {
-        await addDoc(collection(db, 'registrosPago'), cleanUndefineds({
-            fecha,
-            clienteId: clienteId || null,
-            vendedorId: vendedorId || null,
-            concepto: concepto || 'Pago Manual',
-            monto: pago.monto,
-            metodo: pago.metodo,
-            origen: { tipo: 'pago_manual', id: 'manual' }
-        }));
-    });
-  }, []);
-  
-  const updateRegistroPago = useCallback(async (updatedPago: RegistroPago) => {
-    const { id, ...data } = updatedPago;
-    await updateDoc(doc(db, 'registrosPago', id), cleanUndefineds(data));
-  }, []);
-
-  const deleteRegistroPago = useCallback(async (pagoId: string) => {
-    await deleteDoc(doc(db, 'registrosPago', pagoId));
-  }, []);
-
-  const addVentaVendedor = useCallback(async (ventaData: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => {
-    const { pagos, ...newVenta } = ventaData;
-    const ventaRef = await addDoc(collection(db, 'ventasVendedor'), cleanUndefineds({ ...newVenta, pagoIds: [] }));
-    
-    if (pagos && pagos.length > 0) {
-        const batchPagos = pagos.map(async (pago) => {
-            const pagoRef = await addDoc(collection(db, 'registrosPago'), {
-                ...pago,
-                fecha: ventaData.fecha,
-                origen: { tipo: 'venta_vendedor', id: ventaRef.id },
-                vendedorId: ventaData.vendedorId,
-                clienteId: ventaData.clienteId || null,
-            });
-            return pagoRef.id;
-        });
-        const ids = await Promise.all(batchPagos);
-        await updateDoc(ventaRef, { pagoIds: ids });
-    }
-  }, []);
-  
-  const updateVentaVendedor = useCallback(async (updatedVentaData: VentaVendedor & { pagos?: PagoDetalle[] }) => {
-     const { id, pagos, ...data } = updatedVentaData;
-     await updateDoc(doc(db, 'ventasVendedor', id), cleanUndefineds(data));
-  }, []);
-
-  const addGasto = useCallback(async (gasto: Omit<Gasto, 'id'>) => {
-    await addDoc(collection(db, 'gastos'), cleanUndefineds(gasto));
-  }, []);
-
-  const updateGasto = useCallback(async (updatedGasto: Gasto) => {
-    const { id, ...data } = updatedGasto;
-    await updateDoc(doc(db, 'gastos', id), cleanUndefineds(data));
-  }, []);
-
-  const deleteGasto = useCallback(async (gastoId: string) => {
-    await deleteDoc(doc(db, 'gastos', gastoId));
-  }, []);
-
-  const addFactura = useCallback(async (facturaData: Omit<Factura, 'id' | 'pagoIds' | 'estado' | 'numero'>) => {
-    const lastFacturaNumber = facturas.length > 0
-        ? Math.max(...facturas.map(f => parseInt(f.numero.split('-')[2], 10)))
-        : 0;
-    const newFacturaNumber = `F-001-${(lastFacturaNumber + 1).toString().padStart(4, '0')}`;
-
-    const facturaRef = await addDoc(collection(db, 'facturas'), cleanUndefineds({
-        ...facturaData,
-        numero: newFacturaNumber,
-        estado: 'Pendiente',
-        pagoIds: [],
-        enviada: false,
-    }));
-
-    facturaData.remitosIds.forEach(remitoId => {
-        updateDoc(doc(db, 'remitos', remitoId), { facturaId: facturaRef.id });
-    });
-  }, [facturas]);
-    
-  const addPagoToFactura = useCallback(async (facturaId: string, fecha: string, pagos: PagoDetalle[]) => {
-    const factura = facturas.find(f => f.id === facturaId);
-    if (!factura) return;
-
-    const batchPagos = pagos.map(async (pago) => {
-        const pagoRef = await addDoc(collection(db, 'registrosPago'), {
-            ...pago,
-            fecha,
-            origen: { tipo: 'factura', id: facturaId },
-            clienteId: factura.clienteId,
-        });
-        return pagoRef.id;
-    });
-    
-    const newIds = await Promise.all(batchPagos);
-    const updatedPagoIds = [...(factura.pagoIds || []), ...newIds];
-    await updateDoc(doc(db, 'facturas', facturaId), { pagoIds: updatedPagoIds });
-  }, [facturas]);
-
-  const markFacturaAsSent = useCallback(async (facturaId: string) => {
-      await updateDoc(doc(db, 'facturas', facturaId), { enviada: true });
-  }, []);
-
-  const addProducto = useCallback(async (producto: Omit<Producto, 'id' | 'estado'>) => {
-    await addDoc(collection(db, 'productos'), cleanUndefineds({ ...producto, estado: EstadoProducto.ACTIVO }));
-  }, []);
-
-  const updateProducto = useCallback(async (updatedProducto: Producto) => {
-    const { id, ...data } = updatedProducto;
-    await updateDoc(doc(db, 'productos', id), cleanUndefineds(data));
-  }, []);
-
-  const deleteProducto = useCallback(async (productoId: string) => {
-    await updateDoc(doc(db, 'productos', productoId), { estado: EstadoProducto.INACTIVO });
-  }, []);
-  
-  const reactivarProducto = useCallback(async (productoId: string) => {
-    await updateDoc(doc(db, 'productos', productoId), { estado: EstadoProducto.ACTIVO });
-  }, []);
-  
-  const updateEmpresaSettings = useCallback(async (settings: EmpresaSettings) => {
-    await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(settings));
-  }, []);
-
-  const addContrato = useCallback(async (contrato: Omit<Contrato, 'id'>) => {
-    await addDoc(collection(db, 'contratos'), cleanUndefineds(contrato));
-  }, []);
-
-  const updateContrato = useCallback(async (updatedContrato: Contrato) => {
-    const { id, ...data } = updatedContrato;
-    await updateDoc(doc(db, 'contratos', id), cleanUndefineds(data));
-  }, []);
-
-  const deleteContrato = useCallback(async (contratoId: string) => {
-    await deleteDoc(doc(db, 'contratos', contratoId));
-  }, []);
-
-  const addServicio = useCallback(async (servicio: Omit<Servicio, 'id' | 'estado'>) => {
-    await addDoc(collection(db, 'servicios'), cleanUndefineds({ ...servicio, estado: EstadoServicio.ACTIVO }));
-  }, []);
-
-  const updateServicio = useCallback(async (updatedServicio: Servicio) => {
-    const { id, ...data } = updatedServicio;
-    await updateDoc(doc(db, 'servicios', id), cleanUndefineds(data));
-  }, []);
-
-  const deleteServicio = useCallback(async (servicioId: string) => {
-    await updateDoc(doc(db, 'servicios', servicioId), { estado: EstadoServicio.INACTIVO });
-  }, []);
-  
-  const reactivarServicio = useCallback(async (servicioId: string) => {
-    await updateDoc(doc(db, 'servicios', servicioId), { estado: EstadoServicio.ACTIVO });
-  }, []);
-
-  const addPlanilla = useCallback(async (planilla: Omit<PlanillaDiaria, 'id'>) => {
-      await addDoc(collection(db, 'planillas'), cleanUndefineds(planilla));
-  }, []);
-
-  const updatePlanilla = useCallback(async (updatedPlanilla: PlanillaDiaria) => {
-      const { id, ...data } = updatedPlanilla;
-      await updateDoc(doc(db, 'planillas', id), cleanUndefineds(data));
-  }, []);
-
-  return {
-    remitos,
-    clientes,
-    usuarios,
-    registrosPago,
-    facturas,
-    productos,
-    ventasVendedor,
-    gastos,
-    empresaSettings,
-    contratos,
-    servicios,
-    planillas,
-    addRemito,
-    updateRemito,
-    deleteRemito,
-    addMultipleRemitos,
-    addCliente,
-    updateCliente,
-    deleteCliente,
-    reactivarCliente,
-    deleteAllClientes,
-    addMultipleClientes,
-    addUsuario,
-    updateUsuario,
-    addPagoManual,
-    updateRegistroPago,
-    deleteRegistroPago,
-    addVentaVendedor,
-    updateVentaVendedor,
-    addGasto,
-    updateGasto,
-    deleteGasto,
-    addFactura,
-    addPagoToFactura,
-    markFacturaAsSent,
-    addProducto,
-    updateProducto,
-    deleteProducto,
-    reactivarProducto,
-    updateEmpresaSettings,
-    addContrato,
-    updateContrato,
-    deleteContrato,
-    addServicio,
-    updateServicio,
-    deleteServicio,
-    reactivarServicio,
-    addPlanilla,
-    updatePlanilla,
-  };
 };

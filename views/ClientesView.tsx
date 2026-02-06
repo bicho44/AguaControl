@@ -47,13 +47,46 @@ const ClienteForm: React.FC<{
   productos: Producto[];
   servicios: Servicio[];
   clientes: Cliente[]; 
+  remitos: Remito[];
   onSave: (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   onClose: () => void;
-}> = ({ cliente, productos, servicios, clientes, onSave, onClose }) => {
+}> = ({ cliente, productos, servicios, clientes, remitos, onSave, onClose }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
-  const [stockInicial, setStockInicial] = useState<{ productoId: string; cantidad: number; sucursalId?: string }[]>([]);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   
+  // --- NUEVA LÓGICA DE STOCK ---
+  // Calculamos el balance actual de cada sucursal para este cliente específico
+  const currentBalances = useMemo(() => {
+    if (!cliente.id) return new Map<string, Map<string, number>>();
+    const map = new Map<string, Map<string, number>>();
+    remitos.filter(r => r.clienteId === cliente.id).forEach(r => {
+        const sucId = r.sucursalId || 'main';
+        if (!map.has(sucId)) map.set(sucId, new Map());
+        const prodMap = map.get(sucId)!;
+        r.movimientos.forEach(m => {
+            const current = prodMap.get(m.productoId) || 0;
+            prodMap.set(m.productoId, current + (m.entregados - m.recibidos));
+        });
+    });
+    return map;
+  }, [cliente.id, remitos]);
+
+  // Estado para los inputs de ajuste (el usuario ingresa el stock "Real")
+  const [auditStocks, setAuditStocks] = useState<{ sucursalId: string; productoId: string; cantidad: number }[]>([]);
+
+  // Inicializar los inputs de auditoría con los balances actuales
+  useEffect(() => {
+    const initialAudit: { sucursalId: string; productoId: string; cantidad: number }[] = [];
+    currentBalances.forEach((prodMap, sucId) => {
+        prodMap.forEach((qty, prodId) => {
+            if (qty !== 0) {
+                initialAudit.push({ sucursalId: sucId, productoId: prodId, cantidad: qty });
+            }
+        });
+    });
+    setAuditStocks(initialAudit);
+  }, [currentBalances]);
+
   const [cuitExistente, setCuitExistente] = useState<string | null>(null);
   const [nombreExistente, setNombreExistente] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -181,13 +214,29 @@ const ClienteForm: React.FC<{
   const addPrecioEspecial = () => setFormData(prev => ({ ...prev, preciosEspeciales: [...(prev.preciosEspeciales || []), { productoId: '', precio: 0 }] }));
   const removePrecioEspecial = (index: number) => setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
 
-  const handleStockChange = (index: number, field: keyof typeof stockInicial[0], value: any) => {
-      const newStock = [...stockInicial];
-      newStock[index] = { ...newStock[index], [field]: field === 'cantidad' ? (Number(value) || 0) : value };
-      setStockInicial(newStock);
+  // Gestión de Stock Auditado
+  const handleAuditChange = (sucursalId: string, productoId: string, newTotal: number) => {
+      setAuditStocks(prev => {
+          const existingIdx = prev.findIndex(s => s.sucursalId === sucursalId && s.productoId === productoId);
+          if (existingIdx >= 0) {
+              const next = [...prev];
+              next[existingIdx] = { ...next[existingIdx], cantidad: newTotal };
+              return next;
+          }
+          return [...prev, { sucursalId, productoId, cantidad: newTotal }];
+      });
   };
-  const addStockInicial = (sucursalId: string) => setStockInicial([...stockInicial, { productoId: '', cantidad: 1, sucursalId }]);
-  const removeStockInicial = (index: number) => setStockInicial(prev => prev.filter((_, i) => i !== index));
+
+  const addProductToAudit = (sucursalId: string) => {
+      setAuditStocks(prev => [...prev, { sucursalId, productoId: '', cantidad: 1 }]);
+  };
+
+  const removeProductFromAudit = (sucursalId: string, productoId: string, index?: number) => {
+    setAuditStocks(prev => {
+        if (index !== undefined) return prev.filter((_, i) => i !== index);
+        return prev.filter(s => !(s.sucursalId === sucursalId && s.productoId === productoId));
+    });
+  };
 
   const handleContratoChange = (index: number, field: keyof typeof contratosIniciales[0], value: any) => {
       const newContratos = [...contratosIniciales];
@@ -215,9 +264,25 @@ const ClienteForm: React.FC<{
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Calcular Deltas para el Ajuste
+    const stockDeltas: any[] = [];
+    auditStocks.forEach(audit => {
+        if (!audit.productoId) return;
+        const currentQty = currentBalances.get(audit.sucursalId)?.get(audit.productoId) || 0;
+        const delta = audit.cantidad - currentQty;
+        if (delta !== 0) {
+            stockDeltas.push({
+                sucursalId: audit.sucursalId,
+                productoId: audit.productoId,
+                cantidad: delta // Esto será positivo si falta stock o negativo si sobra
+            });
+        }
+    });
+
     onSave({
         ...formData as Cliente,
-        stockInicial: stockInicial.filter(s => s.productoId && s.cantidad > 0),
+        stockInicial: stockDeltas,
         contratosIniciales: contratosIniciales.filter(c => c.servicioId)
     });
   };
@@ -308,38 +373,55 @@ const ClienteForm: React.FC<{
                               </div>
                           </div>
 
+                          {/* GESTIÓN DE STOCK POR SUCURSAL CON DATA DE DB */}
                           <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800 space-y-4">
                               <div className="flex justify-between items-center">
                                   <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                      <CubeIcon className="w-3 h-3" /> {isNew ? "Envases Iniciales" : "Ajuste de Envases"}
+                                      <CubeIcon className="w-3 h-3" /> {isNew ? "Envases Iniciales" : "Auditoría de Envases (Ajustar si difiere)"}
                                   </label>
-                                  <button type="button" onClick={() => addStockInicial(suc.id)} className="text-[10px] font-black text-blue-700 hover:underline uppercase">+ Agregar Producto</button>
+                                  <button type="button" onClick={() => addProductToAudit(suc.id)} className="text-[10px] font-black text-blue-700 hover:underline uppercase">+ Agregar Producto</button>
                               </div>
 
                               <div className="space-y-2">
-                                  {stockInicial.filter(s => s.sucursalId === suc.id).map((stock, sIdx) => {
-                                      // Buscar el índice real en el array global para actualizar correctamente
-                                      const globalIdx = stockInicial.indexOf(stock);
+                                  {auditStocks.filter(s => s.sucursalId === suc.id).map((stock, sIdx) => {
+                                      const globalIdx = auditStocks.indexOf(stock);
+                                      const currentQty = currentBalances.get(suc.id)?.get(stock.productoId) || 0;
+                                      const isDiff = !isNew && stock.cantidad !== currentQty;
+
                                       return (
-                                          <div key={sIdx} className="grid grid-cols-[2fr,100px,auto] gap-3 items-center animate-fade-in">
+                                          <div key={globalIdx} className="grid grid-cols-[2fr,100px,auto] gap-3 items-center animate-fade-in group">
                                               <SearchableSelect 
                                                   options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
                                                   value={stock.productoId} 
-                                                  onChange={(val) => handleStockChange(globalIdx, 'productoId', val)} 
+                                                  onChange={(val) => {
+                                                      const next = [...auditStocks];
+                                                      next[globalIdx].productoId = val;
+                                                      // Al cambiar de producto, tomamos el balance actual de ese nuevo producto
+                                                      const newBalance = currentBalances.get(suc.id)?.get(val) || 0;
+                                                      next[globalIdx].cantidad = newBalance || 1;
+                                                      setAuditStocks(next);
+                                                  }} 
                                                   placeholder="Producto..."
                                               />
-                                              <AppInput 
-                                                  type="number" 
-                                                  value={stock.cantidad} 
-                                                  onChange={(e) => handleStockChange(globalIdx, 'cantidad', e.target.value)} 
-                                                  className="text-center font-bold"
-                                              />
-                                              <button type="button" onClick={() => removeStockInicial(globalIdx)} className="text-red-500 p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4"/></button>
+                                              <div className="relative">
+                                                  <AppInput 
+                                                      type="number" 
+                                                      value={stock.cantidad} 
+                                                      onChange={(e) => handleAuditChange(suc.id, stock.productoId, Number(e.target.value))} 
+                                                      className={`text-center font-black ${isDiff ? 'border-orange-500 !bg-orange-50 dark:!bg-orange-900/20' : ''}`}
+                                                  />
+                                                  {!isNew && (
+                                                      <span className="absolute -top-4 left-0 right-0 text-[8px] font-black text-center text-gray-400 uppercase">
+                                                          DB: {currentQty}
+                                                      </span>
+                                                  )}
+                                              </div>
+                                              <button type="button" onClick={() => removeProductFromAudit(suc.id, stock.productoId, globalIdx)} className="text-red-500 p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4"/></button>
                                           </div>
                                       );
                                   })}
-                                  {stockInicial.filter(s => s.sucursalId === suc.id).length === 0 && (
-                                      <p className="text-[10px] text-gray-400 italic text-center py-2">Sin envases iniciales en este punto.</p>
+                                  {auditStocks.filter(s => s.sucursalId === suc.id).length === 0 && (
+                                      <p className="text-[10px] text-gray-400 italic text-center py-2">Sin envases registrados.</p>
                                   )}
                               </div>
                           </div>
@@ -513,7 +595,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                   </button>
                   <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
               </div>
-              <ClienteForm cliente={editingCliente || {}} productos={productos} servicios={servicios} clientes={clientes} onSave={handleSave} onClose={() => setIsModalOpen(false)} />
+              <ClienteForm cliente={editingCliente || {}} productos={productos} servicios={servicios} clientes={clientes} remitos={remitos} onSave={handleSave} onClose={() => setIsModalOpen(false)} />
           </div>
       );
   }
@@ -592,7 +674,6 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                                     </div>
                                                 </div>
                                                 
-                                                {/* INTEGRACIÓN DE STOCK EN LA TARJETA DE SUCURSAL */}
                                                 <div className="flex flex-wrap gap-1.5 pt-2 border-t dark:border-gray-700">
                                                     {hasStock ? Array.from(sucStockMap!.entries()).map(([prodId, qty]) => {
                                                         if (qty <= 0) return null;
