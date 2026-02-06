@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
 import Card from '../components/Card';
@@ -10,6 +11,7 @@ import SearchableSelect from '../components/SearchableSelect';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
 import { MapIcon } from '../components/icons/MapIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
+import { CubeIcon } from '../components/icons/CubeIcon';
 import MapPickerModal from '../components/MapPickerModal';
 import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/ui/AppButton';
@@ -68,10 +70,6 @@ const ClienteForm: React.FC<{
   const isNew = !cliente.id;
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
   const serviciosActivos = useMemo(() => servicios.filter(s => s.estado === EstadoServicio.ACTIVO), [servicios]);
-  const sucursalOptions = useMemo(() => [
-      { value: '', label: 'Casa Central' }, 
-      ...(formData.sucursales || []).map(s => ({ value: s.id, label: s.nombre }))
-  ], [formData.sucursales]);
   
   useEffect(() => {
     if (!isNew) return;
@@ -183,12 +181,13 @@ const ClienteForm: React.FC<{
   const addPrecioEspecial = () => setFormData(prev => ({ ...prev, preciosEspeciales: [...(prev.preciosEspeciales || []), { productoId: '', precio: 0 }] }));
   const removePrecioEspecial = (index: number) => setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
 
+  // --- LÓGICA DE STOCK INICIAL (Manejada por sucursal ahora) ---
   const handleStockChange = (index: number, field: keyof typeof stockInicial[0], value: any) => {
       const newStock = [...stockInicial];
-      newStock[index] = { ...newStock[index], [field]: field === 'cantidad' ? Number(value) : value };
+      newStock[index] = { ...newStock[index], [field]: field === 'cantidad' ? (Number(value) || 0) : value };
       setStockInicial(newStock);
   };
-  const addStockInicial = () => setStockInicial([...stockInicial, { productoId: '', cantidad: 1, sucursalId: '' }]);
+  const addStockInicial = (sucursalId: string) => setStockInicial([...stockInicial, { productoId: '', cantidad: 1, sucursalId }]);
   const removeStockInicial = (index: number) => setStockInicial(prev => prev.filter((_, i) => i !== index));
 
   const handleContratoChange = (index: number, field: keyof typeof contratosIniciales[0], value: any) => {
@@ -284,41 +283,95 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          <Card title="Sucursales y Rutas">
-              <div className="space-y-4">
-                  {(formData.sucursales || []).map((suc, index) => (
-                      <div key={index} className="p-4 border dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/40 space-y-4 relative">
-                          <button type="button" onClick={() => removeSucursal(index)} className="absolute top-2 right-2 text-red-500 p-2"><TrashIcon className="w-5 h-5"/></button>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-8">
-                              <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Local Centro" />
+          <Card title="Sucursales, Rutas y Envases">
+              <div className="space-y-6">
+                  {(formData.sucursales || []).map((suc, index) => {
+                      // Filtrar los stocks que pertenecen a esta sucursal específica
+                      const sucStocks = stockInicial.filter(s => s.sucursalId === suc.id);
+                      
+                      return (
+                      <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
+                          {/* Botón Borrar Sucursal */}
+                          <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2"><TrashIcon className="w-5 h-5"/></button>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
+                              <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
                               <div className="relative">
                                   <AppInput label="Dirección" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} />
                                   <button type="button" onClick={() => handleSearchAddress(index)} className="absolute right-2 top-8 p-1 text-primary-600 hover:bg-primary-50 rounded"><SearchIcon className="w-5 h-5"/></button>
                               </div>
                           </div>
-                          <div className="space-y-2">
-                              <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto</label>
+                          
+                          <div className="space-y-3">
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto Programado</label>
                               <div className="flex flex-wrap gap-2">
                                   {Object.values(DiaSemana).map(day => (
-                                      <button key={day} type="button" onClick={() => toggleDiaReparto(index, day)} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${suc.diasReparto?.includes(day) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-gray-700 text-gray-500 dark:border-gray-600'}`}>
-                                          {day.substring(0,3)}
+                                      <button key={day} type="button" onClick={() => toggleDiaReparto(index, day)} className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${suc.diasReparto?.includes(day) ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:border-gray-600 hover:bg-gray-100'}`}>
+                                          {day.substring(0,3).toUpperCase()}
                                       </button>
                                   ))}
                               </div>
                           </div>
-                          <div className="flex items-center justify-between pt-2 border-t dark:border-gray-700 mt-2">
-                              <span className={`text-xs font-bold ${suc.lat ? 'text-green-500' : 'text-gray-400'}`}>{suc.lat ? '✓ Ubicación guardada' : '⚠ Sin ubicación'}</span>
-                              <AppButton variant="secondary" size="sm" onClick={() => handleOpenMap(index)}>Configurar Mapa</AppButton>
+
+                          {/* GESTIÓN DE STOCK POR SUCURSAL */}
+                          <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800 space-y-4">
+                              <div className="flex justify-between items-center">
+                                  <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                      <CubeIcon className="w-3 h-3" /> {isNew ? "Envases Iniciales en Sucursal" : "Ajuste de Envases / Deuda Técnica"}
+                                  </label>
+                                  <button type="button" onClick={() => addStockInicial(suc.id)} className="text-[10px] font-black text-blue-700 hover:underline uppercase">+ Agregar Producto</button>
+                              </div>
+
+                              <div className="space-y-2">
+                                  {stockInicial.map((stock, sIdx) => {
+                                      if (stock.sucursalId !== suc.id) return null;
+                                      return (
+                                          <div key={sIdx} className="grid grid-cols-[2fr,100px,auto] gap-3 items-center animate-fade-in">
+                                              <div className="flex-1">
+                                                  <SearchableSelect 
+                                                      options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
+                                                      value={stock.productoId} 
+                                                      onChange={(val) => handleStockChange(sIdx, 'productoId', val)} 
+                                                      placeholder="Seleccionar producto..."
+                                                  />
+                                              </div>
+                                              <div className="w-full">
+                                                  <AppInput 
+                                                      type="number" 
+                                                      value={stock.cantidad} 
+                                                      onChange={(e) => handleStockChange(sIdx, 'cantidad', e.target.value)} 
+                                                      className="text-center font-bold"
+                                                  />
+                                              </div>
+                                              <button type="button" onClick={() => removeStockInicial(sIdx)} className="text-red-500 p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4"/></button>
+                                          </div>
+                                      );
+                                  })}
+                                  {stockInicial.filter(s => s.sucursalId === suc.id).length === 0 && (
+                                      <p className="text-[10px] text-gray-400 italic text-center py-2">No hay envases registrados para esta sucursal.</p>
+                                  )}
+                              </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-3 border-t dark:border-gray-700">
+                              <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${suc.lat ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-gray-300'}`}></div>
+                                  <span className={`text-[10px] font-black uppercase ${suc.lat ? 'text-green-600' : 'text-gray-400'}`}>{suc.lat ? 'Ubicación Geolocalizada' : 'Sin Ubicación Geográfica'}</span>
+                              </div>
+                              <AppButton variant="secondary" size="sm" onClick={() => handleOpenMap(index)} className="!py-1.5 !text-[10px] uppercase">Ver en Mapa</AppButton>
                           </div>
                       </div>
-                  ))}
-                  <AppButton variant="secondary" onClick={addSucursal} className="w-full border-dashed border-2 py-4">+ Agregar Nueva Sucursal / Punto de Entrega</AppButton>
+                  )})}
+                  
+                  <button type="button" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-all font-bold text-sm">
+                      + Agregar Punto de Entrega / Sucursal Adicional
+                  </button>
               </div>
           </Card>
 
           <Card title="Precios Especiales / Pactados">
               <div className="space-y-3">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Defina precios fijos para este cliente que sobreescriben el precio de lista.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Estos precios sobreescriben la lista general para este cliente en todos sus puntos.</p>
                   {(formData.preciosEspeciales || []).map((precio, index) => (
                       <div key={index} className="flex gap-2 items-end">
                           <div className="flex-1">
@@ -339,58 +392,43 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          <Card title={isNew ? "Alta Rápida: Stock y Servicios" : "Configuración de Stock y Servicios Adicionales"}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">
-                          {isNew ? "Stock Inicial (Comodato)" : "Agregar Ajuste de Stock"}
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                          {isNew ? "¿El cliente ya tiene envases? Cárgalos acá." : "Genere un remito de ajuste positivo para este cliente."}
-                      </p>
-                      {stockInicial.map((stock, index) => (
-                          <div key={index} className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
-                              <SearchableSelect 
-                                  options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
-                                  value={stock.productoId} 
-                                  onChange={(val) => handleStockChange(index, 'productoId', val)} 
-                                  placeholder="Producto..."
-                              />
-                              <div className="flex gap-2">
-                                  <input type="number" placeholder="Cant." value={stock.cantidad} onChange={(e) => handleStockChange(index, 'cantidad', e.target.value)} className="w-24 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
-                                  <select value={stock.sucursalId || ''} onChange={(e) => handleStockChange(index, 'sucursalId', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700">
-                                      <option value="">Sucursal...</option>
-                                      {sucursalOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          {/* SERVICIOS Y ABONOS (Mantener al final como adicional) */}
+          <Card title="Abonos y Servicios Contratados">
+              <div className="space-y-4">
+                  <p className="text-xs text-gray-500">Gestión de alquileres, comodatos o abonos mensuales automáticos.</p>
+                  {contratosIniciales.map((contrato, index) => (
+                      <div key={index} className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-800 space-y-3">
+                          <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Contratación de Servicio</span>
+                              <button type="button" onClick={() => removeContratoInicial(index)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button>
+                          </div>
+                          <SearchableSelect 
+                              options={serviciosActivos.map(s => ({value: s.id, label: s.nombre}))} 
+                              value={contrato.servicioId} 
+                              onChange={(val) => handleContratoChange(index, 'servicioId', val)} 
+                              placeholder="Seleccionar abono/servicio..."
+                          />
+                          <div className="flex gap-3 items-center">
+                              <div className="flex-1">
+                                  <label className="text-[9px] font-black uppercase text-gray-400 block mb-1">Fecha Inicio</label>
+                                  <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="w-full p-2 text-xs rounded-lg border dark:border-gray-600 dark:bg-gray-700" />
+                              </div>
+                              {/* Opcionalmente permitir asignar a sucursal específica */}
+                              <div className="flex-1">
+                                  <label className="text-[9px] font-black uppercase text-gray-400 block mb-1">Punto de Instalación</label>
+                                  <select 
+                                      value={contrato.sucursalId || ''} 
+                                      onChange={(e) => handleContratoChange(index, 'sucursalId', e.target.value)}
+                                      className="w-full p-2 text-xs rounded-lg border dark:border-gray-600 dark:bg-gray-700"
+                                  >
+                                      <option value="">Cualquiera / Casa Central</option>
+                                      {formData.sucursales?.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                                   </select>
-                                  <button type="button" onClick={() => removeStockInicial(index)} className="text-red-500"><TrashIcon/></button>
                               </div>
                           </div>
-                      ))}
-                      <button type="button" onClick={addStockInicial} className="text-xs font-bold text-blue-600 hover:underline">+ Agregar Stock / Ajuste</button>
-                  </div>
-
-                  <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-1">
-                          {isNew ? "Servicios a Contratar" : "Agregar Nuevo Servicio"}
-                      </h4>
-                      <p className="text-xs text-gray-500">Asignar abonos o alquileres (dispensers, máquinas).</p>
-                      {contratosIniciales.map((contrato, index) => (
-                          <div key={index} className="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-800 space-y-2">
-                              <SearchableSelect 
-                                  options={serviciosActivos.map(s => ({value: s.id, label: s.nombre}))} 
-                                  value={contrato.servicioId} 
-                                  onChange={(val) => handleContratoChange(index, 'servicioId', val)} 
-                                  placeholder="Servicio..."
-                              />
-                              <div className="flex gap-2 items-center">
-                                  <label className="text-xs whitespace-nowrap">Inicio:</label>
-                                  <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="flex-1 p-2 rounded-md border dark:border-gray-600 dark:bg-gray-700" />
-                                  <button type="button" onClick={() => removeContratoInicial(index)} className="text-red-500"><TrashIcon/></button>
-                              </div>
-                          </div>
-                      ))}
-                      <button type="button" onClick={addContratoInicial} className="text-xs font-bold text-purple-600 hover:underline">+ Agregar Servicio</button>
-                  </div>
+                      </div>
+                  ))}
+                  <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3">+ Contratar Nuevo Abono / Servicio</AppButton>
               </div>
           </Card>
       </div>
@@ -401,7 +439,7 @@ const ClienteForm: React.FC<{
 
       <div className="flex justify-end gap-3 pt-6">
         <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" size="lg" className="px-12">Guardar Cliente</AppButton>
+        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Ficha de Cliente</AppButton>
       </div>
     </form>
   )
@@ -426,13 +464,11 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     clientes.forEach(cliente => {
         let deudaTotal = 0;
         const remitosCliente = remitos.filter(r => r.clienteId === cliente.id && !r.esAjuste);
-        // FIX: Explicitly type Map and provide non-null initializer to avoid 'unknown' type inference
         const preciosEspecialesMap = new Map<string, number>(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio] as [string, number]) || []);
         remitosCliente.forEach(r => {
             const totalRemito = r.movimientos.reduce((sum, mov) => {
                 const prod = productosMap.get(mov.productoId);
                 if (!prod) return sum;
-                // Type safety ensured by Map<string, number>
                 const precio = preciosEspecialesMap.get(mov.productoId) ?? prod.precio;
                 return sum + (mov.entregados * precio);
             }, 0);
@@ -446,22 +482,16 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
 
   // --- NUEVA LÓGICA: Cálculo de Stock por Sucursal ---
   const stocksPorSucursal = useMemo(() => {
-    // Estructura: clienteId -> { sucursalId -> { productoId -> cantidad } }
     const map = new Map<string, Map<string, Map<string, number>>>();
-    
     remitos.forEach(remito => {
         const clienteId = remito.clienteId;
         const sucursalId = remito.sucursalId || 'main';
-        
         if (!map.has(clienteId)) map.set(clienteId, new Map());
         const clienteMap = map.get(clienteId)!;
-        
         if (!clienteMap.has(sucursalId)) clienteMap.set(sucursalId, new Map());
         const sucursalMap = clienteMap.get(sucursalId)!;
-        
         remito.movimientos.forEach(mov => {
             const current = sucursalMap.get(mov.productoId) || 0;
-            // Stock actual = Entregados - Recibidos
             sucursalMap.set(mov.productoId, current + (mov.entregados - mov.recibidos));
         });
     });
@@ -507,7 +537,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Clientes</h1>
-        {currentUser?.rol === Rol.ADMINISTRADOR && <AppButton onClick={() => {setEditingCliente({estado: EstadoCliente.ACTIVO, sucursales: [{id: 'new_1', nombre: 'Casa Central', direccion: '', diasReparto: []}]}); setIsModalOpen(true);}}>+ Nuevo Cliente</AppButton>}
+        {currentUser?.rol === Rol.ADMINISTRADOR && <AppButton onClick={() => {setEditingCliente({estado: EstadoCliente.ACTIVO, sucursales: [{id: 'main', nombre: 'Casa Central', direccion: '', diasReparto: []}]}); setIsModalOpen(true);}}>+ Nuevo Cliente</AppButton>}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm">
@@ -553,7 +583,6 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                             <div className="space-y-4">
                                 {cliente.sucursales.map(suc => {
                                     const sucStockMap = clienteStocks?.get(suc.id);
-                                    // FIX: Explicitly type 'q' as number to resolve 'Operator > cannot be applied to unknown' error on line 554 (likely shifted)
                                     const hasStock = sucStockMap && Array.from(sucStockMap.values()).some((q: number) => q > 0);
                                     
                                     return (
