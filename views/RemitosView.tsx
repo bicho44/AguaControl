@@ -122,6 +122,9 @@ const RemitoForm: React.FC<{
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const { showNotification } = useNotification();
 
+  const isNew = !remito.id;
+  const isAdmin = currentUser.rol === Rol.ADMINISTRADOR;
+
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const pagosMap = useMemo(() => {
       const map = new Map<string, RegistroPago[]>();
@@ -155,6 +158,20 @@ const RemitoForm: React.FC<{
     const initialPagos = remito.id ? (pagosMap.get(remito.id) || []).map(p => ({ monto: p.monto, metodo: p.metodo })) : (remito.pagos || []);
     setFormData({ ...remito, pagos: initialPagos }); 
   }, [remito, pagosMap]);
+
+  // Lógica de Auto-incremento al cambiar Punto de Venta
+  useEffect(() => {
+    if (isNew && formData.puntoVenta) {
+      const pto = formData.puntoVenta;
+      const remitosMismoPto = remitos.filter(r => r.puntoVenta === pto);
+      if (remitosMismoPto.length > 0) {
+        const lastNum = Math.max(...remitosMismoPto.map(r => parseInt(r.numero) || 0));
+        setFormData(prev => ({ ...prev, numero: (lastNum + 1).toString() }));
+      } else {
+        setFormData(prev => ({ ...prev, numero: '1' }));
+      }
+    }
+  }, [formData.puntoVenta, isNew, remitos]);
 
   useEffect(() => {
     if (formData.clienteId) {
@@ -244,8 +261,28 @@ const RemitoForm: React.FC<{
             {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required /></div>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2"><div className="flex gap-2"><div className="w-1/3"><AppInput label="Pto Venta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/></div><div className="w-2/3"><AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/></div></div></div>
-          <div className="md:col-span-1"><AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/></div>
+          <div className="md:col-span-2">
+            <div className="flex gap-2">
+              <div className="w-1/3">
+                <AppInput label="Pto Venta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/>
+              </div>
+              <div className="w-2/3">
+                <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/>
+              </div>
+            </div>
+          </div>
+          <div className="md:col-span-1">
+            <AppInput 
+              label="Fecha" 
+              type="date" 
+              name="fecha" 
+              value={formData.fecha || ''} 
+              onChange={handleChange} 
+              required 
+              disabled={isReadOnly || !isAdmin}
+            />
+            {!isAdmin && isNew && <p className="text-[10px] text-gray-400 mt-1">* Solo el administrador puede cargar fechas anteriores.</p>}
+          </div>
         </div>
         <fieldset className="border-t dark:border-gray-600 pt-4">
           <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimientos</legend>
@@ -260,7 +297,6 @@ const RemitoForm: React.FC<{
           {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item</AppButton>}
         </fieldset>
 
-        {/* SECCIÓN DE COBRO RESTAURADA */}
         {(!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
             <fieldset className="border-t dark:border-gray-600 pt-6">
                 <legend className="text-lg font-black text-primary-600 uppercase tracking-tighter px-2 mb-4">Información de Cobro</legend>
@@ -354,7 +390,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         if (clienteFilter && r.clienteId !== clienteFilter) return false;
         if (paymentStatusFilter !== 'todos' && r.paymentStatus !== paymentStatusFilter) return false;
         return true;
-    }).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    }).sort((a, b) => {
+        // Ordenamiento por Pto Venta (DESC), luego Número (DESC), luego Fecha (DESC)
+        const ptoA = parseInt(a.puntoVenta) || 0;
+        const ptoB = parseInt(b.puntoVenta) || 0;
+        if (ptoB !== ptoA) return ptoB - ptoA;
+
+        const numA = parseInt(a.numero) || 0;
+        const numB = parseInt(b.numero) || 0;
+        if (numB !== numA) return numB - numA;
+
+        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+    });
   }, [processedRemitos, clienteFilter, paymentStatusFilter, currentUser]);
 
   const handleSave = async (r: any) => {
@@ -367,7 +414,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   };
 
   const openNewModal = () => {
-    setEditingRemito({ fecha: new Date().toISOString().split('T')[0], puntoVenta: '1', numero: '', movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], pagos: [], vendedorId: currentUser.id });
+    // Buscar el punto de venta más recientemente usado para sugerirlo
+    const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+    const defaultPto = lastRemito?.puntoVenta || '1';
+
+    setEditingRemito({ 
+      fecha: new Date().toISOString().split('T')[0], 
+      puntoVenta: defaultPto, 
+      numero: '', 
+      movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
+      pagos: [], 
+      vendedorId: currentUser.id 
+    });
     setIsFormOpen(true);
   }
 

@@ -16,12 +16,14 @@ interface SearchableSelectProps {
 const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const [isMobileMode, setIsMobileMode] = useState(false);
   
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
+  const optionsRef = useRef<(HTMLLIElement | null)[]>([]);
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
@@ -31,6 +33,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const filteredOptions = useMemo(() => options.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  ), [options, searchTerm]);
+
+  // Reset highlighted index when search or open changes
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [searchTerm, isOpen]);
 
   const updateDropdownPosition = useCallback(() => {
     if (!isOpen || isMobileMode || !wrapperRef.current) return;
@@ -71,20 +82,52 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     }
   }, [selectedOption, isOpen]);
 
-  useEffect(() => {
-    if (isOpen && isMobileMode && mobileInputRef.current) {
-        setTimeout(() => mobileInputRef.current?.focus(), 100);
-    }
-  }, [isOpen, isMobileMode]);
-
-  const filteredOptions = useMemo(() => options.filter(option =>
-    option.label.toLowerCase().includes(searchTerm.toLowerCase())
-  ), [options, searchTerm]);
-
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
     setIsOpen(false);
+    setSearchTerm('');
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+          handleSelect(filteredOptions[highlightedIndex].value);
+        }
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        break;
+      case 'Tab':
+        setIsOpen(false);
+        break;
+    }
+  };
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && optionsRef.current[highlightedIndex]) {
+      optionsRef.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex]);
 
   const renderDesktopContent = () => (
     <div 
@@ -94,11 +137,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     >
       {filteredOptions.length > 0 ? (
         <ul className="py-1">
-            {filteredOptions.map((option) => (
+            {filteredOptions.map((option, idx) => (
             <li
                 key={option.value}
+                ref={el => optionsRef.current[idx] = el}
                 onClick={() => handleSelect(option.value)}
-                className={`px-4 py-2.5 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={`px-4 py-2.5 cursor-pointer text-sm transition-colors ${
+                idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''
+                } ${
                 option.value === value ? 'font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'
                 }`}
             >
@@ -128,6 +175,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={handleKeyDown}
                       placeholder="Buscar..."
                       className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
                   />
@@ -140,7 +188,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
               {label && <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>}
               <div className="space-y-1">
                   {filteredOptions.length > 0 ? (
-                      filteredOptions.map((option) => (
+                      filteredOptions.map((option, idx) => (
                           <div
                               key={option.value}
                               onClick={() => handleSelect(option.value)}
@@ -148,7 +196,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                                   option.value === value 
                                   ? 'bg-primary-600 text-white border-primary-600' 
                                   : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 shadow-sm'
-                              }`}
+                              } ${idx === highlightedIndex ? 'ring-2 ring-primary-400' : ''}`}
                           >
                               <p className="font-bold">{option.label}</p>
                           </div>
@@ -190,6 +238,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                 setSearchTerm(e.target.value);
                 if (!isOpen) setIsOpen(true);
             }}
+            onKeyDown={handleKeyDown}
             onFocus={() => {
                 if (!disabled) {
                     setIsOpen(true);
