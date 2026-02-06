@@ -136,7 +136,7 @@ const RemitoForm: React.FC<{
   }, [registrosPago]);
 
   const getRemitoTotal = useCallback((r: Remito | Partial<Remito>) => {
-    if (r.esAjuste) return 0; // AJUSTES VALEN $0
+    if (r.esAjuste) return 0;
     if (!r.clienteId || !r.movimientos) return 0;
     const cliente = clientes.find(c => c.id === r.clienteId);
     if (!cliente) return 0;
@@ -150,7 +150,11 @@ const RemitoForm: React.FC<{
     }, 0);
   }, [clientes, productosMap]);
 
-  useEffect(() => { setFormData(remito); }, [remito]);
+  useEffect(() => { 
+    // Al cargar el remito para editar, si ya tiene pagos en la DB, los traemos al form
+    const initialPagos = remito.id ? (pagosMap.get(remito.id) || []).map(p => ({ monto: p.monto, metodo: p.metodo })) : (remito.pagos || []);
+    setFormData({ ...remito, pagos: initialPagos }); 
+  }, [remito, pagosMap]);
 
   useEffect(() => {
     if (formData.clienteId) {
@@ -194,6 +198,7 @@ const RemitoForm: React.FC<{
   }
   const addMovimiento = () => setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]}));
   const removeMovimiento = (index: number) => setFormData(prev => ({...prev, movimientos: prev.movimientos?.filter((_, i) => i !== index)}));
+  
   const handlePagoChange = (index: number, field: keyof PagoDetalle, value: string | MetodoPago) => {
     const newPagos = [...(formData.pagos || [])];
     newPagos[index] = { ...newPagos[index], [field]: field === 'monto' ? (value === '' ? 0 : Number(value)) : value };
@@ -254,10 +259,30 @@ const RemitoForm: React.FC<{
           ))}
           {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item</AppButton>}
         </fieldset>
-        <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total: ${totalRemito.toLocaleString()}</span></div>
+
+        {/* SECCIÓN DE COBRO RESTAURADA */}
+        {(!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
+            <fieldset className="border-t dark:border-gray-600 pt-6">
+                <legend className="text-lg font-black text-primary-600 uppercase tracking-tighter px-2 mb-4">Información de Cobro</legend>
+                <div className="space-y-3 bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl border border-primary-100 dark:border-primary-800">
+                    {(formData.pagos || []).map((pago, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3 items-end">
+                            <AppInput label={index === 0 ? "Monto Pagado" : ""} type="number" value={pago.monto} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} step="0.01" className="font-black text-green-600" disabled={isReadOnly} />
+                            <AppSelect label={index === 0 ? "Método" : ""} value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} disabled={isReadOnly} />
+                            <AppButton variant="danger" size="sm" onClick={() => removePago(index)} disabled={isReadOnly} className="!p-2 mb-1"><TrashIcon className="w-5 h-5"/></AppButton>
+                        </div>
+                    ))}
+                    {!isReadOnly && (
+                        <AppButton variant="secondary" size="sm" onClick={addPago} className="w-full border-dashed border-2 bg-white/50">+ Agregar Pago / Cobro</AppButton>
+                    )}
+                </div>
+            </fieldset>
+        )}
+
+        <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total Remito: ${totalRemito.toLocaleString()}</span></div>
         <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
           <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar</AppButton>}
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito</AppButton>}
         </div>
       </form>
       <QuickClientModal isOpen={isQuickClientOpen} onClose={() => setIsQuickClientOpen(false)} onSave={handleSaveQuickClient} />
@@ -285,7 +310,17 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
-  const pagosMap = useMemo(() => new Map(registrosPago.map(p => [p.id, p])), [registrosPago]);
+  const pagosMap = useMemo(() => {
+      const map = new Map<string, RegistroPago[]>();
+      registrosPago.forEach(pago => {
+          if (pago.origen.tipo === 'remito') {
+              const remitoId = pago.origen.id;
+              if (!map.has(remitoId)) map.set(remitoId, []);
+              map.get(remitoId)!.push(pago);
+          }
+      });
+      return map;
+  }, [registrosPago]);
 
   const getRemitoTotal = useCallback((r: Remito) => {
     if (r.esAjuste) return 0;
@@ -301,7 +336,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const processedRemitos = useMemo(() => {
     return remitos.map(r => {
-      const pagos = r.pagoIds?.map(id => pagosMap.get(id)).filter(Boolean) as RegistroPago[] || [];
+      const pagos = pagosMap.get(r.id) || [];
       const totalPagado = pagos.reduce((sum, p) => sum + p.monto, 0);
       const totalRemito = getRemitoTotal(r);
       const cliente = clientesMap.get(r.clienteId);
