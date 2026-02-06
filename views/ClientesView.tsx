@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
 import Card from '../components/Card';
@@ -419,19 +418,23 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const { user: currentUser } = useAuth();
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
+  // Cálculo de Deudas
   const deudasMap = useMemo(() => {
     const deudas = new Map<string, number>();
     const pagosMap = new Map<string, number>();
     registrosPago.forEach(p => pagosMap.set(p.origen.id, (pagosMap.get(p.origen.id) || 0) + p.monto));
     clientes.forEach(cliente => {
         let deudaTotal = 0;
-        const remitosCliente = remitos.filter(r => r.clienteId === cliente.id && !r.esAjuste); // EXCLUIR AJUSTES DE DEUDA
-        const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+        const remitosCliente = remitos.filter(r => r.clienteId === cliente.id && !r.esAjuste);
+        // FIX: Explicitly type Map and provide non-null initializer to avoid 'unknown' type inference
+        const preciosEspecialesMap = new Map<string, number>(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio] as [string, number]) || []);
         remitosCliente.forEach(r => {
             const totalRemito = r.movimientos.reduce((sum, mov) => {
                 const prod = productosMap.get(mov.productoId);
                 if (!prod) return sum;
-                return sum + (mov.entregados * (preciosEspecialesMap.get(mov.productoId) ?? prod.precio));
+                // Type safety ensured by Map<string, number>
+                const precio = preciosEspecialesMap.get(mov.productoId) ?? prod.precio;
+                return sum + (mov.entregados * precio);
             }, 0);
             const pagado = pagosMap.get(r.id) || 0;
             if (totalRemito > pagado) deudaTotal += (totalRemito - pagado);
@@ -440,6 +443,30 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     });
     return deudas;
   }, [clientes, remitos, registrosPago, productosMap]);
+
+  // --- NUEVA LÓGICA: Cálculo de Stock por Sucursal ---
+  const stocksPorSucursal = useMemo(() => {
+    // Estructura: clienteId -> { sucursalId -> { productoId -> cantidad } }
+    const map = new Map<string, Map<string, Map<string, number>>>();
+    
+    remitos.forEach(remito => {
+        const clienteId = remito.clienteId;
+        const sucursalId = remito.sucursalId || 'main';
+        
+        if (!map.has(clienteId)) map.set(clienteId, new Map());
+        const clienteMap = map.get(clienteId)!;
+        
+        if (!clienteMap.has(sucursalId)) clienteMap.set(sucursalId, new Map());
+        const sucursalMap = clienteMap.get(sucursalId)!;
+        
+        remito.movimientos.forEach(mov => {
+            const current = sucursalMap.get(mov.productoId) || 0;
+            // Stock actual = Entregados - Recibidos
+            sucursalMap.set(mov.productoId, current + (mov.entregados - mov.recibidos));
+        });
+    });
+    return map;
+  }, [remitos]);
 
   const handleSave = (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente)) => {
     try {
@@ -496,6 +523,8 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
         {filteredClientes.map(cliente => {
             const isExpanded = expandedClienteId === cliente.id;
             const deuda = deudasMap.get(cliente.id) || 0;
+            const clienteStocks = stocksPorSucursal.get(cliente.id);
+
             return (
             <div key={cliente.id} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border dark:border-gray-700 transition-all ${cliente.estado === 'Inactivo' ? 'opacity-60' : ''}`}>
                 <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedClienteId(isExpanded ? null : cliente.id)}>
@@ -515,7 +544,40 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                 </div>
                 {isExpanded && (
                     <div className="px-4 pb-4 pt-0 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        
+                        {/* SECCIÓN DE STOCK POR SUCURSAL */}
+                        <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-primary-100 dark:border-primary-900/30 shadow-inner">
+                            <p className="text-[11px] font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <ReplyIcon className="w-4 h-4" /> Stock de Envases / Comodatos en Cliente
+                            </p>
+                            <div className="space-y-4">
+                                {cliente.sucursales.map(suc => {
+                                    const sucStockMap = clienteStocks?.get(suc.id);
+                                    // FIX: Explicitly type 'q' as number to resolve 'Operator > cannot be applied to unknown' error on line 554 (likely shifted)
+                                    const hasStock = sucStockMap && Array.from(sucStockMap.values()).some((q: number) => q > 0);
+                                    
+                                    return (
+                                        <div key={suc.id} className="border-l-4 border-primary-500 pl-4 py-1">
+                                            <p className="text-xs font-bold text-gray-700 dark:text-gray-200">{suc.nombre}</p>
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {hasStock ? Array.from(sucStockMap!.entries()).map(([prodId, qty]) => {
+                                                    if (qty <= 0) return null;
+                                                    const prod = productosMap.get(prodId);
+                                                    return (
+                                                        <div key={prodId} className="flex items-center gap-2 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-lg border border-primary-100 dark:border-primary-800 shadow-sm">
+                                                            <span className="text-xs font-black text-primary-700 dark:text-primary-300">{qty}</span>
+                                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">{prod?.nombre}</span>
+                                                        </div>
+                                                    );
+                                                }) : <p className="text-[10px] text-gray-400 italic">Sin envases registrados.</p>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                             <div className="space-y-2">
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Datos Fiscales y Contacto</p>
                                 <ul className="text-sm space-y-1">
@@ -527,7 +589,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                 </ul>
                             </div>
                             <div className="space-y-2">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sucursales</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sucursales / Direcciones</p>
                                 <div className="space-y-2">
                                     {cliente.sucursales.map((suc, i) => (
                                         <div key={i} className="bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 flex justify-between items-center shadow-sm">
@@ -541,21 +603,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                 </div>
                             </div>
                         </div>
-                        {cliente.preciosEspeciales && cliente.preciosEspeciales.length > 0 && (
-                            <div className="mt-4 pt-2 border-t dark:border-gray-700">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Precios Pactados</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {cliente.preciosEspeciales.map((pe, idx) => {
-                                        const prod = productosMap.get(pe.productoId);
-                                        return prod ? (
-                                            <span key={idx} className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded">
-                                                {prod.nombre}: <b>${pe.precio}</b>
-                                            </span>
-                                        ) : null;
-                                    })}
-                                </div>
-                            </div>
-                        )}
+
                         {currentUser?.rol === Rol.ADMINISTRADOR && (
                             <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-end">
                                 {cliente.estado === 'Activo' ? (
@@ -577,7 +625,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
                 <h2 className="text-2xl font-black text-gray-800 dark:text-white">¿Inactivar Cliente?</h2>
-                <p className="text-gray-500">{clienteParaBaja.nombre} no podrá realizar nuevas compras pero su deuda permanecerá visible.</p>
+                <p className="text-gray-500">{clienteParaBaja.nombre} no podrá realizar nuevas compras.</p>
                 <div className="flex justify-center gap-3">
                     <AppButton variant="secondary" onClick={() => setClienteParaBaja(null)}>Cancelar</AppButton>
                     <AppButton variant="danger" onClick={() => {deleteCliente(clienteParaBaja.id); setClienteParaBaja(null); showNotification('Cliente inactivado.', 'success');}}>Confirmar Baja</AppButton>

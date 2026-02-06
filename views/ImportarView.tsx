@@ -64,16 +64,15 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                 if (!rawHeaders) throw new Error("Archivo vacío");
                 
                 const headers = rawHeaders.map(h => h.toLowerCase().trim());
-                // Filtrar filas basura que a veces vienen al final
                 const dataRows = rows
                     .filter(row => row.length > 0 && row.some(cell => cell.trim() !== ''))
                     .map(row => Object.fromEntries(headers.map((h, i) => [h, row[i] || ''])));
                 
-                if (dataRows.length === 0) throw new Error("No se encontraron datos válidos en el archivo.");
+                if (dataRows.length === 0) throw new Error("No se encontraron datos válidos.");
 
                 setFileData({ headers, rows: dataRows });
 
-                // 1. Mapeo Automático de IVA
+                // Mapeo Automático IVA
                 const ivaCol = headers.find(h => h.includes('cond_iva'));
                 if (ivaCol) {
                     const uniqueIva = [...new Set(dataRows.map(r => r[ivaCol]).filter(v => v))];
@@ -88,21 +87,19 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                     setIvaMapping(initialIvaMap);
                 }
 
-                // 2. Mapeo Automático de Productos
+                // Mapeo Automático Productos
                 const initialProdMap: Record<string, string> = {};
                 headers.forEach(h => {
                     if (h.startsWith('cant_')) {
                         if (h.includes('20')) initialProdMap[h] = activeProducts.find(p => p.nombre.includes('20'))?.id || '';
                         else if (h.includes('12')) initialProdMap[h] = activeProducts.find(p => p.nombre.includes('12'))?.id || '';
                         else if (h.includes('fcp')) initialProdMap[h] = activeProducts.find(p => p.tipo === TipoProducto.EQUIPO)?.id || '';
-                        else initialProdMap[h] = '';
                     }
                 });
                 setProductMapping(initialProdMap);
-
                 setCurrentStep('mapping');
             } catch (err: any) { 
-                showNotification(`Error al leer archivo: ${err.message}`, 'error'); 
+                showNotification(`Error: ${err.message}`, 'error'); 
             }
         };
         reader.readAsText(file);
@@ -120,10 +117,8 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
 
           const clientGroups = new Map<string, any[]>();
           fileData.rows.forEach(row => {
-              // Asegurarnos de tener un código, sino saltamos la fila
               const madreId = (row.codigo_madre || row.codigo || '').toString().trim();
               if (!madreId) return;
-
               if (!clientGroups.has(madreId)) clientGroups.set(madreId, []);
               clientGroups.get(madreId)!.push(row);
           });
@@ -133,7 +128,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
               const mainRow = branchRows.find(r => r.codigo === madreId) || branchRows[0];
               
               const sucursales: Sucursal[] = branchRows.map(r => ({
-                  id: (r.codigo || `suc_${Date.now()}_${Math.random()}`).toString(),
+                  id: r.codigo.toString(),
                   nombre: branchRows.length > 1 ? (r.nombre || `Sucursal ${r.codigo}`) : 'Principal',
                   direccion: `${r.direccion || ''} ${r.localidad || ''}`.trim()
               }));
@@ -143,7 +138,8 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                   Object.entries(productMapping).forEach(([col, pId]) => {
                       const qty = Number(r[col]);
                       if (pId && !isNaN(qty) && qty > 0) {
-                          initialStocks.push({ productoId: pId, cantidad: qty, sucursalId: r.codigo });
+                          // IMPORTANTE: el sucursalId debe coincidir con el r.codigo mapeado arriba
+                          initialStocks.push({ productoId: pId, cantidad: qty, sucursalId: r.codigo.toString() });
                       }
                   });
               });
@@ -166,14 +162,12 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
               });
           });
 
-          if (finalClientes.length === 0) throw new Error("No hay clientes válidos para importar (falta columna Código).");
-
           await addMultipleClientes(finalClientes);
           showNotification(`¡Éxito! ${finalClientes.length} clientes procesados.`, 'success');
           setCurrentStep('upload');
           setFileData(null);
       } catch (err: any) { 
-          showNotification(`Error en importación: ${err.message}`, 'error'); 
+          showNotification(`Error: ${err.message}`, 'error'); 
       }
       finally { setIsProcessing(false); }
   };
@@ -185,12 +179,10 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
       {currentStep === 'upload' && (
           <Card title="Paso 1: Seleccionar Archivo">
               <div className="space-y-6">
-                  <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
-                      <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed font-mono">
-                        Columnas requeridas: Codigo, Nombre, Direccion, Localidad, Cant_B20, Cant_B12, Cant_FCP, Codigo_Madre, CUIT, COND_IVA, COND_PAGO...
-                      </p>
+                  <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 font-mono text-[10px] text-blue-800 dark:text-blue-300">
+                    Columnas: Codigo, Nombre, Direccion, Localidad, Cant_B20, Cant_B12, Cant_FCP, Codigo_Madre, CUIT, COND_IVA, COND_PAGO...
                   </div>
-                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all">
+                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                           <UploadIcon />
                           <p className="mt-2 text-sm text-gray-500 font-bold">Clic para seleccionar el listado CSV</p>
@@ -206,54 +198,36 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card title="Mapeo de IVA">
                       <div className="space-y-4">
-                          <p className="text-xs text-gray-500">Mapee los valores encontrados en la columna <span className="font-bold">COND_IVA</span>.</p>
-                          {Object.keys(ivaMapping).length > 0 ? Object.keys(ivaMapping).map(val => (
+                          {Object.keys(ivaMapping).map(val => (
                               <div key={val} className="flex flex-col gap-1">
                                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{val}</span>
-                                  <AppSelect 
-                                    value={ivaMapping[val]} 
-                                    onChange={(e) => setIvaMapping({...ivaMapping, [val]: e.target.value as any})}
-                                    options={Object.values(TipoFacturacion).map(v => ({value: v, label: v}))}
-                                  />
+                                  <AppSelect value={ivaMapping[val]} onChange={(e) => setIvaMapping({...ivaMapping, [val]: e.target.value as any})} options={Object.values(TipoFacturacion).map(v => ({value: v, label: v}))} />
                               </div>
-                          )) : <p className="text-xs text-red-500 font-bold">No se detectó columna COND_IVA</p>}
+                          ))}
                       </div>
                   </Card>
-
                   <Card title="Mapeo de Productos">
                       <div className="space-y-4">
-                          <p className="text-xs text-gray-500">Asigne productos a las columnas de cantidades detectadas.</p>
-                          {Object.keys(productMapping).length > 0 ? Object.keys(productMapping).map(col => (
+                          {Object.keys(productMapping).map(col => (
                               <div key={col} className="flex flex-col gap-1">
                                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Columna: {col}</span>
-                                  <AppSelect 
-                                    value={productMapping[col]} 
-                                    onChange={(e) => setProductMapping({...productMapping, [col]: e.target.value})}
-                                    options={[{value: '', label: '-- Ignorar Columna --'}, ...activeProducts.map(p => ({value: p.id, label: p.nombre}))]}
-                                  />
+                                  <AppSelect value={productMapping[col]} onChange={(e) => setProductMapping({...productMapping, [col]: e.target.value})} options={[{value: '', label: '-- Ignorar --'}, ...activeProducts.map(p => ({value: p.id, label: p.nombre}))]} />
                               </div>
-                          )) : <p className="text-xs text-red-500 font-bold">No se detectaron columnas que empiecen con "Cant_"</p>}
+                          ))}
                       </div>
                   </Card>
               </div>
-
-              <Card title="Confirmación y Acción">
-                  <div className="space-y-6">
-                      <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600 flex items-center justify-between">
-                          <div>
-                              <p className="font-bold text-gray-800 dark:text-white">Acción al importar</p>
-                              <p className="text-xs text-gray-500">{isReplacing ? '⚠ CUIDADO: Se borrarán todos los clientes, remitos y facturas actuales.' : 'Se agregarán los nuevos clientes manteniendo los existentes.'}</p>
-                          </div>
-                          <div className="flex gap-2">
-                              <button onClick={() => setIsReplacing(false)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${!isReplacing ? 'bg-primary-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500 border dark:border-gray-600'}`}>Sumar</button>
-                              <button onClick={() => setIsReplacing(true)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${isReplacing ? 'bg-red-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500 border dark:border-gray-600'}`}>REEMPLAZAR TODO</button>
-                          </div>
+              <Card title="Finalizar">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600">
+                      <p className="font-bold text-sm">Modo de Importación</p>
+                      <div className="flex gap-2">
+                          <button onClick={() => setIsReplacing(false)} className={`px-4 py-2 rounded-lg text-xs font-bold ${!isReplacing ? 'bg-primary-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500'}`}>Sumar</button>
+                          <button onClick={() => setIsReplacing(true)} className={`px-4 py-2 rounded-lg text-xs font-bold ${isReplacing ? 'bg-red-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500'}`}>REEMPLAZAR</button>
                       </div>
-
-                      <div className="flex gap-3 justify-end">
-                          <AppButton variant="secondary" onClick={() => setCurrentStep('upload')}>Volver a Cargar Archivo</AppButton>
-                          <AppButton onClick={handleExecuteImport} isLoading={isProcessing} size="lg" className="px-12 shadow-xl">Iniciar Importación</AppButton>
-                      </div>
+                  </div>
+                  <div className="flex gap-3 justify-end mt-6">
+                      <AppButton variant="secondary" onClick={() => setCurrentStep('upload')}>Volver</AppButton>
+                      <AppButton onClick={handleExecuteImport} isLoading={isProcessing} className="px-12">Iniciar</AppButton>
                   </div>
               </Card>
           </div>
