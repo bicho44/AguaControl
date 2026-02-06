@@ -144,6 +144,7 @@ export interface Remito {
   movimientos: Movimiento[];
   pagoIds?: string[];
   facturaId?: string;
+  esAjuste?: boolean; // Nuevo campo para stock inicial histórico
 }
 
 export enum MetodoPago {

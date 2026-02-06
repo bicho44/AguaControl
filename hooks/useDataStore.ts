@@ -148,6 +148,7 @@ export const useDataStore = () => {
             vendedorId: adminUser?.id || usuarios[0]?.id,
             puntoVenta: '0000',
             numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+            esAjuste: true,
             movimientos: [{
                 productoId: stock.productoId,
                 entregados: stock.cantidad,
@@ -182,6 +183,7 @@ export const useDataStore = () => {
             vendedorId: adminUser?.id || usuarios[0]?.id,
             puntoVenta: '0000',
             numero: `AJU-${Date.now()}`,
+            esAjuste: true,
             movimientos: [{
                 productoId: stock.productoId,
                 entregados: stock.cantidad,
@@ -205,19 +207,12 @@ export const useDataStore = () => {
   }, []);
 
   const deleteAllClientes = useCallback(async () => {
-      // Nota: Firestore no permite borrar colecciones enteras desde el cliente de forma atómica.
-      // Borramos por lotes de 500.
       const collectionsToClear = ['clientes', 'remitos', 'registrosPago', 'facturas', 'contratos', 'planillas'];
-      
       for (const colName of collectionsToClear) {
           const snapshot = await getDocs(collection(db, colName));
           const chunks = [];
           const items = snapshot.docs;
-          
-          for (let i = 0; i < items.length; i += 500) {
-              chunks.push(items.slice(i, i + 500));
-          }
-
+          for (let i = 0; i < items.length; i += 500) { chunks.push(items.slice(i, i + 500)); }
           for (const chunk of chunks) {
               const batch = writeBatch(db);
               chunk.forEach(d => batch.delete(d.ref));
@@ -232,19 +227,16 @@ export const useDataStore = () => {
       yesterday.setDate(yesterday.getDate() - 1);
       const fechaAjuste = yesterday.toISOString().split('T')[0];
 
-      // Firestore batches tienen un límite de 500 operaciones.
-      // Procesamos por grupos de clientes para no exceder el límite considerando remitos de ajuste.
       const clientChunks = [];
-      for (let i = 0; i < newClientes.length; i += 50) {
-          clientChunks.push(newClientes.slice(i, i + 50));
-      }
+      for (let i = 0; i < newClientes.length; i += 50) { clientChunks.push(newClientes.slice(i, i + 50)); }
 
       for (const chunk of clientChunks) {
           const batch = writeBatch(db);
           chunk.forEach(clienteData => {
               const { stockInicial, ...cliente } = clienteData;
-              const clienteRef = doc(collection(db, 'clientes'));
-              batch.set(clienteRef, cleanUndefineds({ ...cliente, id: clienteRef.id, estado: EstadoCliente.ACTIVO }));
+              // USAR ID PROPORCIONADO (madreId) PARA EL DOCUMENTO
+              const clienteRef = doc(db, 'clientes', clienteData.id);
+              batch.set(clienteRef, cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
 
               if (stockInicial && stockInicial.length > 0) {
                   stockInicial.forEach((stock: any) => {
@@ -256,6 +248,7 @@ export const useDataStore = () => {
                           vendedorId: adminUser?.id || usuarios[0]?.id,
                           puntoVenta: '0000',
                           numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+                          esAjuste: true, // MARCAR COMO AJUSTE PARA $0 DEUDA
                           movimientos: [{
                               productoId: stock.productoId,
                               entregados: stock.cantidad,

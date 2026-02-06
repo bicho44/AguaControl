@@ -13,8 +13,8 @@ import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import { MapIcon } from '../components/icons/MapIcon';
 
-type PaymentStatus = 'facturado' | 'pagado' | 'pagado_parcial' | 'pendiente' | 'gratis';
-type PaymentStatusFilter = 'todos' | 'pendiente' | 'pagado' | 'facturado';
+type PaymentStatus = 'facturado' | 'pagado' | 'pagado_parcial' | 'pendiente' | 'gratis' | 'ajuste';
+type PaymentStatusFilter = 'todos' | 'pendiente' | 'pagado' | 'facturado' | 'ajuste';
 
 interface RemitosViewProps {
   remitos: Remito[];
@@ -26,10 +26,9 @@ interface RemitosViewProps {
   addRemito: (remito: Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] }) => Promise<void>;
   updateRemito: (remito: Remito & { pagos?: PagoDetalle[] }) => Promise<void>;
   deleteRemito: (remitoId: string) => Promise<void>;
-  addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; // ID del nuevo cliente
+  addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; 
 }
 
-// Modal interno para carga rápida de cliente con detección de GPS
 const QuickClientModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -48,88 +47,54 @@ const QuickClientModal: React.FC<{
             showNotification('Tu navegador no soporta geolocalización', 'error');
             return;
         }
-
         setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
                 setCoords({ lat: latitude, lng: longitude });
-
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
-                    
                     if (data && data.address) {
                         const road = data.address.road || '';
                         const houseNumber = data.address.house_number || '';
                         const city = data.address.city || data.address.town || data.address.village || '';
                         const estimatedAddr = `${road} ${houseNumber}${city ? `, ${city}` : ''}`.trim();
-                        
                         setDireccion(estimatedAddr || data.display_name);
                         showNotification('Dirección estimada por GPS', 'success');
                     }
-                } catch (error) {
-                    console.error("Error reverse geocoding:", error);
-                    showNotification('No se pudo estimar la dirección, pero se guardaron las coordenadas.', 'success');
-                } finally {
-                    setIsLocating(false);
-                }
+                } catch (error) { showNotification('Error al ubicar dirección.', 'success'); } 
+                finally { setIsLocating(false); }
             },
-            (error) => {
-                console.error("GPS Error:", error);
-                showNotification('Error al obtener ubicación. Asegúrate de dar permisos.', 'error');
-                setIsLocating(false);
-            },
+            (error) => { showNotification('Error GPS.', 'error'); setIsLocating(false); },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        e.stopPropagation(); // Evitar que el evento suba al formulario del remito
+        e.preventDefault(); e.stopPropagation();
         if (!nombre.trim()) return;
         setIsSaving(true);
         try {
             await onSave({ nombre, direccion, telefono, ...coords });
             setNombre(''); setDireccion(''); setTelefono(''); setCoords({});
             onClose();
-        } catch (error) {
-            console.error("Error saving quick client:", error);
-        } finally {
-            setIsSaving(false);
-        }
+        } catch (error) { console.error(error); } finally { setIsSaving(false); }
     };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Nuevo Cliente Rápido</h3>
-                <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Juan Gomez" required />
-                
+                <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} required />
                 <div className="relative">
-                    <AppInput 
-                        label="Dirección de Entrega" 
-                        value={direccion} 
-                        onChange={e => setDireccion(e.target.value)} 
-                        placeholder="Ej: Mitre 450" 
-                    />
-                    <button 
-                        type="button"
-                        onClick={handleGetLocation}
-                        disabled={isLocating}
-                        className={`absolute right-2 top-8 p-1.5 rounded-lg transition-all ${isLocating ? 'animate-pulse text-primary-600' : 'text-gray-400 hover:text-primary-600 hover:bg-primary-50'}`}
-                        title="Obtener mi ubicación actual"
-                    >
-                        <MapIcon className="w-6 h-6" />
-                    </button>
-                    {coords.lat && <p className="text-[10px] text-green-600 font-bold mt-1 ml-1 uppercase tracking-tighter">✓ Ubicación GPS capturada</p>}
+                    <AppInput label="Dirección de Entrega" value={direccion} onChange={e => setDireccion(e.target.value)} />
+                    <button type="button" onClick={handleGetLocation} disabled={isLocating} className="absolute right-2 top-8 p-1.5 rounded-lg text-gray-400 hover:text-primary-600"><MapIcon className="w-6 h-6" /></button>
                 </div>
-
-                <AppInput label="Teléfono / WhatsApp" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej: 2944123456" />
-                
+                <AppInput label="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} />
                 <div className="flex justify-end gap-2 pt-4">
                     <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear y Seleccionar</AppButton>
+                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear</AppButton>
                 </div>
             </form>
         </Modal>
@@ -163,9 +128,7 @@ const RemitoForm: React.FC<{
       registrosPago.forEach(pago => {
           if (pago.origen.tipo === 'remito') {
               const remitoId = pago.origen.id;
-              if (!map.has(remitoId)) {
-                  map.set(remitoId, []);
-              }
+              if (!map.has(remitoId)) map.set(remitoId, []);
               map.get(remitoId)!.push(pago);
           }
       });
@@ -173,11 +136,11 @@ const RemitoForm: React.FC<{
   }, [registrosPago]);
 
   const getRemitoTotal = useCallback((r: Remito | Partial<Remito>) => {
+    if (r.esAjuste) return 0; // AJUSTES VALEN $0
     if (!r.clienteId || !r.movimientos) return 0;
     const cliente = clientes.find(c => c.id === r.clienteId);
     if (!cliente) return 0;
     const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-    
     return r.movimientos.reduce((total, mov) => {
         if (!mov.productoId) return total;
         const producto = productosMap.get(mov.productoId);
@@ -187,751 +150,226 @@ const RemitoForm: React.FC<{
     }, 0);
   }, [clientes, productosMap]);
 
-
-  useEffect(() => {
-    setFormData(remito);
-  }, [remito]);
+  useEffect(() => { setFormData(remito); }, [remito]);
 
   useEffect(() => {
     if (formData.clienteId) {
       const cliente = clientes.find(c => c.id === formData.clienteId);
       const sucs = cliente?.sucursales || [];
       setClienteSucursales(sucs);
-      
-      // Auto-selección si hay una sola sucursal
-      if (sucs.length === 1 && formData.sucursalId !== sucs[0].id) {
-          setFormData(prev => ({ ...prev, sucursalId: sucs[0].id }));
-      }
-      
+      if (sucs.length === 1 && formData.sucursalId !== sucs[0].id) setFormData(prev => ({ ...prev, sucursalId: sucs[0].id }));
       const tieneCtaCte = cliente?.tieneCuentaCorriente || false;
       setIsCtaCte(tieneCtaCte);
-      
       if (!tieneCtaCte) {
         const remitosDelCliente = remitos.filter(r => r.clienteId === formData.clienteId && r.id !== formData.id);
         const deuda = remitosDelCliente.reduce((totalDeuda, r) => {
             const totalRemito = getRemitoTotal(r);
             const pagosDelRemito = pagosMap.get(r.id) || [];
             const totalPagado = pagosDelRemito.reduce((sum, p) => sum + p.monto, 0);
-            
-            if (totalRemito > totalPagado) {
-                return totalDeuda + (totalRemito - totalPagado);
-            }
-            return totalDeuda;
+            return (totalRemito > totalPagado) ? totalDeuda + (totalRemito - totalPagado) : totalDeuda;
         }, 0);
         setDeudaPendiente(deuda);
-      } else {
-        setDeudaPendiente(0);
-      }
-
-    } else {
-      setClienteSucursales([]);
-      setIsCtaCte(false);
-      setDeudaPendiente(0);
-    }
+      } else setDeudaPendiente(0);
+    } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); }
   }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id]);
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-     if ((name === 'puntoVenta' || name === 'numero') && value !== '' && !/^\d*$/.test(value)) {
-      return;
-    }
+    if ((name === 'puntoVenta' || name === 'numero') && value !== '' && !/^\d*$/.test(value)) return;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
+  const handleSelectChange = (name: string, value: string) => setFormData(prev => ({ ...prev, [name]: value }));
   const handleMovimientoChange = (index: number, field: keyof Movimiento, value: string) => {
     const newMovimientos = [...(formData.movimientos || [])];
-    const numValue = value === '' ? 0 : Number(value);
-    newMovimientos[index] = { ...newMovimientos[index], [field]: numValue };
+    newMovimientos[index] = { ...newMovimientos[index], [field]: value === '' ? 0 : Number(value) };
     setFormData(prev => ({ ...prev, movimientos: newMovimientos }));
   }
-
   const handleProductoChange = (index: number, productoId: string) => {
     const newMovimientos = [...(formData.movimientos || [])];
     newMovimientos[index] = { ...newMovimientos[index], productoId };
     setFormData(prev => ({ ...prev, movimientos: newMovimientos }));
   }
-  
-  const addMovimiento = () => {
-      const newMovimiento: Movimiento = { productoId: '', entregados: 0, recibidos: 0};
-      setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), newMovimiento]}));
-  }
-
-  const removeMovimiento = (index: number) => {
-      setFormData(prev => ({...prev, movimientos: prev.movimientos?.filter((_, i) => i !== index)}));
-  }
-
+  const addMovimiento = () => setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]}));
+  const removeMovimiento = (index: number) => setFormData(prev => ({...prev, movimientos: prev.movimientos?.filter((_, i) => i !== index)}));
   const handlePagoChange = (index: number, field: keyof PagoDetalle, value: string | MetodoPago) => {
     const newPagos = [...(formData.pagos || [])];
-    const updatedValue = field === 'monto' ? (value === '' ? 0 : Number(value)) : value;
-    newPagos[index] = { ...newPagos[index], [field]: updatedValue };
+    newPagos[index] = { ...newPagos[index], [field]: field === 'monto' ? (value === '' ? 0 : Number(value)) : value };
     setFormData((prev: any) => ({ ...prev, pagos: newPagos }));
   }
-
   const addPago = () => {
-    const totalActual = totalRemito;
-    const pagadoHastaAhora = (formData.pagos || []).reduce((sum, p) => sum + p.monto, 0);
-    const saldoPendiente = Math.max(0, totalActual - pagadoHastaAhora);
-
-    const newPago: PagoDetalle = { monto: saldoPendiente, metodo: MetodoPago.EFECTIVO };
-    setFormData(prev => ({...prev, pagos: [...(prev.pagos || []), newPago]}));
+    const pagado = (formData.pagos || []).reduce((sum, p) => sum + p.monto, 0);
+    setFormData(prev => ({...prev, pagos: [...(prev.pagos || []), { monto: Math.max(0, totalRemito - pagado), metodo: MetodoPago.EFECTIVO }]}));
   }
+  const removePago = (index: number) => setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
 
-  const removePago = (index: number) => {
-    setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
-  }
-
-  const handleSaveQuickClient = async (data: { nombre: string; direccion: string; telefono: string; lat?: number; lng?: number }) => {
+  const handleSaveQuickClient = async (data: any) => {
     try {
-        const newClientId = await onAddCliente({
+        const id = await onAddCliente({
             nombre: data.nombre,
-            sucursales: [{ 
-                id: 'main', 
-                nombre: 'Casa Central', 
-                direccion: data.direccion,
-                lat: data.lat,
-                lng: data.lng,
-                diasReparto: []
-            }],
+            sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: data.direccion, lat: data.lat, lng: data.lng, diasReparto: [] }],
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
             estado: EstadoCliente.ACTIVO
         });
-        // Seleccionamos el nuevo cliente y su sucursal 'main' automáticamente
-        setFormData(prev => ({ ...prev, clienteId: newClientId, sucursalId: 'main' }));
-        showNotification('Cliente creado y seleccionado.', 'success');
-    } catch (e) {
-        showNotification('Error al crear el cliente rápido.', 'error');
-    }
+        setFormData(prev => ({ ...prev, clienteId: id, sucursalId: 'main' }));
+        showNotification('Cliente creado.', 'success');
+    } catch (e) { showNotification('Error.', 'error'); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isReadOnly) return;
-
-    if (!formData.clienteId) {
-        showNotification('Debe seleccionar un cliente antes de guardar.', 'error');
-        return;
-    }
-
-    if (!formData.vendedorId) {
-        showNotification('Debe seleccionar un repartidor.', 'error');
-        return;
-    }
-
-    if (!formData.movimientos || formData.movimientos.length === 0) {
-        showNotification('Debe agregar al menos un producto al remito.', 'error');
-        return;
-    }
-
-    const hasInvalidProducts = formData.movimientos.some(m => !m.productoId);
-    if (hasInvalidProducts) {
-        showNotification('Uno o más productos no han sido seleccionados correctamente.', 'error');
-        return;
-    }
-
-    const hasNoQuantity = formData.movimientos.every(m => m.entregados === 0 && m.recibidos === 0);
-    if (hasNoQuantity) {
-        showNotification('El remito no puede estar vacío (entrega o retiro debe ser mayor a 0).', 'error');
-        return;
-    }
-
+    e.preventDefault(); if (isReadOnly) return;
+    if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
     setIsSaving(true);
     await onSave(formData as Remito & { pagos: PagoDetalle[] });
     setIsSaving(false);
   };
   
-  const vendedoresInternos = useMemo(() => vendedores.filter(v => v.tipo === TipoVendedor.INTERNO), [vendedores]);
-  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
-  const vendedoresInternosOptions = useMemo(() => vendedoresInternos.map(v => ({ value: v.id, label: v.nombre })), [vendedoresInternos]);
-  
-  const sucursalOptions = useMemo(() => {
-      if (clienteSucursales.length <= 1) return [];
-      return [
-          { value: "", label: "Seleccionar Sucursal..." },
-          ...clienteSucursales.map(s => ({ value: s.id, label: s.nombre }))
-      ];
-  }, [clienteSucursales]);
-
-  const productosOptions = useMemo(() => {
-    const productosActivos = productos.filter(p => p.estado === EstadoProducto.ACTIVO);
-    const productosEnRemito = (formData.movimientos || [])
-        .map(mov => productos.find(p => p.id === mov.productoId))
-        .filter(p => p && p.estado === EstadoProducto.INACTIVO) as Producto[];
-    const productosUnicos = [...new Map([...productosActivos, ...productosEnRemito].map(item => [item['id'], item])).values()];
-    return productosUnicos.map(p => ({ value: p.id, label: p.nombre }));
-  }, [productos, formData.movimientos]);
-
-
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito</h2>
-        
-        {deudaPendiente > 0 && (
-          <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-400 dark:text-yellow-300 rounded-md" role="alert">
-            <p className="font-bold">Cobranza Pendiente</p>
-            <p>Este cliente debe ${deudaPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de entregas anteriores.</p>
-          </div>
-        )}
-
-        {/* 1. SELECCION DE CLIENTE Y SUCURSAL */}
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
+        {deudaPendiente > 0 && <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
-                <div className="flex justify-between items-end mb-1.5">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>
-                    {!isReadOnly && (
-                        <button 
-                            type="button" 
-                            onClick={() => setIsQuickClientOpen(true)}
-                            className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-tighter"
-                        >
-                            + Nuevo Cliente
-                        </button>
-                    )}
-                </div>
-                <SearchableSelect
-                    options={clienteOptions}
-                    value={formData.clienteId || ''}
-                    onChange={(value) => handleSelectChange('clienteId', value)}
-                    placeholder="Seleccionar Cliente"
-                    disabled={isReadOnly}
-                />
+                <div className="flex justify-between items-end mb-1.5"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo Cliente</button>}</div>
+                <SearchableSelect options={clientes.map(c=>({value:c.id, label:c.nombre}))} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} disabled={isReadOnly} />
             </div>
-            {clienteSucursales.length > 1 && (
-                <div>
-                    <AppSelect 
-                        label="Sucursal de Entrega"
-                        name="sucursalId" 
-                        value={formData.sucursalId || ''} 
-                        onChange={handleChange} 
-                        options={sucursalOptions}
-                        disabled={isReadOnly}
-                        required
-                    />
-                </div>
-            )}
+            {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required /></div>}
         </div>
-
-        {/* 2. NUMERO DE REMITO Y FECHA */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-              <div className="flex gap-2">
-                  <div className="w-1/3">
-                      <AppInput label="Punto Venta" type="number" name="puntoVenta" placeholder="1" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/>
-                  </div>
-                  <div className="w-2/3">
-                      <AppInput label="Número" type="number" name="numero" placeholder="1234" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/>
-                  </div>
+          <div className="md:col-span-2"><div className="flex gap-2"><div className="w-1/3"><AppInput label="Pto Venta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/></div><div className="w-2/3"><AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/></div></div></div>
+          <div className="md:col-span-1"><AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/></div>
+        </div>
+        <fieldset className="border-t dark:border-gray-600 pt-4">
+          <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimientos</legend>
+          {(formData.movimientos || []).map((mov, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-2 mb-2">
+                  <SearchableSelect options={productos.map(p=>({value:p.id, label:p.nombre}))} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
+                  <AppInput type="number" value={mov.entregados} onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} required disabled={isReadOnly} />
+                  <AppInput type="number" value={mov.recibidos} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} required disabled={isReadOnly} />
+                  <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
               </div>
-          </div>
-          <div className="md:col-span-1">
-              <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly}/>
-          </div>
-        </div>
-
-        {/* 3. MOVIMIENTO DE PRODUCTOS */}
-        <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4">
-          <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimiento de Productos</legend>
-          <div className="space-y-6 md:space-y-2 mt-2">
-              <div className="hidden md:grid md:grid-cols-[2fr,1fr,1fr,auto] items-center gap-x-2 text-center font-medium text-xs uppercase text-gray-500 dark:text-gray-400">
-                  <span className="text-left pl-2">Producto</span>
-                  <span>Entrega</span>
-                  <span>Retira</span>
-                  <span></span>
-              </div>
-              
-              {(formData.movimientos || []).map((mov, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-4 md:gap-2 p-4 md:p-0 bg-gray-50 md:bg-transparent dark:bg-gray-700/30 md:dark:bg-transparent rounded-lg border md:border-0 dark:border-gray-600">
-                      <div className="w-full">
-                          <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block">Producto</span>
-                          <SearchableSelect
-                              options={productosOptions}
-                              value={mov.productoId}
-                              onChange={(value) => handleProductoChange(index, value)}
-                              placeholder="Seleccionar producto..."
-                              disabled={isReadOnly}
-                          />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 md:contents">
-                          <div>
-                              <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Entrega</span>
-                              <AppInput 
-                                  type="number" 
-                                  value={mov.entregados} 
-                                  onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
-                                  required 
-                                  min="0" 
-                                  className="text-center font-bold text-lg md:text-base" 
-                                  disabled={isReadOnly}
-                              />
-                          </div>
-                          <div>
-                              <span className="md:hidden text-xs font-bold text-gray-500 uppercase mb-1 block text-center">Retira</span>
-                              <AppInput 
-                                  type="number" 
-                                  value={mov.recibidos} 
-                                  onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
-                                  required 
-                                  min="0" 
-                                  className="text-center font-bold text-lg md:text-base" 
-                                  disabled={isReadOnly}
-                              />
-                          </div>
-                      </div>
-                      <div className="flex justify-end md:block mt-2 md:mt-0">
-                          <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon className="w-5 h-5"/></AppButton>
-                      </div>
-                  </div>
-              ))}
-          </div>
-          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="mt-6 md:mt-3 w-full border-dashed border-2 py-3 text-base" type="button">+ Agregar Producto</AppButton>}
+          ))}
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item</AppButton>}
         </fieldset>
-
-        {/* 4. TOTAL Y COBRANZA */}
-        <div className="flex justify-end items-center mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-            <span className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">
-                Total: ${totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-        </div>
-
-        <fieldset className="border-t border-gray-300 dark:border-gray-600 pt-4 relative" disabled={isCtaCte || isReadOnly}>
-            <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Cobranza (Opcional)</legend>
-            {(isCtaCte || isReadOnly) && <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 flex items-center justify-center rounded-md z-10 backdrop-blur-[1px]"><p className="text-sm font-bold text-gray-600 dark:text-gray-300 p-3 bg-white dark:bg-gray-700 rounded-md shadow border dark:border-gray-600">{isReadOnly ? 'No se puede modificar un remito facturado.' : 'El cobro se gestiona desde Cta. Corriente.'}</p></div>}
-            <div className="space-y-3 mt-2 max-h-40 overflow-y-auto pr-2">
-                {(formData.pagos || []).map((pago: PagoDetalle, index: number) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3">
-                        <AppInput type="number" value={pago.monto || ''} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} min="0" step="0.01" placeholder="Monto" />
-                        <AppSelect value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
-                        <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2" type="button"><TrashIcon className="h-5 w-5" /></AppButton>
-                    </div>
-                ))}
-            </div>
-            {!isReadOnly && (
-                <AppButton variant="secondary" size="sm" onClick={addPago} className="mt-3 w-full border-dashed border-2 py-3" type="button">
-                    + Agregar Cobro {totalRemito > 0 ? `($${Math.max(0, totalRemito - (formData.pagos?.reduce((s,p)=>s+p.monto, 0) || 0)).toLocaleString()})` : ''}
-                </AppButton>
-            )}
-        </fieldset>
-
-        {/* 5. REPARTIDOR AL FINAL */}
-        <div className="pt-4 border-t border-gray-300 dark:border-gray-600">
-            <SearchableSelect
-                label="Repartidor (Internos)"
-                options={vendedoresInternosOptions}
-                value={formData.vendedorId || ''}
-                onChange={(value) => handleSelectChange('vendedorId', value)}
-                placeholder="Seleccionar Repartidor"
-                disabled={isReadOnly || currentUser.rol === Rol.REPARTIDOR}
-            />
-        </div>
-
-        <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700">
-          <AppButton variant="secondary" onClick={onClose} type="button">{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</AppButton>}
+        <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total: ${totalRemito.toLocaleString()}</span></div>
+        <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
+          <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar</AppButton>}
         </div>
       </form>
-
-      <QuickClientModal 
-        isOpen={isQuickClientOpen} 
-        onClose={() => setIsQuickClientOpen(false)} 
-        onSave={handleSaveQuickClient} 
-      />
+      <QuickClientModal isOpen={isQuickClientOpen} onClose={() => setIsQuickClientOpen(false)} onSave={handleSaveQuickClient} />
     </>
   )
 }
 
-const PaymentStatusBadge: React.FC<{
-  remito: { totalRemito: number, totalPagado: number, paymentStatus: PaymentStatus, facturaId?: string }
-}> = ({ remito }) => {
+const PaymentStatusBadge: React.FC<{ remito: any }> = ({ remito }) => {
+    if (remito.esAjuste) return <span className="font-bold text-[10px] uppercase text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Carga Inicial</span>;
     switch (remito.paymentStatus) {
-        case 'facturado':
-            return <span className="font-bold text-xs text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/30 px-2 py-1 rounded-full">Facturado</span>;
-        case 'pagado':
-            return <span className="font-bold text-xs text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/30 px-2 py-1 rounded-full">Pagado</span>;
-        case 'pagado_parcial':
-            const deuda = remito.totalRemito - remito.totalPagado;
-            return (
-                <div className="flex flex-col items-start">
-                    <span className="font-bold text-xs text-orange-700 bg-orange-100 dark:text-orange-300 dark:bg-orange-900/30 px-2 py-1 rounded-full mb-1">Parcial</span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono font-bold">
-                        Debe: ${deuda.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
-                    </span>
-                </div>
-            );
-        case 'pendiente':
-             return (
-                 <div className="flex flex-col items-start">
-                    <span className="font-bold text-xs text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30 px-2 py-1 rounded-full mb-1">Pendiente</span>
-                     {remito.totalRemito > 0 && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono font-bold">
-                           ${remito.totalRemito.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
-                       </span>
-                     )}
-                </div>
-            )
-        default:
-             return <span className="font-semibold text-xs text-gray-500">-</span>;
+        case 'facturado': return <span className="font-bold text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full">Facturado</span>;
+        case 'pagado': return <span className="font-bold text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full">Pagado</span>;
+        case 'pagado_parcial': return <span className="font-bold text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded-full">Parcial</span>;
+        default: return <span className="font-bold text-xs text-red-700 bg-red-100 px-2 py-1 rounded-full">Pendiente</span>;
     }
 }
 
-
 const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingRemito, setEditingRemito] = useState<Partial<Remito> & { pagos?: PagoDetalle[] } | null>(null);
+  const [editingRemito, setEditingRemito] = useState<any>(null);
   const [clienteFilter, setClienteFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
-  const [remitoParaBorrar, setRemitoParaBorrar] = useState<(typeof processedRemitos[0]) | null>(null);
   const { showNotification } = useNotification();
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const pagosMap = useMemo(() => new Map(registrosPago.map(p => [p.id, p])), [registrosPago]);
 
-  const getRemitoTotal = useCallback((remito: Remito) => {
-    const cliente = clientesMap.get(remito.clienteId);
-    if (!cliente) return 0;
-    const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-    
-    return remito.movimientos.reduce((total, mov) => {
-        if (!mov.productoId) return total;
-        const producto = productosMap.get(mov.productoId);
-        if (!producto) return total;
-        const precio = preciosEspecialesMap.get(mov.productoId) ?? producto.precio;
-        return total + (mov.entregados * precio);
+  const getRemitoTotal = useCallback((r: Remito) => {
+    if (r.esAjuste) return 0;
+    const c = clientesMap.get(r.clienteId);
+    if (!c) return 0;
+    const peMap = new Map(c.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+    return r.movimientos.reduce((total, mov) => {
+        const prod = productosMap.get(mov.productoId);
+        if (!prod) return total;
+        return total + (mov.entregados * (peMap.get(mov.productoId) ?? prod.precio));
     }, 0);
   }, [clientesMap, productosMap]);
 
   const processedRemitos = useMemo(() => {
-    return remitos.map(remito => {
-      const pagos = remito.pagoIds?.map(id => pagosMap.get(id)).filter(Boolean) as RegistroPago[] || [];
-      const totalPagado = pagos.reduce((sum, pago) => sum + pago.monto, 0);
-      const totalRemito = getRemitoTotal(remito);
-      const cliente = clientesMap.get(remito.clienteId);
-      
-      let paymentStatus: PaymentStatus;
-      
-      if (cliente?.tieneCuentaCorriente) {
-          paymentStatus = remito.facturaId ? 'facturado' : 'pendiente';
-      } else {
-          const deuda = totalRemito - totalPagado;
-          if (totalRemito <= 0.01) {
-              paymentStatus = 'gratis';
-          } else if (deuda <= 0.01) {
-              paymentStatus = 'pagado';
-          } else if (totalPagado > 0) {
-              paymentStatus = 'pagado_parcial';
-          } else {
-              paymentStatus = 'pendiente';
-          }
-      }
-
-      const canBeDeleted = (!remito.pagoIds || remito.pagoIds.length === 0) && !remito.facturaId;
-      const canBeEdited = !remito.facturaId;
-
-      return { ...remito, pagos, totalPagado, totalRemito, paymentStatus, canBeDeleted, canBeEdited };
+    return remitos.map(r => {
+      const pagos = r.pagoIds?.map(id => pagosMap.get(id)).filter(Boolean) as RegistroPago[] || [];
+      const totalPagado = pagos.reduce((sum, p) => sum + p.monto, 0);
+      const totalRemito = getRemitoTotal(r);
+      const cliente = clientesMap.get(r.clienteId);
+      let status: PaymentStatus = 'pendiente';
+      if (r.esAjuste) status = 'ajuste';
+      else if (cliente?.tieneCuentaCorriente) status = r.facturaId ? 'facturado' : 'pendiente';
+      else { const deuda = totalRemito - totalPagado; if (totalRemito <= 0.01) status = 'gratis'; else if (deuda <= 0.01) status = 'pagado'; else if (totalPagado > 0) status = 'pagado_parcial'; }
+      return { ...r, totalPagado, totalRemito, paymentStatus: status, canBeDeleted: !r.pagoIds?.length && !r.facturaId, canBeEdited: !r.facturaId };
     });
   }, [remitos, pagosMap, getRemitoTotal, clientesMap]);
 
-
   const filteredRemitos = useMemo(() => {
     return processedRemitos.filter(r => {
-        // SEGURIDAD: El repartidor solo ve sus remitos
         if (currentUser.rol === Rol.REPARTIDOR && r.vendedorId !== currentUser.id) return false;
-
-        const clienteMatch = !clienteFilter || r.clienteId === clienteFilter;
-        if (!clienteMatch) return false;
-
-        const remitoDate = new Date(r.fecha + 'T00:00:00');
-        const fromDate = dateFilter.from ? new Date(dateFilter.from + 'T00:00:00') : null;
-        const toDate = dateFilter.to ? new Date(dateFilter.to + 'T00:00:00') : null;
-        
-        if (fromDate && remitoDate < fromDate) return false;
-        if (toDate && remitoDate > toDate) return false;
-        
-        if (paymentStatusFilter !== 'todos') {
-            if (paymentStatusFilter === 'pagado') {
-                if (r.paymentStatus !== 'pagado') return false;
-            } else if (paymentStatusFilter === 'pendiente') {
-                if (r.paymentStatus !== 'pendiente' && r.paymentStatus !== 'pagado_parcial') return false;
-            } else if (paymentStatusFilter === 'facturado') {
-                if (r.paymentStatus !== 'facturado') return false;
-            }
-        }
-        
+        if (clienteFilter && r.clienteId !== clienteFilter) return false;
+        if (paymentStatusFilter !== 'todos' && r.paymentStatus !== paymentStatusFilter) return false;
         return true;
-    }).sort((a, b) => {
-        const dateComparison = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
-        if (dateComparison !== 0) return dateComparison;
-        const puntoVentaComparison = parseInt(b.puntoVenta, 10) - parseInt(a.puntoVenta, 10);
-        if (puntoVentaComparison !== 0) return puntoVentaComparison;
-        return parseInt(b.numero, 10) - parseInt(a.numero, 10);
-    });
-  }, [processedRemitos, clienteFilter, dateFilter, paymentStatusFilter, currentUser]);
+    }).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  }, [processedRemitos, clienteFilter, paymentStatusFilter, currentUser]);
 
-  // Resumen del día para el repartidor
-  const statsHoy = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const remitosHoy = filteredRemitos.filter(r => r.fecha === today);
-    
-    const totals: Record<string, number> = {};
-    remitosHoy.forEach(r => {
-        r.movimientos.forEach(m => {
-            const p = productosMap.get(m.productoId);
-            if (p) {
-                totals[p.nombre] = (totals[p.nombre] || 0) + m.entregados;
-            }
-        });
-    });
-    return totals;
-  }, [filteredRemitos, productosMap]);
-
-  const handleSave = async (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => {
+  const handleSave = async (r: any) => {
     try {
-      if ('id' in remito && remito.id) {
-        await updateRemito(remito as Remito & { pagos?: PagoDetalle[] });
-        showNotification('Remito actualizado con éxito.', 'success');
-      } else {
-        await addRemito(remito as Omit<Remito, 'id' | 'pagoIds' | 'facturaId'> & { pagos?: PagoDetalle[] });
-        showNotification('Remito creado con éxito.', 'success');
-      }
+      if (r.id) await updateRemito(r);
+      else await addRemito(r);
+      showNotification('Guardado.', 'success');
       setIsFormOpen(false);
-    } catch (error: any) {
-        console.error("Error saving remito:", error);
-        const msg = error?.message || 'Error desconocido al guardar.';
-        showNotification(`Error: ${msg}`, 'error');
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!remitoParaBorrar) return;
-    try {
-        await deleteRemito(remitoParaBorrar.id);
-        showNotification('Remito eliminado con éxito.', 'success');
-    } catch (error) {
-        const message = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
-        showNotification(message, 'error');
-    }
-    setRemitoParaBorrar(null);
+    } catch (e) { showNotification('Error.', 'error'); }
   };
 
   const openNewModal = () => {
-    const defaultProduct = productos.find(p => p.nombre === 'Bidón 20L Retornable');
-    const defaultMovimientos: Movimiento[] = defaultProduct ? [{ productoId: defaultProduct.id, entregados: 0, recibidos: 0 }] : [];
-
-    // Determinar próximo número automáticamente basado en el último punto de venta usado
-    const sortedRemitos = [...remitos].sort((a, b) => {
-        const dateComparison = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
-        if (dateComparison !== 0) return dateComparison;
-        const puntoVentaComparison = parseInt(b.puntoVenta, 10) - parseInt(a.puntoVenta, 10);
-        if (puntoVentaComparison !== 0) return puntoVentaComparison;
-        return parseInt(b.numero, 10) - parseInt(a.numero, 10);
-    });
-
-    const lastRemito = sortedRemitos[0];
-    const lastPuntoVenta = lastRemito ? lastRemito.puntoVenta : '1';
-    const lastRemitoForPuntoVenta = sortedRemitos.find(r => r.puntoVenta === lastPuntoVenta);
-    const nextNumero = lastRemitoForPuntoVenta ? (parseInt(lastRemitoForPuntoVenta.numero, 10) + 1).toString() : '1';
-
-    setEditingRemito({
-        fecha: new Date().toISOString().split('T')[0],
-        puntoVenta: lastPuntoVenta,
-        numero: nextNumero,
-        movimientos: defaultMovimientos,
-        pagos: [],
-        vendedorId: currentUser.id, // Preselección automática del usuario logueado
-    });
+    setEditingRemito({ fecha: new Date().toISOString().split('T')[0], puntoVenta: '1', numero: '', movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], pagos: [], vendedorId: currentUser.id });
     setIsFormOpen(true);
   }
 
-  const openEditModal = (remito: Remito) => {
-    const pagos = remito.pagoIds?.map(id => pagosMap.get(id)).filter(Boolean) as RegistroPago[] || [];
-    const pagosDetalle = pagos.map(p => ({ monto: p.monto, metodo: p.metodo }));
-    
-    setEditingRemito({...remito, pagos: pagosDetalle});
-    setIsFormOpen(true);
-  }
-
-  const formatRemitoNumber = (puntoVenta: string, numero: string) => {
-    return `${puntoVenta.padStart(4, '0')}-${numero.padStart(8, '0')}`;
-  }
-
-  if (isFormOpen) {
-      return (
-          <div className="animate-fade-in pb-12">
-              <div className="mb-6 flex items-center gap-4">
-                  <button type="button" onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full transition-colors">
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-                  </button>
-                  <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestionar Entrega</h1>
-              </div>
-              <Card>
-                <RemitoForm 
-                    remito={editingRemito || {}}
-                    clientes={clientes}
-                    vendedores={vendedores}
-                    productos={productos}
-                    currentUser={currentUser}
-                    onSave={handleSave}
-                    onAddCliente={addCliente}
-                    onClose={() => setIsFormOpen(false)}
-                    remitos={remitos}
-                    registrosPago={registrosPago}
-                    isReadOnly={!!editingRemito?.facturaId}
-                />
-              </Card>
-          </div>
-      )
-  }
+  if (isFormOpen) return <div className="animate-fade-in"><div className="mb-6 flex items-center gap-4"><button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button><h1 className="text-2xl font-black uppercase">Gestionar Remito</h1></div><Card><RemitoForm remito={editingRemito} clientes={clientes} vendedores={vendedores} productos={productos} currentUser={currentUser} onSave={handleSave} onAddCliente={addCliente} onClose={() => setIsFormOpen(false)} remitos={remitos} registrosPago={registrosPago} isReadOnly={!!editingRemito?.facturaId}/></Card></div>;
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
-        <AppButton onClick={openNewModal}>+ Nuevo Remito</AppButton>
-      </div>
-
-      {currentUser.rol === Rol.REPARTIDOR && Object.keys(statsHoy).length > 0 && (
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Entregas de Hoy ({currentUser.nombre})</h3>
-              <div className="flex flex-wrap gap-4">
-                  {Object.entries(statsHoy).map(([name, count]) => (
-                      <div key={name} className="flex flex-col">
-                          <span className="text-xl font-black text-primary-600 dark:text-primary-400">{count}</span>
-                          <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{name}</span>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      )}
-
+      <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1><AppButton onClick={openNewModal}>+ Nuevo Remito</AppButton></div>
       <Card>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={[{value: "", label: "Todos los Clientes"}, ...clientes.map(c => ({value: c.id, label: c.nombre}))]} />
-                <AppSelect label="Filtrar Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as PaymentStatusFilter)} options={[{value: "todos", label: "Todos los Estados"}, {value: "pendiente", label: "Pendientes"}, {value: "pagado", label: "Pagados"}, {value: "facturado", label: "Facturados"}]} />
-            </div>
-            {currentUser.rol === Rol.ADMINISTRADOR && (
-                <div className="flex flex-col md:flex-row gap-4 items-end">
-                    <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({...prev, from: e.target.value}))} />
-                    <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({...prev, to: e.target.value}))} />
-                    <AppButton variant="secondary" onClick={() => {setClienteFilter(''); setDateFilter({ from: '', to: ''}); setPaymentStatusFilter('todos');}}>Limpiar</AppButton>
-                </div>
-            )}
+        <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={[{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))]} />
+            <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
         </div>
         <div className="space-y-2 p-2">
-          {filteredRemitos.map(remito => {
-            const isExpanded = expandedRemitoId === remito.id;
-            const cliente = clientesMap.get(remito.clienteId);
-
-            return (
-              <div key={remito.id} className={`bg-white dark:bg-gray-800 rounded-md shadow-sm border dark:border-gray-700`}>
-                <div 
-                  className="flex items-center p-4 cursor-pointer" 
-                  onClick={() => setExpandedRemitoId(isExpanded ? null : remito.id)}
-                  role="button"
-                  aria-expanded={isExpanded}
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpandedRemitoId(isExpanded ? null : remito.id)}}
-                >
-                  <div className={`flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center`}>
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Fecha</p>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString()}</p>
+          {filteredRemitos.map(remito => (
+            <div key={remito.id} className="bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700 overflow-hidden">
+                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
+                    <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
+                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Fecha</p><p className="font-medium text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString()}</p></div>
+                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p><p className="font-bold text-sm truncate">{clientesMap.get(remito.clienteId)?.nombre || 'N/A'}</p></div>
+                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Número</p><p className="font-medium text-sm font-mono">{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
+                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
                     </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Cliente</p>
-                      <p className="font-bold text-gray-900 dark:text-white truncate text-sm">{cliente?.nombre || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Número</p>
-                      <p className="font-medium text-gray-900 dark:text-white font-mono text-sm">{formatRemitoNumber(remito.puntoVenta, remito.numero)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Estado</p>
-                      <PaymentStatusBadge remito={remito} />
-                    </div>
-                  </div>
-                  <div className="flex items-center pl-2 gap-1">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); openEditModal(remito); }} className="text-blue-500 hover:text-blue-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" disabled={!remito.canBeEdited} title={!remito.canBeEdited ? "No se puede editar un remito facturado" : "Editar remito"}><PencilIcon /></button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }} className="text-red-500 hover:text-red-700 p-2 disabled:opacity-30 disabled:cursor-not-allowed rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" disabled={!remito.canBeDeleted} title={!remito.canBeDeleted ? "No se puede borrar un remito pagado o facturado" : "Eliminar remito"}><TrashIcon /></button>
-                    <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                  </div>
+                    <div className="flex gap-1"><button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2" disabled={!remito.canBeEdited}><PencilIcon/></button><ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} /></div>
                 </div>
-
-                {isExpanded && (
-                  <div className="border-t dark:border-gray-700 p-4 space-y-4 bg-gray-50 dark:bg-gray-800/50">
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Detalle de Movimientos</h4>
-                      <div className="overflow-x-auto rounded-lg border dark:border-gray-700">
-                        <table className="w-full text-sm">
-                          <thead className="text-left text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700">
-                            <tr>
-                              <th className="py-2 px-3 font-medium">Producto</th>
-                              <th className="py-2 px-3 font-medium text-center">Entrega</th>
-                              <th className="py-2 px-3 font-medium text-center">Retira</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {remito.movimientos.map((mov, index) => (
-                              <tr key={index} className="border-t dark:border-gray-700 bg-white dark:bg-gray-800">
-                                <td className="py-2 px-3">{productosMap.get(mov.productoId)?.nombre || 'N/A'}</td>
-                                <td className="py-2 px-3 text-center font-bold text-blue-600 dark:text-blue-400">{mov.entregados}</td>
-                                <td className="py-2 px-3 text-center text-gray-500">{mov.recibidos}</td>
-                              </tr>
-                            ))}
-                          </tbody>
+                {expandedRemitoId === remito.id && (
+                    <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+                        <table className="w-full text-xs text-left">
+                            <thead className="text-gray-400 uppercase font-black"><tr><th className="py-2">Producto</th><th className="py-2 text-center">Entregados</th><th className="py-2 text-center">Retirados</th></tr></thead>
+                            <tbody>{remito.movimientos.map((m, i)=>(<tr key={i} className="border-t dark:border-gray-700"><td className="py-2">{productosMap.get(m.productoId)?.nombre}</td><td className="py-2 text-center font-bold text-blue-600">{m.entregados}</td><td className="py-2 text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
                         </table>
-                      </div>
                     </div>
-                    {remito.pagos && remito.pagos.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Detalle de Cobranza</h4>
-                         <ul className="space-y-1 text-sm">
-                          {remito.pagos.map((pago, index) => (
-                            <li key={index} className="flex justify-between p-2 bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700">
-                              <span className="font-medium text-gray-700 dark:text-gray-300">{pago.metodo}</span>
-                              <span className="font-bold text-green-600 dark:text-green-400">${pago.monto.toLocaleString()}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
                 )}
-              </div>
-            )
-          })}
-           {filteredRemitos.length === 0 && <p className="text-center py-8 text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed dark:border-gray-700">No se encontraron remitos con los filtros seleccionados.</p>}
+            </div>
+          ))}
         </div>
       </Card>
-      
-      {remitoParaBorrar && (
-        <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
-            <div className="p-4 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
-                    <TrashIcon className="h-8 w-8 text-red-600 dark:text-red-400" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Confirmar Eliminación</h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
-                    ¿Está seguro de que desea eliminar permanentemente el remito <strong>{formatRemitoNumber(remitoParaBorrar.puntoVenta, remitoParaBorrar.numero)}</strong>?
-                    <br />
-                    Esta acción no se puede deshacer.
-                </p>
-                <div className="flex justify-center space-x-4">
-                    <AppButton variant="secondary" onClick={() => setRemitoParaBorrar(null)}>Cancelar</AppButton>
-                    <AppButton variant="danger" onClick={confirmDelete}>Sí, Eliminar</AppButton>
-                </div>
-            </div>
-        </Modal>
-      )}
-
     </div>
   )
 }

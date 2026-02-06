@@ -425,7 +425,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     registrosPago.forEach(p => pagosMap.set(p.origen.id, (pagosMap.get(p.origen.id) || 0) + p.monto));
     clientes.forEach(cliente => {
         let deudaTotal = 0;
-        const remitosCliente = remitos.filter(r => r.clienteId === cliente.id);
+        const remitosCliente = remitos.filter(r => r.clienteId === cliente.id && !r.esAjuste); // EXCLUIR AJUSTES DE DEUDA
         const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
         remitosCliente.forEach(r => {
             const totalRemito = r.movimientos.reduce((sum, mov) => {
