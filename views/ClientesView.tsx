@@ -151,7 +151,7 @@ const ClienteForm: React.FC<{
       }
   };
 
-  const addSucursal = () => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `new_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]}));
+  const addSucursal = () => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `suc_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]}));
   const removeSucursal = (index: number) => setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
 
   const handleTelefonoChange = (index: number, field: keyof Telefono, value: string) => {
@@ -181,7 +181,6 @@ const ClienteForm: React.FC<{
   const addPrecioEspecial = () => setFormData(prev => ({ ...prev, preciosEspeciales: [...(prev.preciosEspeciales || []), { productoId: '', precio: 0 }] }));
   const removePrecioEspecial = (index: number) => setFormData(prev => ({ ...prev, preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index) }));
 
-  // --- LÓGICA DE STOCK INICIAL (Manejada por sucursal ahora) ---
   const handleStockChange = (index: number, field: keyof typeof stockInicial[0], value: any) => {
       const newStock = [...stockInicial];
       newStock[index] = { ...newStock[index], [field]: field === 'cantidad' ? (Number(value) || 0) : value };
@@ -286,12 +285,8 @@ const ClienteForm: React.FC<{
           <Card title="Sucursales, Rutas y Envases">
               <div className="space-y-6">
                   {(formData.sucursales || []).map((suc, index) => {
-                      // Filtrar los stocks que pertenecen a esta sucursal específica
-                      const sucStocks = stockInicial.filter(s => s.sucursalId === suc.id);
-                      
                       return (
                       <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
-                          {/* Botón Borrar Sucursal */}
                           <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2"><TrashIcon className="w-5 h-5"/></button>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
@@ -303,7 +298,7 @@ const ClienteForm: React.FC<{
                           </div>
                           
                           <div className="space-y-3">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto Programado</label>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto</label>
                               <div className="flex flex-wrap gap-2">
                                   {Object.values(DiaSemana).map(day => (
                                       <button key={day} type="button" onClick={() => toggleDiaReparto(index, day)} className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${suc.diasReparto?.includes(day) ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:border-gray-600 hover:bg-gray-100'}`}>
@@ -313,42 +308,38 @@ const ClienteForm: React.FC<{
                               </div>
                           </div>
 
-                          {/* GESTIÓN DE STOCK POR SUCURSAL */}
                           <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800 space-y-4">
                               <div className="flex justify-between items-center">
                                   <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                      <CubeIcon className="w-3 h-3" /> {isNew ? "Envases Iniciales en Sucursal" : "Ajuste de Envases / Deuda Técnica"}
+                                      <CubeIcon className="w-3 h-3" /> {isNew ? "Envases Iniciales" : "Ajuste de Envases"}
                                   </label>
                                   <button type="button" onClick={() => addStockInicial(suc.id)} className="text-[10px] font-black text-blue-700 hover:underline uppercase">+ Agregar Producto</button>
                               </div>
 
                               <div className="space-y-2">
-                                  {stockInicial.map((stock, sIdx) => {
-                                      if (stock.sucursalId !== suc.id) return null;
+                                  {stockInicial.filter(s => s.sucursalId === suc.id).map((stock, sIdx) => {
+                                      // Buscar el índice real en el array global para actualizar correctamente
+                                      const globalIdx = stockInicial.indexOf(stock);
                                       return (
                                           <div key={sIdx} className="grid grid-cols-[2fr,100px,auto] gap-3 items-center animate-fade-in">
-                                              <div className="flex-1">
-                                                  <SearchableSelect 
-                                                      options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
-                                                      value={stock.productoId} 
-                                                      onChange={(val) => handleStockChange(sIdx, 'productoId', val)} 
-                                                      placeholder="Seleccionar producto..."
-                                                  />
-                                              </div>
-                                              <div className="w-full">
-                                                  <AppInput 
-                                                      type="number" 
-                                                      value={stock.cantidad} 
-                                                      onChange={(e) => handleStockChange(sIdx, 'cantidad', e.target.value)} 
-                                                      className="text-center font-bold"
-                                                  />
-                                              </div>
-                                              <button type="button" onClick={() => removeStockInicial(sIdx)} className="text-red-500 p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4"/></button>
+                                              <SearchableSelect 
+                                                  options={productosActivos.map(p => ({value: p.id, label: p.nombre}))} 
+                                                  value={stock.productoId} 
+                                                  onChange={(val) => handleStockChange(globalIdx, 'productoId', val)} 
+                                                  placeholder="Producto..."
+                                              />
+                                              <AppInput 
+                                                  type="number" 
+                                                  value={stock.cantidad} 
+                                                  onChange={(e) => handleStockChange(globalIdx, 'cantidad', e.target.value)} 
+                                                  className="text-center font-bold"
+                                              />
+                                              <button type="button" onClick={() => removeStockInicial(globalIdx)} className="text-red-500 p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4"/></button>
                                           </div>
                                       );
                                   })}
                                   {stockInicial.filter(s => s.sucursalId === suc.id).length === 0 && (
-                                      <p className="text-[10px] text-gray-400 italic text-center py-2">No hay envases registrados para esta sucursal.</p>
+                                      <p className="text-[10px] text-gray-400 italic text-center py-2">Sin envases iniciales en este punto.</p>
                                   )}
                               </div>
                           </div>
@@ -356,22 +347,21 @@ const ClienteForm: React.FC<{
                           <div className="flex items-center justify-between pt-3 border-t dark:border-gray-700">
                               <div className="flex items-center gap-2">
                                   <div className={`w-2 h-2 rounded-full ${suc.lat ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-gray-300'}`}></div>
-                                  <span className={`text-[10px] font-black uppercase ${suc.lat ? 'text-green-600' : 'text-gray-400'}`}>{suc.lat ? 'Ubicación Geolocalizada' : 'Sin Ubicación Geográfica'}</span>
+                                  <span className={`text-[10px] font-black uppercase ${suc.lat ? 'text-green-600' : 'text-gray-400'}`}>{suc.lat ? 'Geolocalizada' : 'Sin GPS'}</span>
                               </div>
-                              <AppButton variant="secondary" size="sm" onClick={() => handleOpenMap(index)} className="!py-1.5 !text-[10px] uppercase">Ver en Mapa</AppButton>
+                              <AppButton variant="secondary" size="sm" onClick={() => handleOpenMap(index)} className="!py-1.5 !text-[10px] uppercase">Ver Mapa</AppButton>
                           </div>
                       </div>
                   )})}
                   
-                  <button type="button" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-all font-bold text-sm">
-                      + Agregar Punto de Entrega / Sucursal Adicional
+                  <button type="button" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 transition-all font-bold text-sm">
+                      + Agregar Sucursal / Punto de Entrega
                   </button>
               </div>
           </Card>
 
-          <Card title="Precios Especiales / Pactados">
+          <Card title="Precios Especiales">
               <div className="space-y-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Estos precios sobreescriben la lista general para este cliente en todos sus puntos.</p>
                   {(formData.preciosEspeciales || []).map((precio, index) => (
                       <div key={index} className="flex gap-2 items-end">
                           <div className="flex-1">
@@ -379,7 +369,6 @@ const ClienteForm: React.FC<{
                                 options={productosActivos.map(p => ({value: p.id, label: `${p.nombre} (Lista: $${p.precio})`}))} 
                                 value={precio.productoId} 
                                 onChange={(val) => handlePrecioEspecialChange(index, 'productoId', val)} 
-                                placeholder="Producto..."
                               />
                           </div>
                           <div className="w-32">
@@ -388,47 +377,43 @@ const ClienteForm: React.FC<{
                           <AppButton variant="danger" size="sm" onClick={() => removePrecioEspecial(index)} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
                       </div>
                   ))}
-                  <AppButton variant="secondary" size="sm" onClick={addPrecioEspecial} className="w-full border-dashed border-2">+ Agregar Precio Especial</AppButton>
+                  <AppButton variant="secondary" size="sm" onClick={addPrecioEspecial} className="w-full border-dashed border-2">+ Agregar Precio Pactado</AppButton>
               </div>
           </Card>
 
-          {/* SERVICIOS Y ABONOS (Mantener al final como adicional) */}
-          <Card title="Abonos y Servicios Contratados">
+          <Card title="Abonos y Servicios">
               <div className="space-y-4">
-                  <p className="text-xs text-gray-500">Gestión de alquileres, comodatos o abonos mensuales automáticos.</p>
                   {contratosIniciales.map((contrato, index) => (
                       <div key={index} className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-800 space-y-3">
                           <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Contratación de Servicio</span>
+                              <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Servicio</span>
                               <button type="button" onClick={() => removeContratoInicial(index)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button>
                           </div>
                           <SearchableSelect 
                               options={serviciosActivos.map(s => ({value: s.id, label: s.nombre}))} 
                               value={contrato.servicioId} 
                               onChange={(val) => handleContratoChange(index, 'servicioId', val)} 
-                              placeholder="Seleccionar abono/servicio..."
                           />
                           <div className="flex gap-3 items-center">
                               <div className="flex-1">
                                   <label className="text-[9px] font-black uppercase text-gray-400 block mb-1">Fecha Inicio</label>
                                   <input type="date" value={contrato.fechaInicio} onChange={(e) => handleContratoChange(index, 'fechaInicio', e.target.value)} className="w-full p-2 text-xs rounded-lg border dark:border-gray-600 dark:bg-gray-700" />
                               </div>
-                              {/* Opcionalmente permitir asignar a sucursal específica */}
                               <div className="flex-1">
-                                  <label className="text-[9px] font-black uppercase text-gray-400 block mb-1">Punto de Instalación</label>
+                                  <label className="text-[9px] font-black uppercase text-gray-400 block mb-1">Punto de Entrega</label>
                                   <select 
                                       value={contrato.sucursalId || ''} 
                                       onChange={(e) => handleContratoChange(index, 'sucursalId', e.target.value)}
                                       className="w-full p-2 text-xs rounded-lg border dark:border-gray-600 dark:bg-gray-700"
                                   >
-                                      <option value="">Cualquiera / Casa Central</option>
+                                      <option value="">General</option>
                                       {formData.sucursales?.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                                   </select>
                               </div>
                           </div>
                       </div>
                   ))}
-                  <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3">+ Contratar Nuevo Abono / Servicio</AppButton>
+                  <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3">+ Contratar Nuevo Servicio</AppButton>
               </div>
           </Card>
       </div>
@@ -439,7 +424,7 @@ const ClienteForm: React.FC<{
 
       <div className="flex justify-end gap-3 pt-6">
         <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Ficha de Cliente</AppButton>
+        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios</AppButton>
       </div>
     </form>
   )
@@ -480,7 +465,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     return deudas;
   }, [clientes, remitos, registrosPago, productosMap]);
 
-  // --- NUEVA LÓGICA: Cálculo de Stock por Sucursal ---
+  // Cálculo de Stock por Sucursal
   const stocksPorSucursal = useMemo(() => {
     const map = new Map<string, Map<string, Map<string, number>>>();
     remitos.forEach(remito => {
@@ -573,62 +558,56 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                     </div>
                 </div>
                 {isExpanded && (
-                    <div className="px-4 pb-4 pt-0 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
-                        
-                        {/* SECCIÓN DE STOCK POR SUCURSAL */}
-                        <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-primary-100 dark:border-primary-900/30 shadow-inner">
-                            <p className="text-[11px] font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <ReplyIcon className="w-4 h-4" /> Stock de Envases / Comodatos en Cliente
-                            </p>
+                    <div className="px-4 pb-4 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
-                                {cliente.sucursales.map(suc => {
-                                    const sucStockMap = clienteStocks?.get(suc.id);
-                                    const hasStock = sucStockMap && Array.from(sucStockMap.values()).some((q: number) => q > 0);
-                                    
-                                    return (
-                                        <div key={suc.id} className="border-l-4 border-primary-500 pl-4 py-1">
-                                            <p className="text-xs font-bold text-gray-700 dark:text-gray-200">{suc.nombre}</p>
-                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                {hasStock ? Array.from(sucStockMap!.entries()).map(([prodId, qty]) => {
-                                                    if (qty <= 0) return null;
-                                                    const prod = productosMap.get(prodId);
-                                                    return (
-                                                        <div key={prodId} className="flex items-center gap-2 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-lg border border-primary-100 dark:border-primary-800 shadow-sm">
-                                                            <span className="text-xs font-black text-primary-700 dark:text-primary-300">{qty}</span>
-                                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">{prod?.nombre}</span>
-                                                        </div>
-                                                    );
-                                                }) : <p className="text-[10px] text-gray-400 italic">Sin envases registrados.</p>}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Datos Fiscales y Contacto</p>
-                                <ul className="text-sm space-y-1">
-                                    {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
-                                    {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
-                                    {cliente.tipoFacturacion && <li><span className="text-gray-400">Cond:</span> {cliente.tipoFacturacion}</li>}
-                                    {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
-                                    {(cliente.emails || []).map((email, i) => <li key={i}><span className="text-gray-400">Email:</span> {email}</li>)}
-                                </ul>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sucursales / Direcciones</p>
                                 <div className="space-y-2">
-                                    {cliente.sucursales.map((suc, i) => (
-                                        <div key={i} className="bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 flex justify-between items-center shadow-sm">
-                                            <div>
-                                                <p className="font-bold text-gray-800 dark:text-white text-sm">{suc.nombre}</p>
-                                                <p className="text-[10px] text-gray-500">{suc.direccion}</p>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Datos Fiscales y Contacto</p>
+                                    <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm">
+                                        {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
+                                        {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
+                                        {cliente.tipoFacturacion && <li><span className="text-gray-400">Cond:</span> {cliente.tipoFacturacion}</li>}
+                                        {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
+                                        {(cliente.emails || []).map((email, i) => <li key={i}><span className="text-gray-400">Email:</span> {email}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sucursales / Desglose de Stock</p>
+                                <div className="space-y-3">
+                                    {cliente.sucursales.map((suc, i) => {
+                                        const sucStockMap = clienteStocks?.get(suc.id);
+                                        const hasStock = sucStockMap && Array.from(sucStockMap.values()).some((q: number) => q > 0);
+                                        
+                                        return (
+                                            <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm space-y-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="font-black text-gray-800 dark:text-white text-sm uppercase tracking-tighter">{suc.nombre}</p>
+                                                        <p className="text-[10px] text-gray-500 font-medium">{suc.direccion}</p>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        {suc.lat && <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${suc.lat},${suc.lng}`, '_blank'); }} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors"><MapIcon className="w-4 h-4" /></button>}
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* INTEGRACIÓN DE STOCK EN LA TARJETA DE SUCURSAL */}
+                                                <div className="flex flex-wrap gap-1.5 pt-2 border-t dark:border-gray-700">
+                                                    {hasStock ? Array.from(sucStockMap!.entries()).map(([prodId, qty]) => {
+                                                        if (qty <= 0) return null;
+                                                        const prod = productosMap.get(prodId);
+                                                        return (
+                                                            <div key={prodId} className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-lg border dark:border-gray-700">
+                                                                <span className="text-[11px] font-black text-primary-600 dark:text-primary-400">{qty}</span>
+                                                                <span className="text-[9px] text-gray-500 dark:text-gray-400 font-bold uppercase truncate max-w-[80px]">{prod?.nombre}</span>
+                                                            </div>
+                                                        );
+                                                    }) : <p className="text-[9px] text-gray-400 italic">Sin envases registrados.</p>}
+                                                </div>
                                             </div>
-                                            {suc.lat && <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${suc.lat},${suc.lng}`, '_blank'); }} className="p-2 bg-green-50 text-green-700 rounded-full"><MapIcon className="w-5 h-5" /></button>}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
