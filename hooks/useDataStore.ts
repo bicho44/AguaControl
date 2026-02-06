@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Remito, Cliente, Usuario, Factura, Producto, VentaVendedor, RegistroPago, PagoDetalle, Gasto, EmpresaSettings, Contrato, Servicio, PlanillaDiaria, Rol, EstadoCliente, EstadoProducto, EstadoServicio } from '../types';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, limit, where, QueryConstraint, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy, limit, where, QueryConstraint, writeBatch, getDocs } from 'firebase/firestore';
 import { mockEmpresaSettings } from '../data/mockData';
 
 const cleanUndefineds = (obj: any): any => {
@@ -204,40 +204,70 @@ export const useDataStore = () => {
     await updateDoc(doc(db, 'clientes', clienteId), { estado: EstadoCliente.ACTIVO });
   }, []);
 
+  const deleteAllClientes = useCallback(async () => {
+      // Nota: Firestore no permite borrar colecciones enteras desde el cliente de forma atómica.
+      // Borramos por lotes de 500.
+      const collectionsToClear = ['clientes', 'remitos', 'registrosPago', 'facturas', 'contratos', 'planillas'];
+      
+      for (const colName of collectionsToClear) {
+          const snapshot = await getDocs(collection(db, colName));
+          const chunks = [];
+          const items = snapshot.docs;
+          
+          for (let i = 0; i < items.length; i += 500) {
+              chunks.push(items.slice(i, i + 500));
+          }
+
+          for (const chunk of chunks) {
+              const batch = writeBatch(db);
+              chunk.forEach(d => batch.delete(d.ref));
+              await batch.commit();
+          }
+      }
+  }, []);
+
   const addMultipleClientes = useCallback(async (newClientes: (Cliente & { stockInicial?: any[] })[]) => {
-      // Usamos writeBatch para mayor eficiencia en importaciones masivas
-      const batch = writeBatch(db);
       const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const fechaAjuste = yesterday.toISOString().split('T')[0];
 
-      newClientes.forEach(clienteData => {
-          const { stockInicial, ...cliente } = clienteData;
-          const clienteRef = doc(collection(db, 'clientes'));
-          batch.set(clienteRef, cleanUndefineds({ ...cliente, estado: EstadoCliente.ACTIVO }));
+      // Firestore batches tienen un límite de 500 operaciones.
+      // Procesamos por grupos de clientes para no exceder el límite considerando remitos de ajuste.
+      const clientChunks = [];
+      for (let i = 0; i < newClientes.length; i += 50) {
+          clientChunks.push(newClientes.slice(i, i + 50));
+      }
 
-          if (stockInicial && stockInicial.length > 0) {
-              stockInicial.forEach((stock: any) => {
-                  const remitoRef = doc(collection(db, 'remitos'));
-                  const remitoAjuste = {
-                      fecha: fechaAjuste,
-                      clienteId: clienteRef.id,
-                      sucursalId: stock.sucursalId || null,
-                      vendedorId: adminUser?.id || usuarios[0]?.id,
-                      puntoVenta: '0000',
-                      numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-                      movimientos: [{
-                          productoId: stock.productoId,
-                          entregados: stock.cantidad,
-                          recibidos: 0
-                      }]
-                  };
-                  batch.set(remitoRef, cleanUndefineds(remitoAjuste));
-              });
-          }
-      });
-      await batch.commit();
+      for (const chunk of clientChunks) {
+          const batch = writeBatch(db);
+          chunk.forEach(clienteData => {
+              const { stockInicial, ...cliente } = clienteData;
+              const clienteRef = doc(collection(db, 'clientes'));
+              batch.set(clienteRef, cleanUndefineds({ ...cliente, id: clienteRef.id, estado: EstadoCliente.ACTIVO }));
+
+              if (stockInicial && stockInicial.length > 0) {
+                  stockInicial.forEach((stock: any) => {
+                      const remitoRef = doc(collection(db, 'remitos'));
+                      const remitoAjuste = {
+                          fecha: fechaAjuste,
+                          clienteId: clienteRef.id,
+                          sucursalId: stock.sucursalId || null,
+                          vendedorId: adminUser?.id || usuarios[0]?.id,
+                          puntoVenta: '0000',
+                          numero: `AJU-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+                          movimientos: [{
+                              productoId: stock.productoId,
+                              entregados: stock.cantidad,
+                              recibidos: 0
+                          }]
+                      };
+                      batch.set(remitoRef, cleanUndefineds(remitoAjuste));
+                  });
+              }
+          });
+          await batch.commit();
+      }
   }, [usuarios]);
 
   const addUsuario = useCallback(async (usuario: Omit<Usuario, 'id'>) => {
@@ -440,6 +470,7 @@ export const useDataStore = () => {
     updateCliente,
     deleteCliente,
     reactivarCliente,
+    deleteAllClientes,
     addMultipleClientes,
     addUsuario,
     updateUsuario,

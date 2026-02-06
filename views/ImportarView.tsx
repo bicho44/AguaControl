@@ -1,173 +1,246 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import Card from '../components/Card';
 import { Cliente, Remito, Telefono, TipoFacturacion, TipoTelefono, EstadoCliente, EstadoProducto, TipoProducto, Producto, PrecioEspecial, Sucursal } from '../types';
 import { UploadIcon } from '../components/icons/UploadIcon';
 import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
+import AppSelect from '../components/ui/AppSelect';
 
 interface ImportarViewProps {
   clientes: Cliente[];
   remitos: Remito[];
-  addMultipleClientes: (clientes: Cliente[]) => void;
-  addMultipleRemitos: (remitos: Remito[]) => void;
+  productos: Producto[];
+  addMultipleClientes: (clientes: Cliente[]) => Promise<void>;
+  deleteAllClientes: () => Promise<void>;
 }
 
-const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, addMultipleClientes, addMultipleRemitos }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [importType, setImportType] = useState<'clientes' | 'remitos'>('clientes');
+type Step = 'upload' | 'mapping' | 'executing';
+
+const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, productos, addMultipleClientes, deleteAllClientes }) => {
+  const [currentStep, setCurrentStep] = useState<Step>('upload');
+  const [fileData, setFileData] = useState<{ headers: string[], rows: any[] } | null>(null);
+  const [ivaMapping, setIvaMapping] = useState<Record<string, TipoFacturacion>>({});
+  const [productMapping, setProductMapping] = useState<Record<string, string>>({}); // Columna CSV -> ID Producto Sistema
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { showNotification } = useNotification();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFile(e.target.files[0]);
-    }
-  };
+  const activeProducts = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
 
   const parseCSV = (csvText: string): string[][] => {
       const rows: string[][] = [];
       let currentRow: string[] = [];
       let currentCell = '';
       let inQuotes = false;
-
       for (let i = 0; i < csvText.length; i++) {
           const char = csvText[i];
           const nextChar = csvText[i + 1];
-
           if (char === '"') {
-              if (inQuotes && nextChar === '"') {
-                  currentCell += '"';
-                  i++;
-              } else {
-                  inQuotes = !inQuotes;
-              }
+              if (inQuotes && nextChar === '"') { currentCell += '"'; i++; } else { inQuotes = !inQuotes; }
           } else if (char === ',' && !inQuotes) {
-              currentRow.push(currentCell.trim());
-              currentCell = '';
+              currentRow.push(currentCell.trim()); currentCell = '';
           } else if ((char === '\r' || char === '\n') && !inQuotes) {
               currentRow.push(currentCell.trim());
-              if (currentRow.length > 0 || currentRow.some(c => c !== '')) {
-                  rows.push(currentRow);
-              }
-              currentRow = [];
-              currentCell = '';
+              if (currentRow.length > 0 || currentRow.some(c => c !== '')) { rows.push(currentRow); }
+              currentRow = []; currentCell = '';
               if (char === '\r' && nextChar === '\n') i++;
-          } else {
-              currentCell += char;
-          }
+          } else { currentCell += char; }
       }
-      if (currentCell || currentRow.length > 0) {
-          currentRow.push(currentCell.trim());
-          rows.push(currentRow);
-      }
+      if (currentCell || currentRow.length > 0) { currentRow.push(currentCell.trim()); rows.push(currentRow); }
       return rows;
   }
 
-  const handleImport = useCallback(() => {
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const rows = parseCSV(text);
-        // El formato esperado tiene encabezados
-        const headers = rows.shift()?.map(h => h.toLowerCase().replace(/ /g, '_').trim());
-        if (!headers) throw new Error("Archivo vacío.");
-
-        if (importType === 'clientes') {
-            /**
-             * Columnas: Codigo,Nombre,Direccion,Localidad,Tipo_Cliente,Cant_B20,Cant_B12,Cant_FCP,Codigo_Madre,
-             * CUIT,TELEFONO,TE._MOVIL,EMAIL,COND_IVA,COND_PAGO,NOMBREFISCAL,DOMICILIOFISCAL,LOCALIDADFISCAL,ALTA,REQUIERE_COMPROBANTE
-             */
-            
-            const clientGroups = new Map<string, any[]>();
-            rows.forEach((row) => {
-                const data = Object.fromEntries(headers.map((h, i) => [h, row[i]]));
-                const madreId = data.codigo_madre || data.codigo;
-                if (!clientGroups.has(madreId)) clientGroups.set(madreId, []);
-                clientGroups.get(madreId)!.push(data);
-            });
-
-            const finalClientes: Cliente[] = [];
-            clientGroups.forEach((branchRows, madreId) => {
-                // Buscamos la fila que representa al cliente principal (la madre)
-                const mainRow = branchRows.find(r => r.codigo === madreId) || branchRows[0];
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const text = event.target?.result as string;
+                const rows = parseCSV(text);
+                const rawHeaders = rows.shift();
+                if (!rawHeaders) throw new Error("Archivo vacío");
                 
-                const sucursales: Sucursal[] = branchRows.map(r => ({
-                    id: r.codigo,
-                    nombre: branchRows.length > 1 ? r.nombre : 'Principal',
-                    direccion: `${r.direccion || ''} ${r.localidad || ''}`.trim()
-                }));
+                const headers = rawHeaders.map(h => h.toLowerCase().trim());
+                const dataRows = rows.map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]])));
+                
+                setFileData({ headers, rows: dataRows });
 
-                const initialStocks: any[] = [];
-                branchRows.forEach(r => {
-                    if (Number(r.cant_b20) > 0) initialStocks.push({ productoId: 'p1', cantidad: Number(r.cant_b20), sucursalId: r.codigo });
-                    if (Number(r.cant_b12) > 0) initialStocks.push({ productoId: 'p2', cantidad: Number(r.cant_b12), sucursalId: r.codigo });
-                    if (Number(r.cant_fcp) > 0) initialStocks.push({ productoId: 'p4', cantidad: Number(r.cant_fcp), sucursalId: r.codigo });
+                // Detectar valores únicos de IVA
+                const ivaIdx = headers.indexOf('cond_iva');
+                if (ivaIdx !== -1) {
+                    const uniqueIva = [...new Set(dataRows.map(r => r.cond_iva).filter(v => v))];
+                    const initialIvaMap: Record<string, TipoFacturacion> = {};
+                    uniqueIva.forEach(val => {
+                        const v = val.toLowerCase();
+                        if (v.includes('ins') || v.includes('ri')) initialIvaMap[val] = TipoFacturacion.RESPONSABLE_INSCRIPTO;
+                        else if (v.includes('mono')) initialIvaMap[val] = TipoFacturacion.MONOTRIBUTO;
+                        else if (v.includes('exe')) initialIvaMap[val] = TipoFacturacion.EXENTO;
+                        else initialIvaMap[val] = TipoFacturacion.CONSUMIDOR_FINAL;
+                    });
+                    setIvaMapping(initialIvaMap);
+                }
+
+                // Detectar columnas de productos (cant_)
+                const initialProdMap: Record<string, string> = {};
+                headers.forEach(h => {
+                    if (h.startsWith('cant_')) {
+                        if (h.includes('20')) initialProdMap[h] = activeProducts.find(p => p.nombre.includes('20'))?.id || '';
+                        else if (h.includes('12')) initialProdMap[h] = activeProducts.find(p => p.nombre.includes('12'))?.id || '';
+                        else initialProdMap[h] = '';
+                    }
                 });
+                setProductMapping(initialProdMap);
 
-                const cliente: Cliente & { stockInicial?: any[] } = {
-                    id: madreId,
-                    nombre: mainRow.nombre || 'Sin Nombre',
-                    nombreFiscal: mainRow.nombrefiscal || undefined,
-                    estado: EstadoCliente.ACTIVO,
-                    cuit: mainRow.cuit || '',
-                    tipoFacturacion: mainRow.cond_iva as TipoFacturacion,
-                    tieneCuentaCorriente: mainRow.cond_pago?.toLowerCase().includes('cta') || false,
-                    telefonos: [
-                        ...(mainRow.telefono ? [{ tipo: TipoTelefono.LOCAL, numero: mainRow.telefono }] : []),
-                        ...(mainRow['te._movil'] ? [{ tipo: TipoTelefono.CEL, numero: mainRow['te._movil'] }] : [])
-                    ],
-                    emails: mainRow.email ? [mainRow.email] : [],
-                    sucursales,
-                    stockInicial: initialStocks // Pasamos stock para que useDataStore lo procese
-                };
-                finalClientes.push(cliente);
-            });
+                setCurrentStep('mapping');
+            } catch (err: any) { showNotification(err.message, 'error'); }
+        };
+        reader.readAsText(file);
+    }
+  };
 
-            addMultipleClientes(finalClientes);
-            showNotification(`${finalClientes.length} clientes (y sus sucursales) procesados.`, 'success');
-        } else {
-            // Lógica para remitos permanece similar o ajustada al formato necesario
-            showNotification('Importador de remitos en desarrollo para este formato.', 'error');
-        }
-        setFile(null);
-      } catch (error: any) {
-          showNotification(`Error: ${error.message}`, 'error');
-      }
-    };
-    reader.readAsText(file);
-  }, [file, importType, addMultipleClientes]);
+  const handleExecuteImport = async () => {
+      if (!fileData) return;
+      setIsProcessing(true);
+      try {
+          if (isReplacing) {
+              showNotification("Limpiando base de datos...", "success");
+              await deleteAllClientes();
+          }
+
+          const clientGroups = new Map<string, any[]>();
+          fileData.rows.forEach(row => {
+              const madreId = row.codigo_madre || row.codigo;
+              if (!clientGroups.has(madreId)) clientGroups.set(madreId, []);
+              clientGroups.get(madreId)!.push(row);
+          });
+
+          const finalClientes: any[] = [];
+          clientGroups.forEach((branchRows, madreId) => {
+              const mainRow = branchRows.find(r => r.codigo === madreId) || branchRows[0];
+              
+              const sucursales: Sucursal[] = branchRows.map(r => ({
+                  id: r.codigo,
+                  nombre: branchRows.length > 1 ? (r.nombre || `Sucursal ${r.codigo}`) : 'Principal',
+                  direccion: `${r.direccion || ''} ${r.localidad || ''}`.trim()
+              }));
+
+              const initialStocks: any[] = [];
+              branchRows.forEach(r => {
+                  Object.entries(productMapping).forEach(([col, pId]) => {
+                      if (pId && Number(r[col]) > 0) {
+                          initialStocks.push({ productoId: pId, cantidad: Number(r[col]), sucursalId: r.codigo });
+                      }
+                  });
+              });
+
+              finalClientes.push({
+                  id: madreId,
+                  nombre: mainRow.nombre || 'Sin Nombre',
+                  nombreFiscal: mainRow.nombrefiscal || undefined,
+                  estado: EstadoCliente.ACTIVO,
+                  cuit: mainRow.cuit || '',
+                  tipoFacturacion: ivaMapping[mainRow.cond_iva] || TipoFacturacion.CONSUMIDOR_FINAL,
+                  tieneCuentaCorriente: mainRow.cond_pago?.toLowerCase().includes('cta') || false,
+                  telefonos: [
+                      ...(mainRow.telefono ? [{ tipo: TipoTelefono.LOCAL, numero: mainRow.telefono }] : []),
+                      ...(mainRow['te._movil'] ? [{ tipo: TipoTelefono.CEL, numero: mainRow['te._movil'] }] : [])
+                  ],
+                  emails: mainRow.email ? [mainRow.email] : [],
+                  sucursales,
+                  stockInicial: initialStocks
+              });
+          });
+
+          await addMultipleClientes(finalClientes);
+          showNotification(`¡Éxito! ${finalClientes.length} clientes procesados.`, 'success');
+          setCurrentStep('upload');
+          setFileData(null);
+      } catch (err: any) { showNotification(err.message, 'error'); }
+      finally { setIsProcessing(false); }
+  };
 
   return (
     <div className="space-y-6 pt-12 md:pt-0 pb-12">
-      <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Importar / Exportar</h1>
+      <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Asistente de Importación</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card title="Carga Masiva de Clientes">
+      {currentStep === 'upload' && (
+          <Card title="Paso 1: Seleccionar Archivo">
               <div className="space-y-6">
-                  <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 space-y-3">
-                      <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Formato de Columnas Detectado</p>
-                      <p className="text-[10px] text-blue-800 dark:text-blue-300 leading-relaxed font-mono break-all">
-                        Codigo, Nombre, Direccion, Localidad, Tipo_Cliente, Cant_B20, Cant_B12, Cant_FCP, Codigo_Madre, CUIT, TELEFONO, TE. MOVIL, EMAIL, COND_IVA, COND_PAGO, NOMBREFISCAL...
+                  <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                      <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed font-mono">
+                        Se detectará automáticamente: Codigo, Nombre, Direccion, Cant_B20, Cant_B12, Cant_FCP, Codigo_Madre, CUIT, COND_IVA, COND_PAGO...
                       </p>
                   </div>
-
-                  <div className="relative group">
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <UploadIcon />
-                              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 font-bold">{file ? file.name : 'Seleccionar Archivo .CSV'}</p>
-                          </div>
-                          <input type="file" className="hidden" accept=".csv" onChange={handleFileChange} />
-                      </label>
-                  </div>
-
-                  <AppButton onClick={handleImport} disabled={!file} className="w-full py-4 shadow-xl" size="lg">Procesar e Importar Clientes</AppButton>
+                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <UploadIcon />
+                          <p className="mt-2 text-sm text-gray-500 font-bold">Clic para seleccionar CSV</p>
+                      </div>
+                      <input type="file" className="hidden" accept=".csv" onChange={handleFileChange} />
+                  </label>
               </div>
           </Card>
-      </div>
+      )}
+
+      {currentStep === 'mapping' && (
+          <div className="space-y-6 animate-fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card title="Mapeo de IVA">
+                      <div className="space-y-4">
+                          <p className="text-xs text-gray-500">Mapee los valores encontrados en su CSV a las categorías del sistema.</p>
+                          {Object.keys(ivaMapping).map(val => (
+                              <div key={val} className="flex flex-col gap-1">
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{val}</span>
+                                  <AppSelect 
+                                    value={ivaMapping[val]} 
+                                    onChange={(e) => setIvaMapping({...ivaMapping, [val]: e.target.value as any})}
+                                    options={Object.values(TipoFacturacion).map(v => ({value: v, label: v}))}
+                                  />
+                              </div>
+                          ))}
+                      </div>
+                  </Card>
+
+                  <Card title="Mapeo de Productos">
+                      <div className="space-y-4">
+                          <p className="text-xs text-gray-500">Mapee las columnas de cantidades a productos de su catálogo.</p>
+                          {Object.keys(productMapping).map(col => (
+                              <div key={col} className="flex flex-col gap-1">
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Columna: {col}</span>
+                                  <AppSelect 
+                                    value={productMapping[col]} 
+                                    onChange={(e) => setProductMapping({...productMapping, [col]: e.target.value})}
+                                    options={[{value: '', label: '-- Ignorar Columna --'}, ...activeProducts.map(p => ({value: p.id, label: p.nombre}))]}
+                                  />
+                              </div>
+                          ))}
+                      </div>
+                  </Card>
+              </div>
+
+              <Card title="Confirmación y Acción">
+                  <div className="space-y-6">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600 flex items-center justify-between">
+                          <div>
+                              <p className="font-bold text-gray-800 dark:text-white">Acción al importar</p>
+                              <p className="text-xs text-gray-500">{isReplacing ? '⚠ CUIDADO: Se borrarán todos los clientes, remitos y facturas actuales.' : 'Se agregarán los nuevos clientes manteniendo los existentes.'}</p>
+                          </div>
+                          <div className="flex gap-2">
+                              <button onClick={() => setIsReplacing(false)} className={`px-4 py-2 rounded-lg text-xs font-bold ${!isReplacing ? 'bg-primary-600 text-white shadow-lg' : 'bg-white text-gray-500 border'}`}>Sumar</button>
+                              <button onClick={() => setIsReplacing(true)} className={`px-4 py-2 rounded-lg text-xs font-bold ${isReplacing ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-gray-500 border'}`}>REEMPLAZAR TODO</button>
+                          </div>
+                      </div>
+
+                      <div className="flex gap-3 justify-end">
+                          <AppButton variant="secondary" onClick={() => setCurrentStep('upload')}>Atrás</AppButton>
+                          <AppButton onClick={handleExecuteImport} isLoading={isProcessing} size="lg" className="px-12 shadow-xl">Iniciar Importación</AppButton>
+                      </div>
+                  </div>
+              </Card>
+          </div>
+      )}
     </div>
   );
 };
