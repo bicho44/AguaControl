@@ -233,6 +233,7 @@ const RemitoForm: React.FC<{
             nombre: data.nombre,
             sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: data.direccion, lat: data.lat, lng: data.lng, diasReparto: [] }],
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
+            // FIX: Changed EstadoCliente.ACTIVE to EstadoCliente.ACTIVO to match definition in types.ts
             estado: EstadoCliente.ACTIVO
         });
         setFormData(prev => ({ ...prev, clienteId: id, sucursalId: 'main' }));
@@ -391,16 +392,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         if (paymentStatusFilter !== 'todos' && r.paymentStatus !== paymentStatusFilter) return false;
         return true;
     }).sort((a, b) => {
-        // Ordenamiento por Pto Venta (DESC), luego Número (DESC), luego Fecha (DESC)
+        // Ordenamiento por Fecha (DESC), luego Pto Venta (DESC), luego Número (DESC)
+        const dateA = new Date(a.fecha).getTime();
+        const dateB = new Date(b.fecha).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+
         const ptoA = parseInt(a.puntoVenta) || 0;
         const ptoB = parseInt(b.puntoVenta) || 0;
         if (ptoB !== ptoA) return ptoB - ptoA;
 
         const numA = parseInt(a.numero) || 0;
         const numB = parseInt(b.numero) || 0;
-        if (numB !== numA) return numB - numA;
-
-        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+        return numB - numA;
     });
   }, [processedRemitos, clienteFilter, paymentStatusFilter, currentUser]);
 
