@@ -257,7 +257,13 @@ const RemitoForm: React.FC<{
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
                 <div className="flex justify-between items-end mb-1.5"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo Cliente</button>}</div>
-                <SearchableSelect options={clientes.map(c=>({value:c.id, label:c.nombre}))} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} disabled={isReadOnly} />
+                <SearchableSelect 
+                  options={clientes.map(c=>({value:c.id, label:c.nombre}))} 
+                  value={formData.clienteId || ''} 
+                  onChange={(v) => handleSelectChange('clienteId', v)} 
+                  disabled={isReadOnly}
+                  autoFocus={!isReadOnly}
+                />
             </div>
             {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required /></div>}
         </div>

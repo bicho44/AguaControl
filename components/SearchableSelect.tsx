@@ -11,9 +11,10 @@ interface SearchableSelectProps {
   placeholder?: string;
   disabled?: boolean;
   label?: string;
+  autoFocus?: boolean;
 }
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label }) => {
+const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label, autoFocus = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -253,6 +254,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
             placeholder={placeholder}
             disabled={disabled}
             readOnly={isMobileMode}
+            autoFocus={autoFocus}
         />
         
         {value && !disabled && (
