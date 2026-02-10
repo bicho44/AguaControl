@@ -29,6 +29,39 @@ interface RemitosViewProps {
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; 
 }
 
+const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-sm">
+            <div className="p-4">
+                <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tighter mb-4 flex items-center gap-2">
+                    <span className="bg-gray-200 dark:bg-gray-700 rounded px-2 py-1 text-sm">⌘</span> Atajos de Teclado
+                </h3>
+                <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                        <span className="text-gray-600 dark:text-gray-300">Nuevo Remito</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + N</kbd>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                        <span className="text-gray-600 dark:text-gray-300">Guardar Remito</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Ctrl + Enter</kbd>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                        <span className="text-gray-600 dark:text-gray-300">Agregar Producto</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + I</kbd>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-600 dark:text-gray-300">Agregar Pago</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + P</kbd>
+                    </div>
+                </div>
+                <div className="mt-6 text-center">
+                    <p className="text-[10px] text-gray-400">En Mac, 'Alt' corresponde a la tecla 'Option' (⌥).</p>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 const QuickClientModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -257,25 +290,31 @@ const RemitoForm: React.FC<{
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
 
-      // Ctrl + Enter to Save (or Cmd + Enter)
+      // Usamos e.code para la tecla física, evitando problemas con dead-keys en Mac (Alt+I = ˆ)
+      
+      // Ctrl + Enter to Save
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        // Llamamos al submit programáticamente pasando un evento mock
         handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+        return;
       }
 
-      // Alt + I to Add Item
-      if (e.altKey && e.key.toLowerCase() === 'i') {
-        e.preventDefault();
+      // Alt + I to Add Item (KeyI es la tecla I física)
+      if (e.altKey && e.code === 'KeyI') {
+        e.preventDefault(); // IMPORTANTE: Esto evita que se escriba el caracter especial
+        e.stopPropagation();
         addMovimiento();
+        return;
       }
 
-      // Alt + P to Add Pago (only if visible)
-      if (e.altKey && e.key.toLowerCase() === 'p') {
+      // Alt + P to Add Pago
+      if (e.altKey && e.code === 'KeyP') {
         e.preventDefault();
+        e.stopPropagation();
         if ((!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste) {
             addPago();
         }
+        return;
       }
     };
 
@@ -387,10 +426,9 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
   const { showNotification } = useNotification();
-  // Estado para controlar el ciclo de vida del formulario y forzar el autoFocus en cargas consecutivas
   const [formInstanceId, setFormInstanceId] = useState(0);
-  // Estado para confirmación de borrado
   const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -439,15 +477,12 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         if (paymentStatusFilter !== 'todos' && r.paymentStatus !== paymentStatusFilter) return false;
         return true;
     }).sort((a, b) => {
-        // Ordenamiento por Fecha (DESC), luego Pto Venta (DESC), luego Número (DESC)
         const dateA = new Date(a.fecha).getTime();
         const dateB = new Date(b.fecha).getTime();
         if (dateB !== dateA) return dateB - dateA;
-
         const ptoA = parseInt(a.puntoVenta) || 0;
         const ptoB = parseInt(b.puntoVenta) || 0;
         if (ptoB !== ptoA) return ptoB - ptoA;
-
         const numA = parseInt(a.numero) || 0;
         const numB = parseInt(b.numero) || 0;
         return numB - numA;
@@ -464,19 +499,16 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           await addRemito(r);
           showNotification('Guardado.', 'success');
           
-          // Lógica de CARGA CONTINUA para Administradores
           if (currentUser.rol === Rol.ADMINISTRADOR) {
               const nextNum = (parseInt(r.numero) || 0) + 1;
               setEditingRemito({ 
-                fecha: r.fecha, // Mantenemos la fecha que estaba usando
+                fecha: r.fecha,
                 puntoVenta: r.puntoVenta, 
                 numero: nextNum.toString(), 
                 movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
                 pagos: [], 
                 vendedorId: currentUser.id 
               });
-              // Forzamos la creación de una nueva instancia del componente formulario
-              // para asegurar que el autoFocus y el estado interno se reinicien.
               setFormInstanceId(prev => prev + 1);
           } else {
               setIsFormOpen(false);
@@ -485,8 +517,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     } catch (e) { showNotification('Error.', 'error'); }
   };
 
-  const openNewModal = () => {
-    // Buscar el punto de venta más recientemente usado para sugerirlo
+  const openNewModal = useCallback(() => {
     const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
     const defaultPto = lastRemito?.puntoVenta || '1';
 
@@ -500,7 +531,20 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     });
     setFormInstanceId(prev => prev + 1);
     setIsFormOpen(true);
-  }
+  }, [remitos, currentUser]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+      const handleGlobalKeys = (e: KeyboardEvent) => {
+          // Alt + N for New Remito (Physical KeyN to avoid layout issues)
+          if (e.altKey && e.code === 'KeyN' && !isFormOpen) {
+              e.preventDefault();
+              openNewModal();
+          }
+      };
+      window.addEventListener('keydown', handleGlobalKeys);
+      return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isFormOpen, openNewModal]);
 
   const handleDeleteConfirm = async () => {
       if (!remitoParaBorrar) return;
@@ -513,11 +557,33 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       }
   };
 
-  if (isFormOpen) return <div className="animate-fade-in"><div className="mb-6 flex items-center gap-4"><button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button><h1 className="text-2xl font-black uppercase">Gestionar Remito</h1></div><Card><RemitoForm key={formInstanceId} remito={editingRemito} clientes={clientes} vendedores={vendedores} productos={productos} currentUser={currentUser} onSave={handleSave} onAddCliente={addCliente} onClose={() => setIsFormOpen(false)} remitos={remitos} registrosPago={registrosPago} isReadOnly={!!editingRemito?.facturaId}/></Card></div>;
+  if (isFormOpen) return (
+    <div className="animate-fade-in relative">
+        <div className="mb-6 flex items-center gap-4">
+            <button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+            <h1 className="text-2xl font-black uppercase">Gestionar Remito</h1>
+            <button onClick={() => setShowShortcuts(true)} className="ml-auto text-gray-400 hover:text-primary-600 transition-colors" title="Atajos de Teclado">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
+        </div>
+        <Card>
+            <RemitoForm key={formInstanceId} remito={editingRemito} clientes={clientes} vendedores={vendedores} productos={productos} currentUser={currentUser} onSave={handleSave} onAddCliente={addCliente} onClose={() => setIsFormOpen(false)} remitos={remitos} registrosPago={registrosPago} isReadOnly={!!editingRemito?.facturaId}/>
+        </Card>
+        <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+    </div>
+  );
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0">
-      <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1><AppButton onClick={openNewModal}>+ Nuevo Remito</AppButton></div>
+    <div className="space-y-6 pt-12 md:pt-0 relative">
+      <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
+            <button onClick={() => setShowShortcuts(true)} className="text-gray-400 hover:text-primary-600 transition-colors p-1" title="Atajos de teclado">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
+          </div>
+          <AppButton onClick={openNewModal}>+ Nuevo Remito</AppButton>
+      </div>
       <Card>
         <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
             <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={[{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))]} />
@@ -578,6 +644,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
             </div>
         </Modal>
       )}
+      
+      <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }
