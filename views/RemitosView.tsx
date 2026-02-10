@@ -213,7 +213,10 @@ const RemitoForm: React.FC<{
     newMovimientos[index] = { ...newMovimientos[index], productoId };
     setFormData(prev => ({ ...prev, movimientos: newMovimientos }));
   }
-  const addMovimiento = () => setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]}));
+  const addMovimiento = useCallback(() => {
+    setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]}));
+  }, []);
+
   const removeMovimiento = (index: number) => setFormData(prev => ({...prev, movimientos: prev.movimientos?.filter((_, i) => i !== index)}));
   
   const handlePagoChange = (index: number, field: keyof PagoDetalle, value: string | MetodoPago) => {
@@ -221,10 +224,11 @@ const RemitoForm: React.FC<{
     newPagos[index] = { ...newPagos[index], [field]: field === 'monto' ? (value === '' ? 0 : Number(value)) : value };
     setFormData((prev: any) => ({ ...prev, pagos: newPagos }));
   }
-  const addPago = () => {
+  const addPago = useCallback(() => {
     const pagado = (formData.pagos || []).reduce((sum, p) => sum + p.monto, 0);
     setFormData(prev => ({...prev, pagos: [...(prev.pagos || []), { monto: Math.max(0, totalRemito - pagado), metodo: MetodoPago.EFECTIVO }]}));
-  }
+  }, [formData.pagos, totalRemito]);
+
   const removePago = (index: number) => setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
 
   const handleSaveQuickClient = async (data: any) => {
@@ -247,6 +251,37 @@ const RemitoForm: React.FC<{
     await onSave(formData as Remito & { pagos: PagoDetalle[] });
     setIsSaving(false);
   };
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isReadOnly) return;
+
+      // Ctrl + Enter to Save (or Cmd + Enter)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        // Llamamos al submit programáticamente pasando un evento mock
+        handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+      }
+
+      // Alt + I to Add Item
+      if (e.altKey && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        addMovimiento();
+      }
+
+      // Alt + P to Add Pago (only if visible)
+      if (e.altKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        if ((!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste) {
+            addPago();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReadOnly, addMovimiento, addPago, handleSubmit, isCtaCte, formData]);
   
   return (
     <>
@@ -303,7 +338,7 @@ const RemitoForm: React.FC<{
                   <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
               </div>
           ))}
-          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item</AppButton>}
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span></AppButton>}
         </fieldset>
 
         {(!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
@@ -318,7 +353,7 @@ const RemitoForm: React.FC<{
                         </div>
                     ))}
                     {!isReadOnly && (
-                        <AppButton variant="secondary" size="sm" onClick={addPago} className="w-full border-dashed border-2 bg-white/50">+ Agregar Pago / Cobro</AppButton>
+                        <AppButton variant="secondary" size="sm" onClick={addPago} className="w-full border-dashed border-2 bg-white/50">+ Agregar Pago / Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+P)</span></AppButton>
                     )}
                 </div>
             </fieldset>
@@ -327,7 +362,7 @@ const RemitoForm: React.FC<{
         <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total Remito: ${totalRemito.toLocaleString()}</span></div>
         <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
           <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito</AppButton>}
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>}
         </div>
       </form>
       <QuickClientModal isOpen={isQuickClientOpen} onClose={() => setIsQuickClientOpen(false)} onSave={handleSaveQuickClient} />
