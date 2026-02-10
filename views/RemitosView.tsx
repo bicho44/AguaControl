@@ -387,6 +387,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
   const { showNotification } = useNotification();
+  // Estado para controlar el ciclo de vida del formulario y forzar el autoFocus en cargas consecutivas
+  const [formInstanceId, setFormInstanceId] = useState(0);
+  // Estado para confirmación de borrado
+  const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -471,7 +475,9 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 pagos: [], 
                 vendedorId: currentUser.id 
               });
-              // No cerramos el formulario, el estado `editingRemito` actualizado disparará el re-render del form limpio
+              // Forzamos la creación de una nueva instancia del componente formulario
+              // para asegurar que el autoFocus y el estado interno se reinicien.
+              setFormInstanceId(prev => prev + 1);
           } else {
               setIsFormOpen(false);
           }
@@ -492,10 +498,22 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       pagos: [], 
       vendedorId: currentUser.id 
     });
+    setFormInstanceId(prev => prev + 1);
     setIsFormOpen(true);
   }
 
-  if (isFormOpen) return <div className="animate-fade-in"><div className="mb-6 flex items-center gap-4"><button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button><h1 className="text-2xl font-black uppercase">Gestionar Remito</h1></div><Card><RemitoForm remito={editingRemito} clientes={clientes} vendedores={vendedores} productos={productos} currentUser={currentUser} onSave={handleSave} onAddCliente={addCliente} onClose={() => setIsFormOpen(false)} remitos={remitos} registrosPago={registrosPago} isReadOnly={!!editingRemito?.facturaId}/></Card></div>;
+  const handleDeleteConfirm = async () => {
+      if (!remitoParaBorrar) return;
+      try {
+          await deleteRemito(remitoParaBorrar.id);
+          showNotification('Remito eliminado.', 'success');
+          setRemitoParaBorrar(null);
+      } catch (e) {
+          showNotification('Error al eliminar.', 'error');
+      }
+  };
+
+  if (isFormOpen) return <div className="animate-fade-in"><div className="mb-6 flex items-center gap-4"><button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button><h1 className="text-2xl font-black uppercase">Gestionar Remito</h1></div><Card><RemitoForm key={formInstanceId} remito={editingRemito} clientes={clientes} vendedores={vendedores} productos={productos} currentUser={currentUser} onSave={handleSave} onAddCliente={addCliente} onClose={() => setIsFormOpen(false)} remitos={remitos} registrosPago={registrosPago} isReadOnly={!!editingRemito?.facturaId}/></Card></div>;
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">
@@ -515,7 +533,20 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                         <div><p className="text-[10px] text-gray-500 uppercase font-bold">Número</p><p className="font-medium text-sm font-mono">{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
                         <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
                     </div>
-                    <div className="flex gap-1"><button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2" disabled={!remito.canBeEdited}><PencilIcon/></button><ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} /></div>
+                    <div className="flex gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2 hover:bg-blue-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeEdited}><PencilIcon/></button>
+                        {currentUser.rol === Rol.ADMINISTRADOR && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
+                                className="text-red-500 p-2 hover:bg-red-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
+                                disabled={!remito.canBeDeleted}
+                                title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
+                            >
+                                <TrashIcon />
+                            </button>
+                        )}
+                        <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
+                    </div>
                 </div>
                 {expandedRemitoId === remito.id && (
                     <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
@@ -529,6 +560,24 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           ))}
         </div>
       </Card>
+
+      {/* Modal de Confirmación de Borrado */}
+      {remitoParaBorrar && (
+        <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
+            <div className="p-6 text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white">¿Borrar Remito?</h2>
+                <p className="text-gray-500">
+                    Se eliminará el remito <strong>{remitoParaBorrar.puntoVenta}-{remitoParaBorrar.numero}</strong>.
+                    <br/>Esta acción revertirá el stock y saldo del cliente.
+                </p>
+                <div className="flex justify-center gap-3">
+                    <AppButton variant="secondary" onClick={() => setRemitoParaBorrar(null)}>Cancelar</AppButton>
+                    <AppButton variant="danger" onClick={handleDeleteConfirm}>Sí, Eliminar</AppButton>
+                </div>
+            </div>
+        </Modal>
+      )}
     </div>
   )
 }
