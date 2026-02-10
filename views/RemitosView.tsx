@@ -233,7 +233,6 @@ const RemitoForm: React.FC<{
             nombre: data.nombre,
             sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: data.direccion, lat: data.lat, lng: data.lng, diasReparto: [] }],
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
-            // FIX: Changed EstadoCliente.ACTIVE to EstadoCliente.ACTIVO to match definition in types.ts
             estado: EstadoCliente.ACTIVO
         });
         setFormData(prev => ({ ...prev, clienteId: id, sucursalId: 'main' }));
@@ -252,7 +251,10 @@ const RemitoForm: React.FC<{
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
+        <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
+            {isAdmin && !isReadOnly && <span className="text-[10px] bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-black uppercase">Carga Continua Activada</span>}
+        </div>
         {deudaPendiente > 0 && <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
@@ -415,10 +417,30 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const handleSave = async (r: any) => {
     try {
-      if (r.id) await updateRemito(r);
-      else await addRemito(r);
-      showNotification('Guardado.', 'success');
-      setIsFormOpen(false);
+      if (r.id) {
+          await updateRemito(r);
+          showNotification('Actualizado.', 'success');
+          setIsFormOpen(false);
+      } else {
+          await addRemito(r);
+          showNotification('Guardado.', 'success');
+          
+          // Lógica de CARGA CONTINUA para Administradores
+          if (currentUser.rol === Rol.ADMINISTRADOR) {
+              const nextNum = (parseInt(r.numero) || 0) + 1;
+              setEditingRemito({ 
+                fecha: r.fecha, // Mantenemos la fecha que estaba usando
+                puntoVenta: r.puntoVenta, 
+                numero: nextNum.toString(), 
+                movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
+                pagos: [], 
+                vendedorId: currentUser.id 
+              });
+              // No cerramos el formulario, el estado `editingRemito` actualizado disparará el re-render del form limpio
+          } else {
+              setIsFormOpen(false);
+          }
+      }
     } catch (e) { showNotification('Error.', 'error'); }
   };
 

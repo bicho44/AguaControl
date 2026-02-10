@@ -35,6 +35,17 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Efecto de Auto-focus real
+  useEffect(() => {
+    if (autoFocus && inputRef.current && !disabled) {
+        // Un pequeño timeout asegura que el renderizado del modal o vista haya terminado
+        const timer = setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+    }
+  }, [autoFocus, disabled]);
+
   const filteredOptions = useMemo(() => options.filter(option =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase())
   ), [options, searchTerm]);
