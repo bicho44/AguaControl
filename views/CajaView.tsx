@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, PagoDetalle, MetodoPago, Factura, Producto, TipoVendedor, MovimientoVenta, EstadoProducto, EstadoCliente, TipoTelefono, TipoProducto } from '../types';
 import Card from '../components/Card';
@@ -31,7 +32,8 @@ interface CajaViewProps {
   }) => Promise<void>;
   addGasto: (gasto: Omit<Gasto, 'id'>) => Promise<void>;
   addVentaVendedor: (venta: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => Promise<void>;
-  addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<void>;
+  // Fix: addCliente must return Promise<string> to match dataStore.addCliente
+  addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   updateRegistroPago: (updatedPago: RegistroPago) => Promise<void>;
   updateGasto: (updatedGasto: Gasto) => Promise<void>;
   deleteRegistroPago: (pagoId: string) => Promise<void>;
@@ -59,7 +61,8 @@ const MovimientoCajaForm: React.FC<{
   productos: Producto[];
   ventasVendedor: VentaVendedor[];
   onSave: (data: any, isVenta: boolean) => void;
-  onAddCliente: (data: any) => Promise<void>;
+  // Fix: onAddCliente must match the expected return type and parameter Omit
+  onAddCliente: (data: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   onClose: () => void;
   isEdit: boolean;
 }> = ({ movimiento, type, onSave, onAddCliente, onClose, isEdit, clientes, vendedores, productos, ventasVendedor }) => {
@@ -115,11 +118,11 @@ const MovimientoCajaForm: React.FC<{
 
   const handleQuickClientSave = async () => {
       if (!quickClientName) return;
+      // Fix: Remove 'estado' from object literal as it's omitted in the type definition
       await onAddCliente({
           nombre: quickClientName,
           telefonos: [{ tipo: TipoTelefono.CEL, numero: quickClientPhone }],
           sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: 'Venta Mostrador' }],
-          estado: EstadoCliente.ACTIVO
       });
       setIsQuickClientOpen(false);
       setQuickClientName(''); setQuickClientPhone('');
@@ -300,8 +303,11 @@ const CajaView: React.FC<CajaViewProps> = ({
       try {
           await addCliente(clienteData);
           showNotification('Cliente creado.', 'success');
+          // Fix: ensure the return from this function is consistent if needed, but it's used as any here
+          return ""; 
       } catch (e) {
           showNotification('Error al crear cliente.', 'error');
+          return "";
       }
   };
 

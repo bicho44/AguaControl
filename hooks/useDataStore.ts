@@ -8,8 +8,6 @@ import {
   deleteDoc, 
   doc, 
   onSnapshot, 
-  query, 
-  orderBy,
   getDocs,
   writeBatch,
   setDoc
@@ -58,7 +56,10 @@ export const useDataStore = () => {
     const [contratos, setContratos] = useState<Contrato[]>([]);
     const [servicios, setServicios] = useState<Servicio[]>([]);
     const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
-    const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ nombre: 'Aguas Puras' });
+    const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
+        nombre: 'Distribuidora Aguas Puras',
+        nombreFantasia: 'Aguas Puras'
+    });
 
     useEffect(() => {
         if (!db) return;
@@ -75,11 +76,14 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'contratos'), (s) => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() } as Contrato)))),
             onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
-            onSnapshot(doc(db, 'settings', 'empresa'), (s) => s.exists() && setEmpresaSettings(s.data() as EmpresaSettings)),
+            onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
+                if (s.exists()) {
+                    setEmpresaSettings(s.data() as EmpresaSettings);
+                }
+            }),
         ];
         return () => {
             unsub.forEach(fn => fn());
-            // Limpieza preventiva al desmontar (ej: logout)
             setRemitos([]); setClientes([]); setUsuarios([]); setProductos([]); setRegistrosPago([]);
         };
     }, []);
@@ -115,7 +119,8 @@ export const useDataStore = () => {
 
     const addCliente = useCallback(async (c: any) => {
         const { stockInicial, contratosIniciales, ...data } = c;
-        const docRef = await addDoc(collection(db, 'clientes'), cleanUndefineds(data));
+        // Fix: Add default active state as views omit it for new clients
+        const docRef = await addDoc(collection(db, 'clientes'), { ...cleanUndefineds(data), estado: EstadoCliente.ACTIVO });
         return docRef.id;
     }, []);
 

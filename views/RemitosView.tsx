@@ -158,8 +158,14 @@ const RemitoForm: React.FC<{
   const isNew = !remito.id;
   const isAdmin = currentUser.rol === Rol.ADMINISTRADOR;
 
-  // Memoize options to ensure SearchableSelect reactivity
-  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
+  // CRÍTICO: Filtramos solo clientes ACTIVOS para nuevos remitos, 
+  // pero permitimos ver el nombre si es una edición de un cliente que luego fue inactivado.
+  const clienteOptions = useMemo(() => {
+    return clientes
+        .filter(c => c.estado === EstadoCliente.ACTIVO || c.id === formData.clienteId)
+        .map(c => ({ value: c.id, label: c.nombre }));
+  }, [clientes, formData.clienteId]);
+
   const productosOptions = useMemo(() => productos.map(p => ({ value: p.id, label: p.nombre })), [productos]);
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -268,11 +274,11 @@ const RemitoForm: React.FC<{
 
   const handleSaveQuickClient = async (data: any) => {
     try {
+        // Fix: Remove 'estado' from object literal as it's forbidden in Omit<Cliente, 'id' | 'estado'>
         const id = await onAddCliente({
             nombre: data.nombre,
             sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: data.direccion, lat: data.lat, lng: data.lng, diasReparto: [] }],
             telefonos: data.telefono ? [{ tipo: TipoTelefono.CEL, numero: data.telefono }] : [],
-            estado: EstadoCliente.ACTIVO
         });
         setFormData(prev => ({ ...prev, clienteId: id, sucursalId: 'main' }));
         showNotification('Cliente creado.', 'success');
@@ -422,10 +428,14 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
-  // Memoize data to ensure components like SearchableSelect react properly
+  // Memoize data
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
-  const filterClienteOptions = useMemo(() => [{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))], [clientes]);
+  
+  // Filtro de clientes: Para buscar remitos de clientes que inactivamos, mostramos todos los clientes en el filtro general.
+  const filterClienteOptions = useMemo(() => {
+    return [{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))];
+  }, [clientes]);
   
   const pagosMap = useMemo(() => {
       const map = new Map<string, RegistroPago[]>();

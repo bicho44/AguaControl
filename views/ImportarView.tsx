@@ -26,7 +26,8 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
   const [isProcessing, setIsProcessing] = useState(false);
   const { showNotification } = useNotification();
 
-  const activeProducts = useMemo(() => (productos || []).filter(p => p.state === undefined || p.estado === EstadoProducto.ACTIVO), [productos]);
+  // Fix: Property 'state' does not exist on type 'Producto'. Use 'estado'.
+  const activeProducts = useMemo(() => (productos || []).filter(p => p.estado === undefined || p.estado === EstadoProducto.ACTIVO), [productos]);
 
   const parseCSV = (csvText: string): string[][] => {
       const rows: string[][] = [];

@@ -27,9 +27,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<(HTMLLIElement | null)[]>([]);
 
+  // Buscamos la opción seleccionada cada vez que cambian las opciones o el valor
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
-  // Sincronización forzada: Si no estamos escribiendo, el input DEBE mostrar el label actual de las props
+  // EL VALOR MOSTRADO: Si el usuario está escribiendo, mostramos lo que escribe.
+  // Si no, mostramos el label EXACTO que viene de la base de datos (options).
   const displayValue = isTyping ? searchTerm : (selectedOption ? selectedOption.label : '');
 
   useEffect(() => {
