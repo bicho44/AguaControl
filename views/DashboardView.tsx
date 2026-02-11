@@ -101,21 +101,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
 
   const [visibleProducts, setVisibleProducts] = useState<string[]>([]);
 
-  // Efecto para sincronizar visibilidad con nuevos productos de la DB
   useEffect(() => {
       try {
           const saved = localStorage.getItem('dashboard_visible_products');
           const savedList = saved ? JSON.parse(saved) : [];
-          
-          // Si no hay nada guardado, mostramos todos
           if (savedList.length === 0) {
               setVisibleProducts(consumableProductNames);
               return;
           }
-
-          // Merge: Mantener los que estaban, y agregar los nuevos de la DB que no estaban en la lista guardada
           const merged = [...new Set([...savedList, ...consumableProductNames])];
-          // Pero filtrar solo los que realmente existen ahora en la DB
           const currentValid = merged.filter(name => consumableProductNames.includes(name));
           setVisibleProducts(currentValid);
       } catch (e) {
@@ -133,21 +127,37 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
       });
   };
 
-  const calculateStatsForPeriod = (remitosToProcess: Remito[]) => {
-    const byProduct = remitosToProcess.reduce((acc, remito) => {
-        if (!remito.movimientos) return acc;
-        remito.movimientos.forEach(mov => {
+  /**
+   * Lógica unificada para calcular entregas (Remitos + Ventas de Caja)
+   * Excluyendo remitos que son ajustes técnicos.
+   */
+  const calculateStatsForPeriod = (remitosToProcess: Remito[], ventasToProcess: VentaVendedor[]) => {
+    const byProduct: { [key: string]: number } = {};
+
+    // 1. Procesar Remitos (Reparto)
+    remitosToProcess.forEach(remito => {
+        if (remito.esAjuste) return; // IGNORAR AJUSTES DE STOCK INICIAL
+        remito.movimientos?.forEach(mov => {
             const producto = productosMap.get(mov.productoId);
             if (producto) {
-                acc[producto.nombre] = (acc[producto.nombre] || 0) + (mov.entregados || 0);
+                byProduct[producto.nombre] = (byProduct[producto.nombre] || 0) + (mov.entregados || 0);
             }
         });
-        return acc;
-    }, {} as { [key: string]: number });
+    });
+
+    // 2. Procesar Ventas Vendedor (Caja / Mostrador)
+    ventasToProcess.forEach(venta => {
+        venta.movimientos?.forEach(mov => {
+            const producto = productosMap.get(mov.productoId);
+            if (producto) {
+                byProduct[producto.nombre] = (byProduct[producto.nombre] || 0) + (mov.cantidad || 0);
+            }
+        });
+    });
+
     return { byProduct };
   };
 
-  // Función robusta para parsear fechas de Firestore (YYYY-MM-DD)
   const parseDate = (dateString: string) => {
       if (!dateString) return new Date(0);
       const [year, month, day] = dateString.split('-').map(Number);
@@ -173,7 +183,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     yesterday.setDate(today.getDate() - 1);
 
     const startOfWeek = new Date(today);
-    // Ajustar al lunes de esta semana
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
@@ -182,6 +191,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
 
+    // Filtrar Remitos por periodo
     const dailyRemitos = remitos.filter(r => parseDate(r.fecha).getTime() === today.getTime());
     const yesterdayRemitos = remitos.filter(r => parseDate(r.fecha).getTime() === yesterday.getTime());
     const weeklyRemitos = remitos.filter(r => parseDate(r.fecha) >= startOfWeek);
@@ -191,7 +201,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         return d >= startOfLastMonth && d <= endOfLastMonth; 
     });
 
-    // Saldos de Caja (Reales de registrosPago de Firebase)
+    // Filtrar Ventas Vendedor por periodo
+    const dailyVentas = ventasVendedor.filter(v => parseDate(v.fecha).getTime() === today.getTime());
+    const yesterdayVentas = ventasVendedor.filter(v => parseDate(v.fecha).getTime() === yesterday.getTime());
+    const weeklyVentas = ventasVendedor.filter(v => parseDate(v.fecha) >= startOfWeek);
+    const monthlyVentas = ventasVendedor.filter(v => parseDate(v.fecha) >= startOfMonth);
+    const lastMonthVentas = ventasVendedor.filter(v => {
+        const d = parseDate(v.fecha);
+        return d >= startOfLastMonth && d <= endOfLastMonth;
+    });
+
+    // Saldos de Caja
     let sEfectivo = 0;
     let sOtros = 0;
     registrosPago.forEach(pago => {
@@ -205,7 +225,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         });
     });
 
-    // Gráfico de Volumen de Ventas (12 meses)
+    // Gráfico Histórico 12 Meses
     const twelveMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 11, 1);
     const salesByProductData: Record<string, { name: string; values: Record<string, number> }> = {};
     const salesByTypeDataStructure: Record<string, { name: string; values: Record<string, number> }> = {};
@@ -214,10 +234,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         const date = new Date(twelveMonthsAgo.getFullYear(), twelveMonthsAgo.getMonth() + i, 1);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthName = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
-        
         const monthValues: Record<string, number> = {};
         const monthValuesByType: Record<string, number> = {};
-        
         consumableProductNames.forEach(pName => {
             monthValues[pName] = 0;
             monthValuesByType[`Int. - ${pName}`] = 0;
@@ -227,8 +245,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         salesByTypeDataStructure[monthKey] = { name: monthName, values: monthValuesByType };
     }
 
-    // Ventas Internas (Remitos)
     remitos.forEach(r => {
+        if (r.esAjuste) return;
         const d = parseDate(r.fecha);
         if (d >= twelveMonthsAgo) {
             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -244,7 +262,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         }
     });
 
-    // Ventas Externas (VentasVendedor)
     ventasVendedor.forEach(v => {
         const d = parseDate(v.fecha);
         if (d >= twelveMonthsAgo) {
@@ -264,7 +281,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     const monthlySalesVolumeChartData = Object.values(salesByProductData).map(data => ({ name: data.name, ...data.values }));
     const monthlySalesByTypeData = Object.values(salesByTypeDataStructure).map(data => ({ name: data.name, ...data.values }));
     
-    // Evolución Diaria (Mes Actual)
+    // Evolución Diaria Mes Actual
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const currentMonthDailyData: Record<string, { name: string; values: Record<string, number> }> = {};
 
@@ -279,27 +296,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     }
 
     monthlyRemitos.forEach(r => {
+        if (r.esAjuste) return;
         const d = parseDate(r.fecha);
         const dayKey = d.getDate().toString();
         r.movimientos?.forEach(m => {
             const prod = productosMap.get(m.productoId);
-            if (prod && consumableProductNames.includes(prod.nombre)) {
-                if (currentMonthDailyData[dayKey]) {
-                    currentMonthDailyData[dayKey].values[`Int. - ${prod.nombre}`] += (m.entregados || 0);
-                }
+            if (prod && consumableProductNames.includes(prod.nombre) && currentMonthDailyData[dayKey]) {
+                currentMonthDailyData[dayKey].values[`Int. - ${prod.nombre}`] += (m.entregados || 0);
             }
         });
     });
 
-    ventasVendedor.filter(v => parseDate(v.fecha) >= startOfMonth).forEach(v => {
+    monthlyVentas.forEach(v => {
         const d = parseDate(v.fecha);
         const dayKey = d.getDate().toString();
         v.movimientos?.forEach(m => {
             const prod = productosMap.get(m.productoId);
-            if (prod && consumableProductNames.includes(prod.nombre)) {
-                 if (currentMonthDailyData[dayKey]) {
-                    currentMonthDailyData[dayKey].values[`Ext. - ${prod.nombre}`] += (m.cantidad || 0);
-                 }
+            if (prod && consumableProductNames.includes(prod.nombre) && currentMonthDailyData[dayKey]) {
+                currentMonthDailyData[dayKey].values[`Ext. - ${prod.nombre}`] += (m.cantidad || 0);
             }
         });
     });
@@ -307,11 +321,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     const currentMonthDailySalesData = Object.values(currentMonthDailyData).map(data => ({ name: data.name, ...data.values }));
 
     return {
-        dailyStats: calculateStatsForPeriod(dailyRemitos),
-        yesterdayStats: calculateStatsForPeriod(yesterdayRemitos),
-        weeklyStats: calculateStatsForPeriod(weeklyRemitos),
-        monthlyStats: calculateStatsForPeriod(monthlyRemitos),
-        lastMonthStats: calculateStatsForPeriod(lastMonthRemitos),
+        dailyStats: calculateStatsForPeriod(dailyRemitos, dailyVentas),
+        yesterdayStats: calculateStatsForPeriod(yesterdayRemitos, yesterdayVentas),
+        weeklyStats: calculateStatsForPeriod(weeklyRemitos, weeklyVentas),
+        monthlyStats: calculateStatsForPeriod(monthlyRemitos, monthlyVentas),
+        lastMonthStats: calculateStatsForPeriod(lastMonthRemitos, lastMonthVentas),
         saldoEfectivo: sEfectivo,
         saldoOtros: sOtros,
         monthlySalesVolumeChartData,
@@ -319,7 +333,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         currentMonthDailySalesData
     }
   }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, consumableProductNames]);
-
 
   // Mapa
   const [mapMarkers, setMapMarkers] = useState<{ lat: number, lng: number, title: string }[]>([]);
@@ -345,20 +358,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         });
     });
     setMapMarkers(markers);
-    setRouteLine([]);
-    setIsOptimized(false);
-    setTotalDistance(null);
   }, [clientes, empresaSettings]);
-
-  const getDistance = (p1: {lat: number, lng: number}, p2: {lat: number, lng: number}) => {
-      const R = 6371e3;
-      const φ1 = p1.lat * Math.PI/180;
-      const φ2 = p2.lat * Math.PI/180;
-      const Δφ = (p2.lat-p1.lat) * Math.PI/180;
-      const Δλ = (p2.lng-p1.lng) * Math.PI/180;
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-  }
 
   const optimizeRoute = () => {
     if (mapMarkers.length < 2) return;
@@ -366,7 +366,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     let unvisited = mapMarkers.slice(1);
     const optimizedPath = [];
     const orderedMarkers = [];
-    let calcDistance = 0;
     let current = depot;
     optimizedPath.push({ lat: current.lat, lng: current.lng });
     orderedMarkers.push(current);
@@ -375,27 +374,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         let nearestIndex = -1;
         let minDistance = Infinity;
         for (let i = 0; i < unvisited.length; i++) {
-            const dist = getDistance(current, unvisited[i]);
+            const dist = Math.sqrt(Math.pow(current.lat - unvisited[i].lat, 2) + Math.pow(current.lng - unvisited[i].lng, 2));
             if (dist < minDistance) { minDistance = dist; nearestIndex = i; }
         }
         if (nearestIndex !== -1) {
             const nearest = unvisited[nearestIndex];
             optimizedPath.push({ lat: nearest.lat, lng: nearest.lng });
             orderedMarkers.push(nearest);
-            calcDistance += minDistance;
             current = nearest;
             unvisited.splice(nearestIndex, 1);
         }
     }
     optimizedPath.push({ lat: depot.lat, lng: depot.lng });
-    calcDistance += getDistance(current, depot);
     setMapMarkers(orderedMarkers);
     setRouteLine(optimizedPath);
     setIsOptimized(true);
-    setTotalDistance(calcDistance / 1000);
   };
 
-  // Drag and Drop Orden
   const [metricsOrder, setMetricsOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem('dashboard_metrics_order');
     return saved ? JSON.parse(saved) : ['hoy', 'ayer', 'semana', 'mes', 'mes_anterior'];
@@ -412,13 +407,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
   const handleDragStart = (e: React.DragEvent, id: string, type: 'metric' | 'chart') => {
     draggingItem.current = id;
     draggingItemType.current = type;
-    (e.target as HTMLElement).style.opacity = '0.4';
-  };
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    draggingItem.current = null;
-    draggingItemType.current = null;
-    (e.target as HTMLElement).style.opacity = '1';
   };
 
   const handleDragEnter = (e: React.DragEvent, targetId: string, type: 'metric' | 'chart') => {
@@ -454,6 +442,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     'mes_anterior': <StatsCard title="Mes Anterior" stats={lastMonthStats} />
   };
 
+  // Estilo base para el Tooltip de Recharts con alto contraste
+  const tooltipStyle = {
+      backgroundColor: 'rgba(17, 24, 39, 0.95)', // Muy oscuro
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '0.75rem',
+      color: '#ffffff',
+      padding: '10px',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+  };
+
   const chartsComponents: Record<string, React.ReactNode> = {
       'mapa_reparto': (
          <Card title={`Ruta Programada: ${todayName}`}>
@@ -464,28 +464,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
                                 {mapMarkers.length} Puntos Georeferenciados.
                             </p>
-                            <button 
-                                onClick={optimizeRoute} 
-                                disabled={isOptimized}
-                                className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full transition-all ${
-                                    isOptimized 
-                                    ? 'bg-green-100 text-green-700 cursor-default' 
-                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
-                                }`}
-                            >
+                            <button onClick={optimizeRoute} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full transition-all ${isOptimized ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'}`}>
                                 {isOptimized ? 'Ruta Optimizada ✓' : 'Optimizar Recorrido'}
                             </button>
                         </div>
-                        {isOptimized && totalDistance !== null && (
-                            <p className="text-xs text-gray-500 mb-3 font-medium">
-                                Recorrido estimado: <span className="font-black text-gray-800 dark:text-white">{totalDistance.toFixed(1)} km</span>.
-                            </p>
-                        )}
                         <LeafletMap markers={mapMarkers} height="400px" route={routeLine} />
                     </>
                 ) : (
                     <div className="h-40 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-                         <svg className="w-8 h-8 mb-2 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 16.382V5.618a1 1 0 00-1.447-.894L15 7m-6 10v-5m6 5v-5m0 0l-6-3" /></svg>
                         <p className="text-[10px] font-black uppercase tracking-tighter">Sin repartos programados para hoy</p>
                     </div>
                 )}
@@ -501,7 +487,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.2)" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} />
                         <YAxis axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.9)', border: 'none', borderRadius: '1rem', color: '#fff' }} />
+                        <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#fff' }} />
                         <Legend iconType="circle" />
                         {consumableProductNames.map(name => {
                             if (!visibleProducts.includes(name)) return null;
@@ -521,7 +507,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.2)" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} />
                         <YAxis axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.9)', border: 'none', borderRadius: '1rem', color: '#fff' }} />
+                        <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#fff' }} />
                         <Legend iconType="circle" />
                         {consumableProductNames.map(name => {
                             if (!visibleProducts.includes(name)) return null;
@@ -546,7 +532,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.2)" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} />
                         <YAxis axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(31, 41, 55, 0.9)', border: 'none', borderRadius: '1rem', color: '#fff' }} labelFormatter={(l) => `Día ${l}`} />
+                        <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#fff' }} labelFormatter={(l) => `Día ${l}`} />
                         {consumableProductNames.map(name => {
                             if (!visibleProducts.includes(name)) return null;
                             return (
@@ -585,14 +571,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
       </div>
       
       <div>
-        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Resumen de Unidades Entregadas</h2>
+        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Resumen de Unidades Entregadas (Reparto + Caja)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {metricsOrder.map(key => (
                 <div
                     key={key}
                     draggable
                     onDragStart={(e) => handleDragStart(e, key, 'metric')}
-                    onDragEnd={handleDragEnd}
                     onDragEnter={(e) => handleDragEnter(e, key, 'metric')}
                     onDragOver={(e) => e.preventDefault()}
                     className="cursor-move transition-transform duration-200 active:scale-95"
@@ -611,7 +596,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                     key={key}
                     draggable
                     onDragStart={(e) => handleDragStart(e, key, 'chart')}
-                    onDragEnd={handleDragEnd}
                     onDragEnter={(e) => handleDragEnter(e, key, 'chart')}
                     onDragOver={(e) => e.preventDefault()}
                     className="cursor-move transition-all duration-300"
