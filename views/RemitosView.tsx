@@ -158,6 +158,10 @@ const RemitoForm: React.FC<{
   const isNew = !remito.id;
   const isAdmin = currentUser.rol === Rol.ADMINISTRADOR;
 
+  // Memoize options to ensure SearchableSelect reactivity
+  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
+  const productosOptions = useMemo(() => productos.map(p => ({ value: p.id, label: p.nombre })), [productos]);
+
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const pagosMap = useMemo(() => {
       const map = new Map<string, RegistroPago[]>();
@@ -187,12 +191,10 @@ const RemitoForm: React.FC<{
   }, [clientes, productosMap]);
 
   useEffect(() => { 
-    // Al cargar el remito para editar, si ya tiene pagos en la DB, los traemos al form
     const initialPagos = remito.id ? (pagosMap.get(remito.id) || []).map(p => ({ monto: p.monto, metodo: p.metodo })) : (remito.pagos || []);
     setFormData({ ...remito, pagos: initialPagos }); 
   }, [remito, pagosMap]);
 
-  // Lógica de Auto-incremento al cambiar Punto de Venta
   useEffect(() => {
     if (isNew && formData.puntoVenta) {
       const pto = formData.puntoVenta;
@@ -285,29 +287,20 @@ const RemitoForm: React.FC<{
     setIsSaving(false);
   };
 
-  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
-
-      // Usamos e.code para la tecla física, evitando problemas con dead-keys en Mac (Alt+I = ˆ)
-      
-      // Ctrl + Enter to Save
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleSubmit({ preventDefault: () => {} } as React.FormEvent);
         return;
       }
-
-      // Alt + I to Add Item (KeyI es la tecla I física)
       if (e.altKey && e.code === 'KeyI') {
-        e.preventDefault(); // IMPORTANTE: Esto evita que se escriba el caracter especial
+        e.preventDefault();
         e.stopPropagation();
         addMovimiento();
         return;
       }
-
-      // Alt + P to Add Pago
       if (e.altKey && e.code === 'KeyP') {
         e.preventDefault();
         e.stopPropagation();
@@ -317,7 +310,6 @@ const RemitoForm: React.FC<{
         return;
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isReadOnly, addMovimiento, addPago, handleSubmit, isCtaCte, formData]);
@@ -334,7 +326,7 @@ const RemitoForm: React.FC<{
             <div className="relative">
                 <div className="flex justify-between items-end mb-1.5"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo Cliente</button>}</div>
                 <SearchableSelect 
-                  options={clientes.map(c=>({value:c.id, label:c.nombre}))} 
+                  options={clienteOptions} 
                   value={formData.clienteId || ''} 
                   onChange={(v) => handleSelectChange('clienteId', v)} 
                   disabled={isReadOnly}
@@ -371,7 +363,7 @@ const RemitoForm: React.FC<{
           <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimientos</legend>
           {(formData.movimientos || []).map((mov, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-2 mb-2">
-                  <SearchableSelect options={productos.map(p=>({value:p.id, label:p.nombre}))} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
+                  <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
                   <AppInput type="number" value={mov.entregados} onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} required disabled={isReadOnly} />
                   <AppInput type="number" value={mov.recibidos} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} required disabled={isReadOnly} />
                   <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
@@ -430,8 +422,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
+  // Memoize data to ensure components like SearchableSelect react properly
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
+  const filterClienteOptions = useMemo(() => [{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))], [clientes]);
+  
   const pagosMap = useMemo(() => {
       const map = new Map<string, RegistroPago[]>();
       registrosPago.forEach(pago => {
@@ -533,10 +528,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     setIsFormOpen(true);
   }, [remitos, currentUser]);
 
-  // Global Keyboard Shortcuts
   useEffect(() => {
       const handleGlobalKeys = (e: KeyboardEvent) => {
-          // Alt + N for New Remito (Physical KeyN to avoid layout issues)
           if (e.altKey && e.code === 'KeyN' && !isFormOpen) {
               e.preventDefault();
               openNewModal();
@@ -586,7 +579,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       </div>
       <Card>
         <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={[{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))]} />
+            <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
             <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
         </div>
         <div className="space-y-2 p-2">
@@ -627,7 +620,6 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         </div>
       </Card>
 
-      {/* Modal de Confirmación de Borrado */}
       {remitoParaBorrar && (
         <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
             <div className="p-6 text-center space-y-4">

@@ -38,7 +38,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
   // Efecto de Auto-focus real
   useEffect(() => {
     if (autoFocus && inputRef.current && !disabled) {
-        // Un pequeño timeout asegura que el renderizado del modal o vista haya terminado
         const timer = setTimeout(() => {
             inputRef.current?.focus();
         }, 100);
@@ -50,7 +49,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     option.label.toLowerCase().includes(searchTerm.toLowerCase())
   ), [options, searchTerm]);
 
-  // Reset highlighted index when search or open changes
   useEffect(() => {
     setHighlightedIndex(-1);
   }, [searchTerm, isOpen]);
@@ -88,16 +86,16 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     };
   }, [isOpen, updateDropdownPosition]);
 
+  // Sincronizar el término de búsqueda con el label seleccionado cuando cambia el valor o la lista de opciones
   useEffect(() => {
     if (!isOpen) {
         setSearchTerm(selectedOption ? selectedOption.label : '');
     }
-  }, [selectedOption, isOpen]);
+  }, [selectedOption?.label, value, isOpen]); // Se agrega selectedOption.label para reaccionar a cambios de nombre
 
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
     setIsOpen(false);
-    setSearchTerm('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -123,10 +121,13 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
           handleSelect(filteredOptions[highlightedIndex].value);
+        } else if (searchTerm === '' && !value) {
+            setIsOpen(false);
         }
         break;
       case 'Escape':
         setIsOpen(false);
+        setSearchTerm(selectedOption ? selectedOption.label : '');
         break;
       case 'Tab':
         setIsOpen(false);
@@ -134,7 +135,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     }
   };
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (highlightedIndex >= 0 && optionsRef.current[highlightedIndex]) {
       optionsRef.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
