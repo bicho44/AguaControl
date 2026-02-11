@@ -17,6 +17,7 @@ interface SearchableSelectProps {
 const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label, autoFocus = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const [isMobileMode, setIsMobileMode] = useState(false);
@@ -28,6 +29,9 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
 
   const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
 
+  // Sincronización forzada: Si no estamos escribiendo, el input DEBE mostrar el label actual de las props
+  const displayValue = isTyping ? searchTerm : (selectedOption ? selectedOption.label : '');
+
   useEffect(() => {
     const checkMobile = () => setIsMobileMode(window.innerWidth < 1024);
     checkMobile();
@@ -35,7 +39,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Efecto de Auto-focus real
   useEffect(() => {
     if (autoFocus && inputRef.current && !disabled) {
         const timer = setTimeout(() => {
@@ -45,22 +48,19 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     }
   }, [autoFocus, disabled]);
 
-  const filteredOptions = useMemo(() => options.filter(option =>
-    option.label.toLowerCase().includes(searchTerm.toLowerCase())
-  ), [options, searchTerm]);
-
-  useEffect(() => {
-    setHighlightedIndex(-1);
-  }, [searchTerm, isOpen]);
+  const filteredOptions = useMemo(() => {
+    const query = isTyping ? searchTerm.toLowerCase() : '';
+    return options.filter(option =>
+      option.label.toLowerCase().includes(query)
+    );
+  }, [options, searchTerm, isTyping]);
 
   const updateDropdownPosition = useCallback(() => {
     if (!isOpen || isMobileMode || !wrapperRef.current) return;
-
     const rect = wrapperRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const dropdownHeight = 300;
-
     const openUpwards = spaceBelow < 200 && spaceAbove > spaceBelow;
 
     setDropdownStyle({
@@ -86,28 +86,19 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
     };
   }, [isOpen, updateDropdownPosition]);
 
-  // Sincronizar el término de búsqueda con el label seleccionado cuando cambia el valor o la lista de opciones
-  useEffect(() => {
-    if (!isOpen) {
-        setSearchTerm(selectedOption ? selectedOption.label : '');
-    }
-  }, [selectedOption?.label, value, isOpen]); // Se agrega selectedOption.label para reaccionar a cambios de nombre
-
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
     setIsOpen(false);
+    setIsTyping(false);
+    setSearchTerm('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (disabled) return;
-
     if (!isOpen) {
-      if (e.key === 'ArrowDown' || e.key === 'Enter') {
-        setIsOpen(true);
-      }
+      if (e.key === 'ArrowDown' || e.key === 'Enter') setIsOpen(true);
       return;
     }
-
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
@@ -121,108 +112,20 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
           handleSelect(filteredOptions[highlightedIndex].value);
-        } else if (searchTerm === '' && !value) {
+        } else if (!isTyping && !value) {
             setIsOpen(false);
         }
         break;
       case 'Escape':
         setIsOpen(false);
-        setSearchTerm(selectedOption ? selectedOption.label : '');
+        setIsTyping(false);
         break;
       case 'Tab':
         setIsOpen(false);
+        setIsTyping(false);
         break;
     }
   };
-
-  useEffect(() => {
-    if (highlightedIndex >= 0 && optionsRef.current[highlightedIndex]) {
-      optionsRef.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
-    }
-  }, [highlightedIndex]);
-
-  const renderDesktopContent = () => (
-    <div 
-        className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto animate-fade-in" 
-        style={dropdownStyle}
-        onMouseDown={(e) => e.preventDefault()}
-    >
-      {filteredOptions.length > 0 ? (
-        <ul className="py-1">
-            {filteredOptions.map((option, idx) => (
-            <li
-                key={option.value}
-                ref={el => optionsRef.current[idx] = el}
-                onClick={() => handleSelect(option.value)}
-                onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`px-4 py-2.5 cursor-pointer text-sm transition-colors ${
-                idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''
-                } ${
-                option.value === value ? 'font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'
-                }`}
-            >
-                {option.label}
-            </li>
-            ))}
-        </ul>
-      ) : (
-         <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">No hay resultados</div>
-      )}
-    </div>
-  );
-
-  const renderMobileContent = () => (
-      <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shadow-sm">
-              <button 
-                type="button" 
-                onClick={() => setIsOpen(false)} 
-                className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-              >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              <div className="relative flex-1">
-                  <input
-                      ref={mobileInputRef}
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Buscar..."
-                      className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-full border-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-                  />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <SearchIcon className="h-5 w-5 text-gray-400" />
-                  </div>
-              </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2">
-              {label && <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>}
-              <div className="space-y-1">
-                  {filteredOptions.length > 0 ? (
-                      filteredOptions.map((option, idx) => (
-                          <div
-                              key={option.value}
-                              onClick={() => handleSelect(option.value)}
-                              className={`px-4 py-4 rounded-xl text-lg transition-all active:scale-[0.98] border ${
-                                  option.value === value 
-                                  ? 'bg-primary-600 text-white border-primary-600' 
-                                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 shadow-sm'
-                              } ${idx === highlightedIndex ? 'ring-2 ring-primary-400' : ''}`}
-                          >
-                              <p className="font-bold">{option.label}</p>
-                          </div>
-                      ))
-                  ) : (
-                      <div className="flex flex-col items-center justify-center pt-20 text-gray-400">
-                          <SearchIcon className="w-12 h-12 opacity-20" />
-                          <p>No se encontraron resultados</p>
-                      </div>
-                  )}
-              </div>
-          </div>
-      </div>
-  );
 
   return (
     <div className="w-full relative" ref={wrapperRef}>
@@ -235,37 +138,24 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
         <input
             ref={inputRef}
             type="text"
-            className={`
-                w-full px-4 py-2.5 pr-10
-                text-gray-900 dark:text-white 
-                bg-gray-50 dark:bg-gray-700/50 
-                border border-gray-300 dark:border-gray-600 
-                rounded-xl
-                focus:ring-2 focus:ring-primary-500 focus:border-primary-500
-                disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200 dark:disabled:bg-gray-800
-                transition-all duration-200 outline-none
-            `}
-            value={searchTerm}
+            className="w-full px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
+            value={displayValue}
             onChange={(e) => {
                 setSearchTerm(e.target.value);
+                setIsTyping(true);
                 if (!isOpen) setIsOpen(true);
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
                 if (!disabled) {
                     setIsOpen(true);
-                    if (!isMobileMode && inputRef.current && searchTerm) {
-                        inputRef.current.select();
-                    }
+                    if (!isMobileMode && inputRef.current) inputRef.current.select();
                 }
             }}
-            onClick={() => {
-                if (!disabled && !isOpen) setIsOpen(true);
-            }}
+            onClick={() => { if (!disabled && !isOpen) setIsOpen(true); }}
             placeholder={placeholder}
             disabled={disabled}
             readOnly={isMobileMode}
-            autoFocus={autoFocus}
         />
         
         {value && !disabled && (
@@ -275,10 +165,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                     e.stopPropagation();
                     onChange('');
                     setSearchTerm('');
+                    setIsTyping(false);
                     inputRef.current?.focus();
                 }}
-                className="absolute inset-y-0 right-8 flex items-center px-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                tabIndex={-1}
+                className="absolute inset-y-0 right-8 flex items-center px-1 text-gray-400 hover:text-gray-600"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -292,22 +182,44 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
       </div>
 
       {isOpen && !disabled && createPortal(
-          isMobileMode ? renderMobileContent() : renderDesktopContent(), 
+          isMobileMode ? (
+            <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
+                <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
+                    <button type="button" onClick={() => setIsOpen(false)} className="p-2 text-gray-500"><ChevronDownIcon className="rotate-90 w-6 h-6"/></button>
+                    <input
+                        ref={mobileInputRef}
+                        type="text"
+                        autoFocus
+                        value={searchTerm}
+                        onChange={(e) => {setSearchTerm(e.target.value); setIsTyping(true);}}
+                        placeholder="Buscar..."
+                        className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-lg border-none focus:ring-0"
+                    />
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                    {filteredOptions.map((opt) => (
+                        <div key={opt.value} onClick={() => handleSelect(opt.value)} className={`p-4 mb-2 rounded-xl border ${opt.value === value ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800'}`}>
+                            <p className="font-bold">{opt.label}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          ) : (
+            <div className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto" style={dropdownStyle}>
+                <ul className="py-1">
+                    {filteredOptions.length > 0 ? filteredOptions.map((opt, idx) => (
+                        <li key={opt.value} onClick={() => handleSelect(opt.value)} onMouseEnter={() => setHighlightedIndex(idx)} className={`px-4 py-2.5 cursor-pointer text-sm ${idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''} ${opt.value === value ? 'font-bold bg-blue-100 text-blue-700' : ''}`}>
+                            {opt.label}
+                        </li>
+                    )) : <li className="px-4 py-3 text-gray-400 text-center">Sin resultados</li>}
+                </ul>
+            </div>
+          ), 
           document.body
       )}
       
       {isOpen && !isMobileMode && (
-          <div 
-            className="fixed inset-0 z-[9998] bg-transparent" 
-            onClick={() => {
-                setIsOpen(false);
-                if (selectedOption) {
-                    setSearchTerm(selectedOption.label);
-                } else {
-                    setSearchTerm('');
-                }
-            }}
-          />
+          <div className="fixed inset-0 z-[9998] bg-transparent" onClick={() => { setIsOpen(false); setIsTyping(false); }} />
       )}
     </div>
   );

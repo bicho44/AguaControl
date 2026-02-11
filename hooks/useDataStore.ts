@@ -36,9 +36,6 @@ import {
   EstadoServicio
 } from '../types';
 
-/**
- * Utility to remove undefined properties from objects before sending to Firestore
- */
 const cleanUndefineds = (obj: any): any => {
     const newObj: any = {};
     Object.keys(obj).forEach(key => {
@@ -49,9 +46,6 @@ const cleanUndefineds = (obj: any): any => {
     return newObj;
 };
 
-/**
- * Hook to manage application data state and Firestore synchronization
- */
 export const useDataStore = () => {
     const [remitos, setRemitos] = useState<Remito[]>([]);
     const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -66,8 +60,9 @@ export const useDataStore = () => {
     const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ nombre: 'Aguas Puras' });
 
-    // Synchronization with Firestore collections
     useEffect(() => {
+        if (!db) return;
+
         const unsub = [
             onSnapshot(collection(db, 'remitos'), (s) => setRemitos(s.docs.map(d => ({ id: d.id, ...d.data() } as Remito)))),
             onSnapshot(collection(db, 'clientes'), (s) => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() } as Cliente)))),
@@ -82,10 +77,13 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => s.exists() && setEmpresaSettings(s.data() as EmpresaSettings)),
         ];
-        return () => unsub.forEach(fn => fn());
+        return () => {
+            unsub.forEach(fn => fn());
+            // Limpieza preventiva al desmontar (ej: logout)
+            setRemitos([]); setClientes([]); setUsuarios([]); setProductos([]); setRegistrosPago([]);
+        };
     }, []);
 
-    // Operations
     const addRemito = useCallback(async (r: any) => {
         const { pagos, ...remitoData } = r;
         const docRef = await addDoc(collection(db, 'remitos'), cleanUndefineds(remitoData));
@@ -121,7 +119,6 @@ export const useDataStore = () => {
         return docRef.id;
     }, []);
 
-    // FIX: Implementing updateCliente with all required imports and local names resolved
     const updateCliente = useCallback(async (updatedCliente: Cliente & { 
         stockInicial?: { productoId: string; cantidad: number; sucursalId?: string }[];
         contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
@@ -132,7 +129,6 @@ export const useDataStore = () => {
         if (stockInicial && stockInicial.length > 0) {
             const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
             const today = new Date().toISOString().split('T')[0];
-    
             const remitosDeAjuste = stockInicial.map(stock => ({
                 fecha: today,
                 clienteId: id,
@@ -147,16 +143,11 @@ export const useDataStore = () => {
                     recibidos: stock.cantidad < 0 ? Math.abs(stock.cantidad) : 0
                 }]
             }));
-            
-            for (const r of remitosDeAjuste) {
-                await addDoc(collection(db, 'remitos'), cleanUndefineds(r));
-            }
+            for (const r of remitosDeAjuste) { await addDoc(collection(db, 'remitos'), cleanUndefineds(r)); }
         }
     
         if (contratosIniciales && contratosIniciales.length > 0) {
-            for (const c of contratosIniciales) {
-                await addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id }));
-            }
+            for (const c of contratosIniciales) { await addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id })); }
         }
     }, [usuarios]);
 
@@ -241,9 +232,7 @@ export const useDataStore = () => {
             estado: EstadoFactura.PENDIENTE,
             numero: `F-${Date.now()}` 
         });
-        for (const rid of f.remitosIds) {
-            await updateDoc(doc(db, 'remitos', rid), { facturaId: docRef.id });
-        }
+        for (const rid of f.remitosIds) { await updateDoc(doc(db, 'remitos', rid), { facturaId: docRef.id }); }
     }, []);
 
     const addPagoToFactura = useCallback(async (facturaId: string, fecha: string, pagos: PagoDetalle[]) => {
@@ -253,11 +242,7 @@ export const useDataStore = () => {
         const pagoIds = [...(f.pagoIds || [])];
         for (const p of pagos) {
             const pDoc = await addDoc(collection(db, 'registrosPago'), {
-                fecha,
-                monto: p.monto,
-                metodo: p.metodo,
-                origen: { tipo: 'factura', id: facturaId },
-                clienteId: f.clienteId
+                fecha, monto: p.monto, metodo: p.metodo, origen: { tipo: 'factura', id: facturaId }, clienteId: f.clienteId
             });
             pagoIds.push(pDoc.id);
         }
