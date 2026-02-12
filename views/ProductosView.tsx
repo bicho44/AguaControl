@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Producto, TipoProducto, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -28,42 +28,49 @@ const ProductoForm: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNumber = name === 'litros' || name === 'precio' || name === 'precioReventa';
-    setFormData(prev => ({ ...prev, [name]: isNumber ? (value === '' ? undefined : Number(value)) : value }));
+    const isNum = name === 'litros' || name === 'precio' || name === 'precioReventa';
+    setFormData(prev => ({ ...prev, [name]: isNum ? (value === '' ? undefined : Number(value)) : value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSave(formData as Producto);
-  };
+  }, [formData, onSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Producto</h2>
-      
       <div className="space-y-4">
         <AppInput label="Nombre del Producto" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
         <div className="grid grid-cols-2 gap-4">
             <AppSelect label="Tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} options={Object.values(TipoProducto).map(t=>({value:t, label:t}))} required />
             <AppInput label="Capacidad (Litros)" type="number" name="litros" value={formData.litros ?? ''} onChange={handleChange} required />
         </div>
-        
         <Card title="Precios Sugeridos">
             <div className="grid grid-cols-2 gap-4">
-                <AppInput label="Precio Lista (Retail)" type="number" name="precio" value={formData.precio ?? ''} onChange={handleChange} step="0.01" required />
-                <AppInput label="Precio Reventa (Mayorista)" type="number" name="precioReventa" value={formData.precioReventa ?? ''} onChange={handleChange} step="0.01" />
+                <AppInput label="Precio Lista" type="number" name="precio" value={formData.precio ?? ''} onChange={handleChange} step="0.01" required />
+                <AppInput label="Precio Reventa" type="number" name="precioReventa" value={formData.precioReventa ?? ''} onChange={handleChange} step="0.01" />
             </div>
         </Card>
-
         <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600">
             <label className="text-xs font-black text-gray-500 uppercase px-1">Color en Gráficos</label>
             <input type="color" name="color" value={formData.color || '#3b82f6'} onChange={handleChange} className="h-10 w-20 rounded-xl cursor-pointer border-0 p-1 bg-white shadow-sm" />
         </div>
       </div>
-
       <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto</AppButton>
+        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )
@@ -75,13 +82,13 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
   const [statusFilter, setStatusFilter] = useState<EstadoProducto | 'todos'>(EstadoProducto.ACTIVO);
   const { showNotification } = useNotification();
 
-  const handleSave = (producto: Omit<Producto, 'id'> | Producto) => {
+  const handleSave = (p: Omit<Producto, 'id'> | Producto) => {
     try {
-        if ('id' in producto) updateProducto(producto as Producto);
-        else addProducto(producto as Omit<Producto, 'id'>);
-        showNotification('Guardado con éxito.', 'success');
+        if ('id' in p) updateProducto(p as Producto);
+        else addProducto(p as Omit<Producto, 'id'>);
+        showNotification('Guardado.', 'success');
         setIsModalOpen(false);
-    } catch (e) { showNotification('Error al guardar.', 'error'); }
+    } catch (e) { showNotification('Error.', 'error'); }
   };
 
   const filteredProductos = useMemo(() => {
@@ -95,13 +102,11 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Productos</h1>
         <AppButton onClick={() => {setEditingProducto({estado: EstadoProducto.ACTIVO, color: '#3b82f6'}); setIsModalOpen(true);}}>+ Nuevo Producto</AppButton>
       </div>
-
       <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
         {['Activo', 'Inactivo', 'todos'].map(s => (
-            <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === s ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500'}`}>{s.toUpperCase()}</button>
+            <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500'}`}>{s.toUpperCase()}</button>
         ))}
       </div>
-
       <Card>
         <div className="overflow-x-auto p-2">
           <table className="w-full text-sm text-left">
@@ -111,12 +116,12 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
             <tbody>
               {filteredProductos.map(p => (
                 <tr key={p.id} className={`border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 ${p.estado === 'Inactivo' ? 'opacity-40' : ''}`}>
-                  <td className="px-6 py-4"><div className="w-5 h-5 rounded-full border shadow-sm" style={{ backgroundColor: p.color || '#ccc' }}></div></td>
+                  <td className="px-6 py-4"><div className="w-5 h-5 rounded-full border" style={{ backgroundColor: p.color || '#ccc' }}></div></td>
                   <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{p.nombre}</td>
                   <td className="px-6 py-4 text-right font-mono">${p.precio.toLocaleString()}</td>
                   <td className="px-6 py-4 text-right font-mono text-green-600">${(p.precioReventa || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="text-primary-600 p-2"><PencilIcon /></button>
+                    <button onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="text-primary-600 p-2 hover:bg-primary-50 rounded-full"><PencilIcon /></button>
                   </td>
                 </tr>
               ))}

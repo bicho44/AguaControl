@@ -1,11 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
-import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import AppButton from '../components/ui/AppButton';
@@ -44,10 +42,21 @@ const UsuarioForm: React.FC<{
     setFormData(prev => ({ ...prev, preciosEspeciales: newPrecios }));
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSave(formData as Usuario);
-  };
+  }, [formData, onSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit]);
 
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
 
@@ -82,7 +91,7 @@ const UsuarioForm: React.FC<{
 
       <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-8">Guardar Usuario</AppButton>
+        <AppButton variant="primary" type="submit" className="px-8">Guardar Usuario <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )
@@ -91,13 +100,11 @@ const UsuarioForm: React.FC<{
 const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, addUsuario, updateUsuario, addVentaVendedor }) => {
   const [editingUsuario, setEditingUsuario] = useState<Partial<Usuario> | null>(null);
   const { showNotification } = useNotification();
-  const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
-  const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
-  const handleSaveUsuario = (usuario: Omit<Usuario, 'id'> | Usuario) => {
+  const handleSaveUsuario = (u: Omit<Usuario, 'id'> | Usuario) => {
     try {
-        if ('id' in usuario) updateUsuario(usuario);
-        else addUsuario(usuario);
+        if ('id' in u) updateUsuario(u as Usuario);
+        else addUsuario(u as Omit<Usuario, 'id'>);
         showNotification('Guardado con éxito.', 'success');
         setEditingUsuario(null);
     } catch (e) { showNotification('Error al guardar.', 'error'); }
@@ -109,7 +116,6 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Usuarios del Sistema</h1>
         <AppButton onClick={() => setEditingUsuario({ rol: Rol.REPARTIDOR, tipo: TipoVendedor.INTERNO })}>+ Nuevo Usuario</AppButton>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {usuarios.map(u => (
           <Card key={u.id}>
@@ -118,7 +124,7 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
                   <h3 className="text-xl font-bold text-gray-800 dark:text-white">{u.nombre}</h3>
                   <p className="text-xs text-gray-400 font-black uppercase tracking-tighter">{u.rol} | {u.tipo}</p>
               </div>
-               <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full"><PencilIcon /></button>
+               <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-colors"><PencilIcon /></button>
             </div>
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700">
                 <p className="text-sm font-mono truncate">{u.email}</p>
@@ -126,7 +132,6 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
           </Card>
         ))}
       </div>
-
       {editingUsuario && (
         <Modal isOpen={!!editingUsuario} onClose={() => setEditingUsuario(null)}>
             <UsuarioForm usuario={editingUsuario} productos={productos} onSave={handleSaveUsuario} onClose={() => setEditingUsuario(null)} />
