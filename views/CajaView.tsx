@@ -145,8 +145,20 @@ const MovimientoCajaForm: React.FC<{
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    onSave(isVentaMode ? { ...formData, movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0) } : formData, isVentaMode);
-  }, [formData, isVentaMode, movimientosVenta, onSave]);
+    if (isVentaMode) {
+        // CORRECCIÓN CLAVE:
+        // Si estamos editando una venta de vendedor, el ID que necesitamos pasar es el de la Venta (origen.id),
+        // no el del Pago (formData.id) que es lo que viene por defecto.
+        const payload = { 
+            ...formData,
+            id: (isEdit && formData.origen?.id) ? formData.origen.id : formData.id,
+            movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0) 
+        };
+        onSave(payload, true);
+    } else {
+        onSave(formData, false);
+    }
+  }, [formData, isVentaMode, movimientosVenta, onSave, isEdit]);
 
   // Atajos de Teclado
   useEffect(() => {
@@ -285,8 +297,22 @@ const CajaView: React.FC<CajaViewProps> = ({
     try {
         if (isVenta) {
             if (modalConfig.isEdit) {
+                // 1. Actualizar la VentaVendedor
                 await updateVentaVendedor(data);
-                showNotification('Venta actualizada.', 'success');
+                
+                // 2. Actualización en CASCADA para los pagos asociados
+                // Si cambiamos el vendedor en la venta, debemos actualizar todos los pagos
+                // (registrosPago) asociados a esa venta para que cuadre la caja del nuevo vendedor.
+                const pagosAsociados = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && p.origen.id === data.id);
+                const updatePromises = pagosAsociados.map(p => {
+                    if (p.vendedorId !== data.vendedorId) {
+                        return updateRegistroPago({ ...p, vendedorId: data.vendedorId });
+                    }
+                    return Promise.resolve();
+                });
+                await Promise.all(updatePromises);
+
+                showNotification('Venta y pagos actualizados.', 'success');
             } else {
                 await addVentaVendedor(data);
                 showNotification('Venta registrada.', 'success');
@@ -312,6 +338,7 @@ const CajaView: React.FC<CajaViewProps> = ({
         }
         setIsModalOpen(false);
     } catch (e) {
+        console.error(e);
         showNotification('Error al guardar.', 'error');
     }
   };
