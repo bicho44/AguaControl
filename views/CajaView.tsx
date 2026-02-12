@@ -414,7 +414,10 @@ const CajaView: React.FC<CajaViewProps> = ({
           const actorName = v?.clienteId ? (clientesMap.get(v.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(p1.vendedorId!)?.nombre || 'Local');
           concepto = `${actorName} (Venta Stock)`;
           ventaId = p1.origen.id;
-      } else concepto = `${p1.concepto || 'Ingreso Manual'} (${clientesMap.get(p1.clienteId!)?.nombre || vendedoresMap.get(p1.vendedorId!)?.nombre || 'N/A'})`;
+      } else {
+          const nombreActor = clientesMap.get(p1.clienteId!)?.nombre || vendedoresMap.get(p1.vendedorId!)?.nombre || 'N/A';
+          concepto = `${nombreActor} - ${p1.concepto || 'Ingreso Manual'}`;
+      }
       
       allMovements.push({ id: p1.origen.id, fecha: p1.fecha, type: 'ingreso', concepto, pagos: grupo.map(p => ({ metodo: p.metodo, monto: p.monto })), total: grupo.reduce((sum, p) => sum + p.monto, 0), original: grupo, ventaId });
     });
