@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase/config';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
 
 const LoginView: React.FC = () => {
@@ -18,26 +19,44 @@ const LoginView: React.FC = () => {
       }
   };
 
+  const checkEmailExistsInFirestore = async (email: string) => {
+    const q = query(collection(db, 'usuarios'), where('email', '==', email.toLowerCase().trim()), limit(1));
+    const snap = await getDocs(q);
+    return !snap.empty;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const cleanEmail = email.toLowerCase().trim();
+
     try {
       if (isRegistering) {
-        // El AuthContext se encargará de vincular este nuevo usuario 
-        // con el perfil creado por el administrador (o crear el primer admin)
-        await createUserWithEmailAndPassword(auth, email, password);
-        showNotification('Cuenta creada. Verificando perfil...', 'success');
+        await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        showNotification('Cuenta creada y vinculada con éxito.', 'success');
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        try {
+          await signInWithEmailAndPassword(auth, cleanEmail, password);
+        } catch (signInError: any) {
+          // Si el login falla, verificamos si es porque el usuario es un "invitado" que no se ha registrado
+          if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
+            const existsInDB = await checkEmailExistsInFirestore(cleanEmail);
+            if (existsInDB) {
+              showNotification('Tu perfil fue creado por el Admin, pero aún no tienes contraseña. Por favor, ve a "Registrarse" abajo.', 'error');
+              setIsLoading(false);
+              return;
+            }
+          }
+          throw signInError; // Si no existe en DB, lanzamos el error normal
+        }
       }
     } catch (error: any) {
       console.error("Error de autenticación:", error);
-      let msg = 'Error desconocido';
+      let msg = 'Email o contraseña incorrectos.';
       
-      if (error.code === 'auth/invalid-credential') msg = 'Email o contraseña incorrectos.';
-      if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado.';
+      if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado. Intenta iniciar sesión.';
       if (error.code === 'auth/weak-password') msg = 'La contraseña debe tener al menos 6 caracteres.';
-      if (error.code === 'auth/operation-not-allowed') msg = 'Error: Debes habilitar "Email/Password" en Firebase Auth.';
+      if (error.code === 'auth/invalid-email') msg = 'Formato de email inválido.';
       
       showNotification(msg, 'error');
     } finally {
@@ -47,80 +66,87 @@ const LoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">Aguas Puras</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
-            {isRegistering ? 'Crear mi Cuenta' : 'Iniciar Sesión'}
+          <div className="bg-primary-600 w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-primary-500/30">
+            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tighter uppercase italic">Aguas Puras</h1>
+          <p className="text-gray-400 dark:text-gray-500 text-xs font-black uppercase tracking-widest mt-1">
+            {isRegistering ? 'Alta de Nuevo Usuario' : 'Acceso al Sistema'}
           </p>
         </div>
         
-        <form onSubmit={handleAuth} className="space-y-6">
+        <form onSubmit={handleAuth} className="space-y-5">
           {isRegistering && (
             <div className="animate-fade-in-down">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre Completo</label>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Nombre Completo</label>
                 <input 
-                type="text" 
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white"
-                required={isRegistering}
-                placeholder="Ej: Juan Repartidor"
+                  type="text" 
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                  required={isRegistering}
+                  placeholder="Tu nombre..."
                 />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Correo Electrónico</label>
             <input 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white"
+              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
               required
+              placeholder="ejemplo@email.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Contraseña</label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white"
+              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
               required
+              placeholder="••••••••"
             />
           </div>
           
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-md shadow transition duration-200 disabled:opacity-50"
+            className="w-full py-4 px-4 bg-primary-600 hover:bg-primary-700 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary-500/20 transition-all transform active:scale-95 disabled:opacity-50"
           >
-            {isLoading ? 'Procesando...' : (isRegistering ? 'Registrarse' : 'Entrar')}
+            {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')}
           </button>
         </form>
 
-        <div className="mt-6 text-center space-y-4">
+        <div className="mt-8 text-center space-y-4">
             <button 
                 onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
-                className="text-sm text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-medium block w-full"
+                className="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-black uppercase tracking-tighter block w-full"
             >
                 {isRegistering 
                     ? '¿Ya tienes cuenta? Iniciar Sesión' 
-                    : '¿No tienes cuenta? Regístrate aquí'}
+                    : '¿No tienes contraseña aún? Regístrate aquí'}
             </button>
             
             <button 
                 onClick={handleResetConfig}
-                className="text-xs text-gray-400 hover:text-red-500 underline"
+                className="text-[9px] text-gray-400 hover:text-red-500 uppercase font-bold tracking-widest pt-4 block mx-auto opacity-50"
             >
                 Configuración de base de datos
             </button>
         </div>
       </div>
       
-      <div className="mt-8 max-w-md text-xs text-gray-500 dark:text-gray-400 text-center">
-        <p>Si un administrador ya creó tu perfil, regístrate con el mismo email para acceder.</p>
+      <div className="mt-8 max-w-sm text-[10px] text-gray-400 dark:text-gray-500 text-center font-bold uppercase tracking-widest leading-relaxed">
+        <p>IMPORTANTE: Si eres vendedor, debes registrarte con el mismo email que te asignó el administrador para heredar tus permisos y rutas.</p>
       </div>
     </div>
   );
