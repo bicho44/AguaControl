@@ -179,19 +179,24 @@ const ClienteForm: React.FC<{
     setContratosIniciales(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateContratoInicial = (index: number, servicioId: string) => {
-    const s = servicios.find(s => s.id === servicioId);
-    if (!s) return;
+  const updateContratoInicial = (index: number, field: keyof Contrato | 'servicioId', value: any) => {
     const newC = [...contratosIniciales];
-    newC[index] = {
-        ...newC[index],
-        servicioId,
-        tipo: s.tipo,
-        montoMensual: s.montoMensual,
-        productoId: s.productoId,
-        productoConsumoId: s.productoConsumoId,
-        consumoIncluido: s.consumoIncluido
-    };
+    if (field === 'servicioId') {
+        const s = servicios.find(s => s.id === value);
+        if (s) {
+            newC[index] = {
+                ...newC[index],
+                servicioId: value,
+                tipo: s.tipo,
+                montoMensual: s.montoMensual,
+                productoId: s.productoId,
+                productoConsumoId: s.productoConsumoId,
+                consumoIncluido: s.consumoIncluido
+            };
+        }
+    } else {
+        newC[index] = { ...newC[index], [field]: value };
+    }
     setContratosIniciales(newC);
   };
 
@@ -247,11 +252,13 @@ const ClienteForm: React.FC<{
             </div>
           </Card>
 
-          <Card title="Sucursales, Rutas y Envases">
+          <Card title="Sucursales y Stock">
               <div className="space-y-6">
                   {(formData.sucursales || []).map((suc, index) => (
                       <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1.5 h-full bg-primary-500"></div>
                           <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2"><TrashIcon className="w-5 h-5"/></button>
+                          
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
                               <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
                               <div className="relative">
@@ -266,12 +273,38 @@ const ClienteForm: React.FC<{
                                   </div>
                               </div>
                           </div>
-                          <div className="space-y-3">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto</label>
-                              <div className="flex flex-wrap gap-2">
-                                  {Object.values(DiaSemana).map(day => (
-                                      <button key={day} type="button" onClick={() => toggleDiaReparto(index, day)} className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${suc.diasReparto?.includes(day) ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:border-gray-600 hover:bg-gray-100'}`}>{day.substring(0,3).toUpperCase()}</button>
-                                  ))}
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-3">
+                                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto</label>
+                                  <div className="flex flex-wrap gap-2">
+                                      {Object.values(DiaSemana).map(day => (
+                                          <button key={day} type="button" onClick={() => toggleDiaReparto(index, day)} className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${suc.diasReparto?.includes(day) ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:border-gray-600 hover:bg-gray-100'}`}>{day.substring(0,3).toUpperCase()}</button>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* STOCK INTEGRADO EN LA SUCURSAL */}
+                              <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+                                  <label className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 block flex items-center gap-2">
+                                      <CubeIcon className="w-3 h-3"/> Inventario de Envases
+                                  </label>
+                                  <div className="grid grid-cols-2 gap-3">
+                                      {productos.filter(p => p.tipo === TipoProducto.RETORNABLE).map(p => {
+                                          const val = auditStocks.find(a => a.sucursalId === suc.id && a.productoId === p.id)?.cantidad || 0;
+                                          return (
+                                              <div key={p.id} className="flex flex-col">
+                                                  <label className="text-[9px] font-bold text-gray-400 uppercase mb-1 truncate" title={p.nombre}>{p.nombre}</label>
+                                                  <input 
+                                                      type="number" 
+                                                      value={val} 
+                                                      onChange={(e) => handleAuditChange(suc.id, p.id, e.target.value)} 
+                                                      className="w-full p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:ring-1 focus:ring-primary-500 outline-none text-sm"
+                                                  />
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
                               </div>
                           </div>
                       </div>
@@ -282,73 +315,71 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          <Card title="Stock de Envases (Auditoría / Inicial)">
-              <div className="space-y-4">
-                  {(formData.sucursales || []).length === 0 && <p className="text-gray-500 text-sm italic">Agregue una sucursal para cargar stock.</p>}
-                  {(formData.sucursales || []).map((suc) => (
-                      <div key={suc.id} className="p-4 border dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                          <p className="font-bold text-sm mb-2 uppercase text-gray-600 dark:text-gray-300">{suc.nombre || 'Nueva Sucursal'}</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                              {productos.filter(p => p.tipo === TipoProducto.RETORNABLE).map(p => {
-                                  const val = auditStocks.find(a => a.sucursalId === suc.id && a.productoId === p.id)?.cantidad || 0;
+          <Card title="Gestión de Servicios y Contratos">
+              <div className="space-y-6">
+                  {/* Contratos Vigentes (Solo Lectura con estilo mejorado) */}
+                  {contratosVigentes.length > 0 && (
+                      <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
+                          <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Activos</label>
+                          <div className="grid grid-cols-1 gap-3">
+                              {contratosVigentes.map(c => {
+                                  const s = serviciosMap.get(c.servicioId);
                                   return (
-                                      <div key={p.id} className="flex flex-col">
-                                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1">{p.nombre}</label>
-                                          <input 
-                                              type="number" 
-                                              value={val} 
-                                              onChange={(e) => handleAuditChange(suc.id, p.id, e.target.value)} 
-                                              className="w-full p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-center font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-                                          />
+                                      <div key={c.id} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-900/50 rounded-xl shadow-sm border-l-4 border-l-green-500">
+                                          <div>
+                                              <p className="font-bold text-sm text-gray-800 dark:text-white">{s?.nombre || 'Servicio Personalizado'}</p>
+                                              <p className="text-xs text-gray-500">Inicio: {new Date(c.fechaInicio).toLocaleDateString()} • ${c.montoMensual?.toLocaleString() || 0}/mes</p>
+                                          </div>
+                                          <div className="flex flex-col items-end gap-1">
+                                              <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>
+                                              <span className="text-[10px] text-gray-400">ID: ...{c.id.slice(-4)}</span>
+                                          </div>
                                       </div>
                                   );
                               })}
                           </div>
                       </div>
-                  ))}
-              </div>
-          </Card>
-
-          <Card title="Gestión de Servicios y Contratos">
-              <div className="space-y-6">
-                  {/* Contratos Vigentes (Solo Lectura) */}
-                  {contratosVigentes.length > 0 && (
-                      <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
-                          <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Vigentes (Ya Asignados)</label>
-                          {contratosVigentes.map(c => {
-                              const s = serviciosMap.get(c.servicioId);
-                              return (
-                                  <div key={c.id} className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl flex justify-between items-center">
-                                      <div>
-                                          <p className="font-bold text-sm text-green-800 dark:text-green-300">{s?.nombre || 'Servicio'}</p>
-                                          <p className="text-xs text-green-600 dark:text-green-400">Desde: {new Date(c.fechaInicio).toLocaleDateString()}</p>
-                                      </div>
-                                      <span className="text-xs font-black uppercase bg-white dark:bg-gray-800 px-2 py-1 rounded text-green-700">{c.tipo}</span>
-                                  </div>
-                              );
-                          })}
-                      </div>
                   )}
 
-                  {/* Asignación de Nuevos Contratos (Funciona tanto para nuevos como para existentes) */}
-                  <div className="space-y-3">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Asignar Nuevo Servicio</label>
+                  {/* Asignación de Nuevos Contratos (Formulario expandido) */}
+                  <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Alta de Nuevos Servicios</label>
+                          <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="text-xs">
+                              + Agregar
+                          </AppButton>
+                      </div>
+                      
                       {contratosIniciales.map((c, idx) => (
-                          <div key={idx} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border dark:border-gray-700">
-                              <div className="flex-1">
-                                  <SearchableSelect 
-                                      options={servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({value: s.id, label: s.nombre}))}
-                                      value={c.servicioId}
-                                      onChange={(v) => updateContratoInicial(idx, v)}
-                                      placeholder="Seleccionar Servicio..."
-                                  />
+                          <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border dark:border-gray-700 space-y-3 relative">
+                              <button type="button" onClick={() => removeContratoInicial(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4"/></button>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
+                                  <div className="col-span-2">
+                                      <label className="text-[9px] font-bold text-gray-400 uppercase">Servicio Base</label>
+                                      <SearchableSelect 
+                                          options={servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({value: s.id, label: s.nombre}))}
+                                          value={c.servicioId}
+                                          onChange={(v) => updateContratoInicial(idx, 'servicioId', v)}
+                                          placeholder="Seleccionar..."
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="text-[9px] font-bold text-gray-400 uppercase">Inicio</label>
+                                      <input type="date" value={c.fechaInicio} onChange={(e) => updateContratoInicial(idx, 'fechaInicio', e.target.value)} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" />
+                                  </div>
+                                  <div>
+                                      <label className="text-[9px] font-bold text-gray-400 uppercase">Monto Mensual</label>
+                                      <input type="number" value={c.montoMensual || ''} onChange={(e) => updateContratoInicial(idx, 'montoMensual', parseFloat(e.target.value))} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" placeholder="$" />
+                                  </div>
                               </div>
-                              <AppButton variant="danger" size="sm" onClick={() => removeContratoInicial(idx)} className="!p-2 h-10"><TrashIcon/></AppButton>
                           </div>
                       ))}
-                      <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3 text-primary-600 border-primary-200 hover:border-primary-500 hover:bg-primary-50">
-                          + Agregar Servicio / Contrato
-                      </AppButton>
+                      
+                      {contratosIniciales.length === 0 && contratosVigentes.length === 0 && (
+                          <div className="text-center py-4 text-gray-400 text-xs italic border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                              Sin servicios asignados.
+                          </div>
+                      )}
                   </div>
               </div>
           </Card>
