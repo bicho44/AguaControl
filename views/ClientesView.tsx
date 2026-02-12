@@ -29,6 +29,7 @@ interface ClientesViewProps {
   updateCliente: (cliente: Cliente & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   deleteCliente: (clienteId: string) => void;
   reactivarCliente: (clienteId: string) => void;
+  deleteContrato?: (contratoId: string) => void; // Nuevo prop opcional para manejar borrado desde la vista padre
 }
 
 const formatCuit = (value: string = '') => {
@@ -49,12 +50,13 @@ const ClienteForm: React.FC<{
   contratos: Contrato[]; 
   clientes: Cliente[]; 
   remitos: Remito[];
-  onSave: (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
+  onSave: (data: { cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }, contratosAEliminar: string[] }) => void;
   onClose: () => void;
 }> = ({ cliente, productos, servicios, contratos, clientes, remitos, onSave, onClose }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   const [mapIndex, setMapIndex] = useState<number | null>(null);
+  const [contratosAEliminar, setContratosAEliminar] = useState<Set<string>>(new Set());
   const { showNotification } = useNotification();
   
   const contratosVigentes = useMemo(() => {
@@ -63,6 +65,7 @@ const ClienteForm: React.FC<{
   }, [cliente.id, contratos]);
 
   const serviciosMap = useMemo(() => new Map(servicios.map(s => [s.id, s])), [servicios]);
+  const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   const currentBalances = useMemo(() => {
     if (!cliente.id) return new Map<string, Map<string, number>>();
@@ -160,10 +163,36 @@ const ClienteForm: React.FC<{
   const handleAuditChange = (sucursalId: string, productoId: string, value: string) => {
     const qty = parseInt(value) || 0;
     setAuditStocks(prev => {
+        // Filtramos el item anterior de este producto en esta sucursal
         const others = prev.filter(a => !(a.sucursalId === sucursalId && a.productoId === productoId));
-        if (qty === 0) return others; 
+        // Agregamos el nuevo valor
         return [...others, { sucursalId, productoId, cantidad: qty }];
     });
+  };
+
+  const handleAddStockItem = (sucursalId: string) => {
+      // Buscar un producto que no esté ya en la lista de auditoría para esa sucursal
+      const existingIds = new Set(auditStocks.filter(a => a.sucursalId === sucursalId).map(a => a.productoId));
+      const candidate = productos.find(p => !existingIds.has(p.id) && p.estado === EstadoProducto.ACTIVO);
+      
+      if (candidate) {
+          setAuditStocks(prev => [...prev, { sucursalId, productoId: candidate.id, cantidad: 0 }]);
+      } else {
+          showNotification('Todos los productos ya están listados.', 'error');
+      }
+  };
+
+  const handleStockProductChange = (sucursalId: string, oldProductId: string, newProductId: string) => {
+      setAuditStocks(prev => prev.map(a => {
+          if (a.sucursalId === sucursalId && a.productoId === oldProductId) {
+              return { ...a, productoId: newProductId };
+          }
+          return a;
+      }));
+  };
+
+  const removeStockItem = (sucursalId: string, productoId: string) => {
+      setAuditStocks(prev => prev.filter(a => !(a.sucursalId === sucursalId && a.productoId === productoId)));
   };
 
   const addContratoInicial = () => {
@@ -177,6 +206,15 @@ const ClienteForm: React.FC<{
 
   const removeContratoInicial = (index: number) => {
     setContratosIniciales(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleDeleteContrato = (id: string) => {
+      setContratosAEliminar(prev => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+      });
   };
 
   const updateContratoInicial = (index: number, field: keyof Contrato | 'servicioId', value: any) => {
@@ -203,14 +241,24 @@ const ClienteForm: React.FC<{
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const stockDeltas: any[] = [];
+    
+    // Calcular diferencias de stock
     auditStocks.forEach(audit => {
         if (!audit.productoId) return;
         const currentQty = currentBalances.get(audit.sucursalId)?.get(audit.productoId) || 0;
         const delta = audit.cantidad - currentQty;
         if (delta !== 0) stockDeltas.push({ sucursalId: audit.sucursalId, productoId: audit.productoId, cantidad: delta });
     });
-    onSave({ ...formData as Cliente, stockInicial: stockDeltas, contratosIniciales: contratosIniciales.filter(c => c.servicioId) });
-  }, [formData, auditStocks, currentBalances, contratosIniciales, onSave]);
+
+    onSave({ 
+        cliente: { 
+            ...formData as Cliente, 
+            stockInicial: stockDeltas, 
+            contratosIniciales: contratosIniciales.filter(c => c.servicioId) 
+        },
+        contratosAEliminar: Array.from(contratosAEliminar)
+    });
+  }, [formData, auditStocks, currentBalances, contratosIniciales, contratosAEliminar, onSave]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -225,6 +273,8 @@ const ClienteForm: React.FC<{
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSubmit, addSucursal]);
+
+  const activeProductOptions = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
 
   return (
     <>
@@ -284,27 +334,49 @@ const ClienteForm: React.FC<{
                                   </div>
                               </div>
 
-                              {/* STOCK INTEGRADO EN LA SUCURSAL */}
+                              {/* STOCK INTEGRADO EN LA SUCURSAL - MODIFICADO PARA SER DINÁMICO */}
                               <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
                                   <label className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 block flex items-center gap-2">
                                       <CubeIcon className="w-3 h-3"/> Inventario de Envases
                                   </label>
-                                  <div className="grid grid-cols-2 gap-3">
-                                      {productos.filter(p => p.tipo === TipoProducto.RETORNABLE).map(p => {
-                                          const val = auditStocks.find(a => a.sucursalId === suc.id && a.productoId === p.id)?.cantidad || 0;
-                                          return (
-                                              <div key={p.id} className="flex flex-col">
-                                                  <label className="text-[9px] font-bold text-gray-400 uppercase mb-1 truncate" title={p.nombre}>{p.nombre}</label>
-                                                  <input 
-                                                      type="number" 
-                                                      value={val} 
-                                                      onChange={(e) => handleAuditChange(suc.id, p.id, e.target.value)} 
-                                                      className="w-full p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:ring-1 focus:ring-primary-500 outline-none text-sm"
+                                  
+                                  {/* Lista de productos con stock definido o agregados manualmente */}
+                                  <div className="space-y-2 mb-3">
+                                      {auditStocks.filter(a => a.sucursalId === suc.id).map((item) => (
+                                          <div key={item.productoId} className="flex gap-2 items-center">
+                                              <div className="flex-grow">
+                                                  <SearchableSelect 
+                                                      options={activeProductOptions}
+                                                      value={item.productoId}
+                                                      onChange={(newId) => handleStockProductChange(suc.id, item.productoId, newId)}
                                                   />
                                               </div>
-                                          );
-                                      })}
+                                              <input 
+                                                  type="number" 
+                                                  value={item.cantidad} 
+                                                  onChange={(e) => handleAuditChange(suc.id, item.productoId, e.target.value)} 
+                                                  className="w-20 p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:ring-1 focus:ring-primary-500 outline-none text-sm"
+                                              />
+                                              <button 
+                                                  type="button" 
+                                                  onClick={() => removeStockItem(suc.id, item.productoId)}
+                                                  className="p-2 text-red-400 hover:text-red-600"
+                                                  title="Quitar de la lista"
+                                              >
+                                                  <TrashIcon className="w-4 h-4" />
+                                              </button>
+                                          </div>
+                                      ))}
                                   </div>
+
+                                  <AppButton 
+                                      variant="secondary" 
+                                      size="sm" 
+                                      className="w-full text-xs py-2"
+                                      onClick={() => handleAddStockItem(suc.id)}
+                                  >
+                                      + Agregar Producto al Stock
+                                  </AppButton>
                               </div>
                           </div>
                       </div>
@@ -317,22 +389,36 @@ const ClienteForm: React.FC<{
 
           <Card title="Gestión de Servicios y Contratos">
               <div className="space-y-6">
-                  {/* Contratos Vigentes (Solo Lectura con estilo mejorado) */}
+                  {/* Contratos Vigentes (Con opción de borrado) */}
                   {contratosVigentes.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
                           <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Activos</label>
                           <div className="grid grid-cols-1 gap-3">
                               {contratosVigentes.map(c => {
                                   const s = serviciosMap.get(c.servicioId);
+                                  const isDeleted = contratosAEliminar.has(c.id);
+                                  
                                   return (
-                                      <div key={c.id} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-900/50 rounded-xl shadow-sm border-l-4 border-l-green-500">
+                                      <div key={c.id} className={`flex justify-between items-center p-3 border rounded-xl shadow-sm transition-all ${isDeleted ? 'bg-red-50 border-red-200 opacity-60 grayscale' : 'bg-white dark:bg-gray-800 border-green-200 dark:border-green-900/50 border-l-4 border-l-green-500'}`}>
                                           <div>
-                                              <p className="font-bold text-sm text-gray-800 dark:text-white">{s?.nombre || 'Servicio Personalizado'}</p>
+                                              <p className={`font-bold text-sm ${isDeleted ? 'text-red-800 line-through' : 'text-gray-800 dark:text-white'}`}>
+                                                  {s?.nombre || 'Servicio Personalizado'}
+                                              </p>
                                               <p className="text-xs text-gray-500">Inicio: {new Date(c.fechaInicio).toLocaleDateString()} • ${c.montoMensual?.toLocaleString() || 0}/mes</p>
+                                              {isDeleted && <span className="text-[10px] font-black text-red-600 uppercase">SE ELIMINARÁ AL GUARDAR</span>}
                                           </div>
-                                          <div className="flex flex-col items-end gap-1">
-                                              <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>
-                                              <span className="text-[10px] text-gray-400">ID: ...{c.id.slice(-4)}</span>
+                                          <div className="flex items-center gap-3">
+                                              <div className="flex flex-col items-end gap-1">
+                                                  <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>
+                                              </div>
+                                              <button 
+                                                  type="button" 
+                                                  onClick={() => toggleDeleteContrato(c.id)}
+                                                  className={`p-2 rounded-full transition-colors ${isDeleted ? 'bg-gray-200 text-gray-500 hover:bg-gray-300' : 'bg-red-100 text-red-500 hover:bg-red-200'}`}
+                                                  title={isDeleted ? "Deshacer eliminación" : "Dar de baja contrato"}
+                                              >
+                                                  {isDeleted ? <ReplyIcon className="w-4 h-4" /> : <TrashIcon className="w-4 h-4" />}
+                                              </button>
                                           </div>
                                       </div>
                                   );
@@ -409,7 +495,7 @@ const ClienteForm: React.FC<{
   )
 }
 
-const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, registrosPago, addCliente, updateCliente, deleteCliente, reactivarCliente }) => {
+const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, registrosPago, addCliente, updateCliente, deleteCliente, reactivarCliente, deleteContrato }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Partial<Cliente> | null>(null);
   const [clienteParaBaja, setClienteParaBaja] = useState<Cliente | null>(null);
@@ -459,10 +545,17 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     return map;
   }, [remitos]);
 
-  const handleSave = (c: (Omit<Cliente, 'id' | 'estado'> | Cliente)) => {
+  const handleSave = ({ cliente: c, contratosAEliminar }: { cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente), contratosAEliminar: string[] }) => {
     try {
+        // 1. Procesar eliminación de contratos si los hay y si tenemos la función
+        if (contratosAEliminar.length > 0 && deleteContrato) {
+            contratosAEliminar.forEach(id => deleteContrato(id));
+        }
+
+        // 2. Guardar o Actualizar Cliente
         if ('id' in c && c.id) updateCliente(c as Cliente);
         else addCliente(c as Omit<Cliente, 'id' | 'estado'>);
+        
         showNotification('Guardado.', 'success');
         setIsModalOpen(false);
     } catch (e) { showNotification('Error.', 'error'); }

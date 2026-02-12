@@ -161,6 +161,7 @@ function AppContent() {
                   updateCliente={dataStore.updateCliente}
                   deleteCliente={dataStore.deleteCliente}
                   reactivarCliente={dataStore.reactivarCliente}
+                  deleteContrato={dataStore.deleteContrato}
                 />;
       case 'usuarios':
         return <UsuariosView
