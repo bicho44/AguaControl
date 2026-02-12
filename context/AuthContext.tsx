@@ -21,50 +21,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       if (firebaseUser) {
         try {
-            // 1. Intentar buscar perfil por UID (Usuario ya vinculado)
+            // normalizar email para búsquedas
+            const userEmail = firebaseUser.email?.toLowerCase().trim() || "";
+            
+            // 1. Intentar buscar perfil por UID (Usuario ya vinculado correctamente)
             const userDocRef = doc(db, 'usuarios', firebaseUser.uid);
-            const userDoc = await userDocRef.get(); // Usando sintaxis compatible con esm.sh version
-            // Nota: Dependiendo de la versión de firebase inyectada, puede ser getDoc(userDocRef)
-            // pero para asegurar compatibilidad en este entorno usamos un wrapper seguro:
+            const snapshot = await getDoc(userDocRef);
             
             let profileData: any = null;
-            const snapshot = await getDoc(userDocRef);
             
             if (snapshot.exists()) {
                 profileData = { id: firebaseUser.uid, ...snapshot.data() };
             } else {
                 // 2. Si no existe por UID, buscar por EMAIL (Usuario invitado por Admin)
+                // Usamos la colección usuarios buscando coincidencias de email
                 const usersRef = collection(db, 'usuarios');
-                const q = query(usersRef, where('email', '==', firebaseUser.email), limit(1));
+                const q = query(usersRef, where('email', '==', userEmail), limit(1));
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
                     const foundDoc = querySnapshot.docs[0];
                     const invitedData = foundDoc.data();
                     
-                    // VINCULAR: Crear nuevo doc con UID y borrar el viejo con ID aleatorio
+                    // VINCULAR: Crear nuevo doc con UID (ID definitivo) y borrar el temporal
                     const newProfile: Usuario = {
                         ...invitedData as Usuario,
                         id: firebaseUser.uid,
-                        email: firebaseUser.email || invitedData.email
+                        email: userEmail // Asegurar email normalizado
                     };
                     
                     await setDoc(doc(db, 'usuarios', firebaseUser.uid), newProfile);
-                    await deleteDoc(foundDoc.ref);
+                    
+                    // Si el ID del documento encontrado no es el UID, borrar el viejo
+                    if (foundDoc.id !== firebaseUser.uid) {
+                        await deleteDoc(foundDoc.ref);
+                    }
                     
                     profileData = newProfile;
                     console.log("Perfil vinculado con éxito por email.");
                 } else {
-                    // 3. Si no existe perfil ni por UID ni por EMAIL, verificar si es el PRIMER usuario de la historia
+                    // 3. Verificar si es el PRIMER usuario absoluto del sistema
+                    // Si no hay perfiles por UID ni por Email, y la tabla está vacía -> Auto-Admin
                     const allUsersQuery = query(collection(db, 'usuarios'), limit(1));
                     const allUsersSnap = await getDocs(allUsersQuery);
                     
                     if (allUsersSnap.empty) {
-                        // Es el primer usuario: Convertir en Admin automáticamente
                         const firstAdmin: Usuario = {
                             id: firebaseUser.uid,
                             nombre: firebaseUser.displayName || 'Administrador Inicial',
-                            email: firebaseUser.email || '',
+                            email: userEmail,
                             rol: Rol.ADMINISTRADOR,
                             tipo: TipoVendedor.INTERNO
                         };
@@ -72,16 +77,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         profileData = firstAdmin;
                         console.log("Primer administrador creado.");
                     } else {
-                        // Usuario registrado pero no invitado ni admin
+                        // Usuario registrado que no coincide con invitaciones previas
                         profileData = null;
-                        console.warn("Usuario logueado pero sin perfil asignado.");
+                        console.warn("Acceso denegado: No existe perfil para este email.");
                     }
                 }
             }
             
             setUser(profileData);
         } catch (error) {
-            console.error("Error en AuthContext:", error);
+            console.error("Error crítico en AuthContext:", error);
             setUser(null);
         }
       } else {
