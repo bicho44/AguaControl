@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { PlanillaDiaria, Usuario, Producto, EstadoPlanilla, Rol, ItemStock, TipoVendedor, Remito, ItemDevolucion, TipoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -8,6 +8,7 @@ import SearchableSelect from '../components/SearchableSelect';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { CubeIcon } from '../components/icons/CubeIcon';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
+import AppButton from '../components/ui/AppButton';
 
 interface PlanillasViewProps {
   planillas: PlanillaDiaria[];
@@ -32,9 +33,9 @@ const PlanillaForm: React.FC<{
     const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO), [usuarios]);
     const productosOptions = useMemo(() => productos.map(p => ({ value: p.id, label: p.nombre })), [productos]);
 
-    const handleAddItem = () => {
-        setCargaInicial([...cargaInicial, { productoId: '', cantidad: 0 }]);
-    };
+    const handleAddItem = useCallback(() => {
+        setCargaInicial(prev => [...prev, { productoId: '', cantidad: 0 }]);
+    }, []);
 
     const handleItemChange = (index: number, field: keyof ItemStock, value: any) => {
         const newItems = [...cargaInicial];
@@ -46,10 +47,11 @@ const PlanillaForm: React.FC<{
         setCargaInicial(cargaInicial.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = useCallback((e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         const itemsValidos = cargaInicial.filter(item => item.productoId && item.cantidad > 0);
-        
+        if (!repartidorId || itemsValidos.length === 0) return;
+
         const nuevaPlanilla: Omit<PlanillaDiaria, 'id'> = {
             fecha,
             repartidorId,
@@ -57,7 +59,22 @@ const PlanillaForm: React.FC<{
             cargaInicial: itemsValidos,
         };
         onSave(nuevaPlanilla);
-    };
+    }, [fecha, repartidorId, cargaInicial, onSave]);
+
+    // Atajos
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            handleSubmit();
+          } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+            e.preventDefault();
+            handleAddItem();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleAddItem, handleSubmit]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
@@ -118,14 +135,14 @@ const PlanillaForm: React.FC<{
                     ))}
                 </div>
                 <button type="button" onClick={handleAddItem} className="mt-3 px-4 py-2 text-sm font-medium rounded-md border border-primary-500 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-500 dark:hover:bg-primary-500/10">
-                    + Agregar Producto
+                    + Agregar Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span>
                 </button>
             </fieldset>
 
             <div className="flex justify-end gap-2 pt-4">
                 <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200">Cancelar</button>
-                <button type="submit" disabled={!repartidorId || cargaInicial.length === 0} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Confirmar Apertura
+                <button type="submit" disabled={!repartidorId || cargaInicial.length === 0} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-bold">
+                    Confirmar Apertura <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
                 </button>
             </div>
         </form>
@@ -145,7 +162,7 @@ const RecargaForm: React.FC<{
     const productosRetornables = useMemo(() => productos.filter(p => p.tipo === TipoProducto.RETORNABLE).map(p => ({ value: p.id, label: p.nombre })), [productos]);
 
     // Helpers para Carga (Llenos)
-    const handleAddCarga = () => setItemsCarga([...itemsCarga, { productoId: '', cantidad: 0 }]);
+    const handleAddCarga = useCallback(() => setItemsCarga(prev => [...prev, { productoId: '', cantidad: 0 }]), []);
     const handleCargaChange = (index: number, field: keyof ItemStock, value: any) => {
         const newItems = [...itemsCarga];
         newItems[index] = { ...newItems[index], [field]: value };
@@ -154,7 +171,7 @@ const RecargaForm: React.FC<{
     const handleRemoveCarga = (index: number) => setItemsCarga(itemsCarga.filter((_, i) => i !== index));
 
     // Helpers para Descarga (Vacíos)
-    const handleAddDescarga = () => setItemsDescarga([...itemsDescarga, { productoId: '', cantidad: 0 }]);
+    const handleAddDescarga = useCallback(() => setItemsDescarga(prev => [...prev, { productoId: '', cantidad: 0 }]), []);
     const handleDescargaChange = (index: number, field: keyof ItemStock, value: any) => {
         const newItems = [...itemsDescarga];
         newItems[index] = { ...newItems[index], [field]: value };
@@ -162,12 +179,27 @@ const RecargaForm: React.FC<{
     };
     const handleRemoveDescarga = (index: number) => setItemsDescarga(itemsDescarga.filter((_, i) => i !== index));
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = useCallback((e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         const cargaValida = itemsCarga.filter(i => i.productoId && i.cantidad > 0);
         const descargaValida = itemsDescarga.filter(i => i.productoId && i.cantidad > 0);
         onSave(cargaValida, descargaValida);
-    };
+    }, [itemsCarga, itemsDescarga, onSave]);
+
+    // Atajos
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            handleSubmit();
+          } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+            e.preventDefault();
+            handleAddCarga();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleAddCarga, handleSubmit]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
@@ -194,7 +226,7 @@ const RecargaForm: React.FC<{
                                 <button type="button" onClick={() => handleRemoveCarga(index)} className="text-red-500"><TrashIcon/></button>
                             </div>
                         ))}
-                        <button type="button" onClick={handleAddCarga} className="mt-2 text-sm text-green-700 font-medium hover:underline">+ Agregar Producto</button>
+                        <button type="button" onClick={handleAddCarga} className="mt-2 text-sm text-green-700 font-medium hover:underline">+ Agregar Producto (Alt+I)</button>
                     </div>
                 </fieldset>
 
@@ -224,7 +256,9 @@ const RecargaForm: React.FC<{
 
             <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
                 <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar Recarga</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 font-bold">
+                    Guardar Recarga <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
+                </button>
             </div>
         </form>
     );
@@ -233,12 +267,12 @@ const RecargaForm: React.FC<{
 interface StockSummary {
     productoId: string;
     nombre: string;
-    cargaTotal: number; // Inicial + Recargas
+    cargaTotal: number; 
     ventas: number;
-    devolucionesRemito: number; // Envases vacíos recuperados según remitos
-    vaciosDescargados: number; // Envases vacíos bajados en fábrica
-    stockTeorico: number; // Para productos llenos: CargaTotal - Ventas
-    envasesTeoricos: number; // Envases en camión: Recuperados - Descargados
+    devolucionesRemito: number; 
+    vaciosDescargados: number; 
+    stockTeorico: number; 
+    envasesTeoricos: number; 
 }
 
 const PlanillaDetailModal: React.FC<{
@@ -255,14 +289,11 @@ const PlanillaDetailModal: React.FC<{
     const [isRecargaOpen, setIsRecargaOpen] = useState(false);
     const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
     
-    // Estado para guardar los inputs físicos (Auditoría)
     const [auditoria, setAuditoria] = useState<Record<string, { llenos: number, vacios: number }>>({});
 
-    // 1. Calcular estadísticas teóricas
     const stats = useMemo(() => {
         const summary = new Map<string, StockSummary>();
 
-        // Función helper para inicializar producto en resumen
         const initProd = (prodId: string) => {
             if (!summary.has(prodId)) {
                 const prod = productosMap.get(prodId);
@@ -279,21 +310,17 @@ const PlanillaDetailModal: React.FC<{
             }
         };
 
-        // A. Carga Inicial
         planilla.cargaInicial.forEach(item => {
             initProd(item.productoId);
             summary.get(item.productoId)!.cargaTotal += item.cantidad;
         });
 
-        // B. Recargas (Entradas Llenos y Salidas Vacíos)
         if (planilla.recargas) {
             planilla.recargas.forEach(recarga => {
-                // Sumar Productos Llenos
                 recarga.items.forEach(item => {
                     initProd(item.productoId);
                     summary.get(item.productoId)!.cargaTotal += item.cantidad;
                 });
-                // Sumar Vacíos Descargados
                 if (recarga.vaciosDescargados) {
                     recarga.vaciosDescargados.forEach(item => {
                         initProd(item.productoId);
@@ -303,7 +330,6 @@ const PlanillaDetailModal: React.FC<{
             });
         }
 
-        // C. Procesar Ventas del Día (Remitos)
         const remitosDelDia = remitos.filter(r => 
             r.vendedorId === planilla.repartidorId && 
             r.fecha === planilla.fecha
@@ -318,18 +344,14 @@ const PlanillaDetailModal: React.FC<{
             });
         });
 
-        // D. Calcular Teóricos Finales
         summary.forEach(item => {
             item.stockTeorico = item.cargaTotal - item.ventas;
-            // Envases en camión = (Lo que recuperé de clientes) - (Lo que ya bajé en recargas)
-            // Asumimos que el camión sale con 0 envases vacíos al inicio del día.
             item.envasesTeoricos = Math.max(0, item.devolucionesRemito - item.vaciosDescargados);
         });
 
         return Array.from(summary.values());
     }, [planilla, remitos, productosMap]);
 
-    // 2. Inicializar estado de auditoría
     useEffect(() => {
         const initialAudit: Record<string, { llenos: number, vacios: number }> = {};
         
@@ -343,7 +365,7 @@ const PlanillaDetailModal: React.FC<{
             } else if (!auditoria[item.productoId]) {
                 initialAudit[item.productoId] = {
                     llenos: item.stockTeorico > 0 ? item.stockTeorico : 0,
-                    vacios: item.envasesTeoricos // Sugerir lo que debería haber
+                    vacios: item.envasesTeoricos 
                 };
             }
         });
@@ -400,9 +422,22 @@ const PlanillaDetailModal: React.FC<{
         setIsRecargaOpen(false);
     };
 
-    const totalVentas = stats.reduce((acc, curr) => acc + curr.ventas, 0);
+    // Atajos para el modal de detalle
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (isClosed) return;
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            setIsCloseConfirmOpen(true);
+          } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+            e.preventDefault();
+            setIsRecargaOpen(true);
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isClosed]);
 
-    // Filter out products from list
     const productosList = Array.from(productosMap.values());
 
     return (
@@ -433,7 +468,7 @@ const PlanillaDetailModal: React.FC<{
                                 onClick={() => setIsRecargaOpen(true)}
                                 className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 flex items-center gap-1 shadow-sm"
                             >
-                                <CubeIcon className="h-3 w-3"/> Registrar Recarga
+                                <CubeIcon className="h-3 w-3"/> Registrar Recarga (Alt+I)
                             </button>
                         )}
                     </div>
@@ -450,9 +485,6 @@ const PlanillaDetailModal: React.FC<{
                             </li>
                             <li>
                                 <strong>Columna 'Env. Fís. (Vacíos)':</strong> Cuente y anote la cantidad total de envases <u>vacíos</u> que se bajan del camión.
-                            </li>
-                            <li>
-                                El sistema calculará automáticamente las diferencias. Si todo coincide, los valores de "Balance" deben ser cero o estar en verde.
                             </li>
                         </ul>
                     </div>
@@ -473,15 +505,11 @@ const PlanillaDetailModal: React.FC<{
                                 <th className="px-2 py-3 rounded-tl-lg bg-gray-200 dark:bg-gray-800 sticky left-0 z-10">Producto</th>
                                 <th className="px-2 py-3 text-center border-l dark:border-gray-600" title="Carga Inicial + Recargas">Carga Total</th>
                                 <th className="px-2 py-3 text-center text-red-600 dark:text-red-400 border-l dark:border-gray-600" title="Ventas registradas">Ventas</th>
-                                
-                                {/* Sección Control Stock Lleno */}
-                                <th className="px-2 py-3 text-center border-l-2 border-gray-400 dark:border-gray-500 bg-blue-50 dark:bg-blue-900/20" title="Stock Teórico = Carga - Ventas">Calculado (Sistema)</th>
-                                <th className="px-2 py-3 text-center bg-blue-50 dark:bg-blue-900/20 text-blue-800 font-bold" title="Stock físico contado en camión">Recuento (Real)</th>
+                                <th className="px-2 py-3 text-center border-l-2 border-gray-400 dark:border-gray-500 bg-blue-50 dark:bg-blue-900/20">Calculado (Sistema)</th>
+                                <th className="px-2 py-3 text-center bg-blue-50 dark:bg-blue-900/20 text-blue-800 font-bold">Recuento (Real)</th>
                                 <th className="px-2 py-3 text-center bg-blue-50 dark:bg-blue-900/20">Balance</th>
-
-                                {/* Sección Control Envases Vacíos */}
-                                <th className="px-2 py-3 text-center border-l-2 border-gray-400 dark:border-gray-500 bg-yellow-50 dark:bg-yellow-900/20" title="Recuperados - Descargados">Env. Teor.</th>
-                                <th className="px-2 py-3 text-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 font-bold" title="Envases físicos bajados del camión">Env. Fís. (Vacíos)</th>
+                                <th className="px-2 py-3 text-center border-l-2 border-gray-400 dark:border-gray-500 bg-yellow-50 dark:bg-yellow-900/20">Env. Teor.</th>
+                                <th className="px-2 py-3 text-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 font-bold">Env. Fís. (Vacíos)</th>
                                 <th className="px-2 py-3 text-center bg-yellow-50 dark:bg-yellow-900/20 rounded-tr-lg">Balance</th>
                             </tr>
                         </thead>
@@ -495,21 +523,10 @@ const PlanillaDetailModal: React.FC<{
                                 <tr key={item.productoId} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50">
                                     <td className="px-2 py-3 font-medium text-gray-900 dark:text-white sticky left-0 bg-white dark:bg-gray-800 z-10 min-w-[150px]">
                                         {item.nombre}
-                                        {item.cargaTotal > item.cargaTotal - (planilla.recargas?.reduce((acc, r) => acc + (r.items.find(i=>i.productoId === item.productoId)?.cantidad || 0), 0) || 0) && (
-                                            <span className="block text-[10px] text-green-600 font-normal">+ Recarga</span>
-                                        )}
                                     </td>
-                                    <td className="px-2 py-3 text-center text-gray-500 border-l dark:border-gray-600">
-                                        {item.cargaTotal}
-                                    </td>
-                                    <td className="px-2 py-3 text-center text-red-600 dark:text-red-400 border-l dark:border-gray-600 font-bold">
-                                        {item.ventas}
-                                    </td>
-
-                                    {/* Control Llenos */}
-                                    <td className="px-2 py-3 text-center border-l-2 border-gray-300 dark:border-gray-600 bg-blue-50/50 dark:bg-blue-900/10 font-bold text-blue-700 dark:text-blue-300">
-                                        {item.stockTeorico}
-                                    </td>
+                                    <td className="px-2 py-3 text-center text-gray-500 border-l dark:border-gray-600">{item.cargaTotal}</td>
+                                    <td className="px-2 py-3 text-center text-red-600 dark:text-red-400 border-l dark:border-gray-600 font-bold">{item.ventas}</td>
+                                    <td className="px-2 py-3 text-center border-l-2 border-gray-300 dark:border-gray-600 bg-blue-50/50 dark:bg-blue-900/10 font-bold text-blue-700 dark:text-blue-300">{item.stockTeorico}</td>
                                     <td className="px-2 py-3 text-center bg-blue-50/50 dark:bg-blue-900/10">
                                         <input 
                                             type="number" 
@@ -522,12 +539,7 @@ const PlanillaDetailModal: React.FC<{
                                     <td className={`px-2 py-3 text-center font-bold bg-blue-50/50 dark:bg-blue-900/10 ${difLlenos < 0 ? 'text-red-600' : (difLlenos > 0 ? 'text-green-600' : 'text-gray-400')}`}>
                                         {difLlenos === 0 ? 'OK' : (difLlenos > 0 ? `+${difLlenos}` : difLlenos)}
                                     </td>
-
-                                    {/* Control Vacíos */}
-                                    <td className="px-2 py-3 text-center border-l-2 border-gray-300 dark:border-gray-600 bg-yellow-50/50 dark:bg-yellow-900/10 font-bold text-yellow-700 dark:text-yellow-300">
-                                        {item.envasesTeoricos}
-                                        {item.vaciosDescargados > 0 && <span className="block text-[10px] text-gray-400 font-normal">(-{item.vaciosDescargados} desc)</span>}
-                                    </td>
+                                    <td className="px-2 py-3 text-center border-l-2 border-gray-300 dark:border-gray-600 bg-yellow-50/50 dark:bg-blue-900/10 font-bold text-yellow-700 dark:text-yellow-300">{item.envasesTeoricos}</td>
                                     <td className="px-2 py-3 text-center bg-yellow-50/50 dark:bg-yellow-900/10">
                                         <input 
                                             type="number" 
@@ -567,7 +579,7 @@ const PlanillaDetailModal: React.FC<{
                             onClick={() => setIsCloseConfirmOpen(true)} 
                             className="px-6 py-2 rounded-md bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg"
                         >
-                            Cerrar Planilla y Auditar
+                            Cerrar Planilla y Auditar <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
                         </button>
                     )}
                 </div>
@@ -583,24 +595,10 @@ const PlanillaDetailModal: React.FC<{
                             </svg>
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">¿Cerrar Planilla Definitivamente?</h3>
-                        <p className="text-gray-500 dark:text-gray-300 text-sm mb-6">
-                            Esta acción guardará los stocks físicos y calculará las diferencias finales. 
-                            <br/><br/>
-                            <strong>No podrá modificar estos datos una vez cerrada.</strong>
-                        </p>
+                        <p className="text-gray-500 dark:text-gray-300 text-sm mb-6">Esta acción guardará los stocks físicos y calculará las diferencias finales.</p>
                         <div className="flex justify-center gap-3">
-                            <button 
-                                onClick={() => setIsCloseConfirmOpen(false)}
-                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300"
-                            >
-                                Volver a revisar
-                            </button>
-                            <button 
-                                onClick={confirmClosePlanilla}
-                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold"
-                            >
-                                Sí, Cerrar Planilla
-                            </button>
+                            <button onClick={() => setIsCloseConfirmOpen(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300">Volver</button>
+                            <button onClick={confirmClosePlanilla} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold">Sí, Cerrar Planilla</button>
                         </div>
                     </div>
                 </Modal>
@@ -610,6 +608,7 @@ const PlanillaDetailModal: React.FC<{
 };
 
 const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, productos, remitos, addPlanilla, updatePlanilla }) => {
+  // Fix: Correctly use the notification hook and avoid self-referencing before declaration
   const { showNotification } = useNotification();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -628,7 +627,6 @@ const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, prod
           showNotification('Ya existe una planilla para este repartidor en la fecha seleccionada.', 'error');
           return;
       }
-      
       addPlanilla(newPlanilla);
       setIsFormOpen(false);
       showNotification('Planilla abierta correctamente.', 'success');
@@ -636,16 +634,13 @@ const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, prod
 
   const handleUpdatePlanilla = (planilla: PlanillaDiaria) => {
       updatePlanilla(planilla);
-      showNotification('Planilla actualizada correctamente.', 'success');
   };
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Control de Stock y Reparto</h1>
-        <button onClick={() => setIsFormOpen(true)} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
-          + Nueva Planilla
-        </button>
+        <AppButton onClick={() => setIsFormOpen(true)}>+ Nueva Planilla</AppButton>
       </div>
 
       <div className="flex items-center gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
@@ -711,13 +706,6 @@ const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, prod
                               </td>
                           </tr>
                       ))}
-                      {filteredPlanillas.length === 0 && (
-                          <tr>
-                              <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                                  No hay planillas registradas para esta fecha.
-                              </td>
-                          </tr>
-                      )}
                   </tbody>
               </table>
           </div>

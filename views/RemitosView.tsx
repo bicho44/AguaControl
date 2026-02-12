@@ -158,8 +158,6 @@ const RemitoForm: React.FC<{
   const isNew = !remito.id;
   const isAdmin = currentUser.rol === Rol.ADMINISTRADOR;
 
-  // CRÍTICO: Filtramos solo clientes ACTIVOS para nuevos remitos, 
-  // pero permitimos ver el nombre si es una edición de un cliente que luego fue inactivado.
   const clienteOptions = useMemo(() => {
     return clientes
         .filter(c => c.estado === EstadoCliente.ACTIVO || c.id === formData.clienteId)
@@ -274,7 +272,6 @@ const RemitoForm: React.FC<{
 
   const handleSaveQuickClient = async (data: any) => {
     try {
-        // Fix: Remove 'estado' from object literal as it's forbidden in Omit<Cliente, 'id' | 'estado'>
         const id = await onAddCliente({
             nombre: data.nombre,
             sucursales: [{ id: 'main', nombre: 'Casa Central', direccion: data.direccion, lat: data.lat, lng: data.lng, diasReparto: [] }],
@@ -285,31 +282,30 @@ const RemitoForm: React.FC<{
     } catch (e) { showNotification('Error.', 'error'); }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); if (isReadOnly) return;
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isReadOnly) return;
     if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
     setIsSaving(true);
     await onSave(formData as Remito & { pagos: PagoDetalle[] });
     setIsSaving(false);
-  };
+  }, [formData, isReadOnly, onSave, showNotification]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+        handleSubmit();
         return;
       }
-      if (e.altKey && e.code === 'KeyI') {
+      if (e.altKey && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
-        e.stopPropagation();
         addMovimiento();
         return;
       }
-      if (e.altKey && e.code === 'KeyP') {
+      if (e.altKey && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
-        e.stopPropagation();
         if ((!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste) {
             addPago();
         }
@@ -428,11 +424,9 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
-  // Memoize data
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   
-  // Filtro de clientes: Para buscar remitos de clientes que inactivamos, mostramos todos los clientes en el filtro general.
   const filterClienteOptions = useMemo(() => {
     return [{value: "", label: "Todos"}, ...clientes.map(c=>({value:c.id, label:c.nombre}))];
   }, [clientes]);
@@ -540,7 +534,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   useEffect(() => {
       const handleGlobalKeys = (e: KeyboardEvent) => {
-          if (e.altKey && e.code === 'KeyN' && !isFormOpen) {
+          if (e.altKey && (e.key === 'n' || e.key === 'N') && !isFormOpen) {
               e.preventDefault();
               openNewModal();
           }
@@ -585,7 +579,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </button>
           </div>
-          <AppButton onClick={openNewModal}>+ Nuevo Remito</AppButton>
+          <AppButton onClick={openNewModal}>+ Nuevo Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
       </div>
       <Card>
         <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">

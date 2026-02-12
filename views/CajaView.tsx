@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, PagoDetalle, MetodoPago, Factura, Producto, TipoVendedor, MovimientoVenta, EstadoProducto, EstadoCliente, TipoTelefono, TipoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -32,7 +32,6 @@ interface CajaViewProps {
   }) => Promise<void>;
   addGasto: (gasto: Omit<Gasto, 'id'>) => Promise<void>;
   addVentaVendedor: (venta: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => Promise<void>;
-  // Fix: addCliente must return Promise<string> to match dataStore.addCliente
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   updateRegistroPago: (updatedPago: RegistroPago) => Promise<void>;
   updateGasto: (updatedGasto: Gasto) => Promise<void>;
@@ -61,7 +60,6 @@ const MovimientoCajaForm: React.FC<{
   productos: Producto[];
   ventasVendedor: VentaVendedor[];
   onSave: (data: any, isVenta: boolean) => void;
-  // Fix: onAddCliente must match the expected return type and parameter Omit
   onAddCliente: (data: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   onClose: () => void;
   isEdit: boolean;
@@ -72,6 +70,7 @@ const MovimientoCajaForm: React.FC<{
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [quickClientName, setQuickClientName] = useState('');
   const [quickClientPhone, setQuickClientPhone] = useState('');
+  const { showNotification } = useNotification();
 
   const selectedVendedor = useMemo(() => vendedores.find(v => v.id === formData.vendedorId), [formData.vendedorId, vendedores]);
   const selectedCliente = useMemo(() => clientes.find(c => c.id === formData.clienteId), [formData.clienteId, clientes]);
@@ -111,14 +110,12 @@ const MovimientoCajaForm: React.FC<{
     setFormData((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  // ADDED: handleSelectChange to fix lines 183 and 186 errors
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [name]: value }));
   };
 
   const handleQuickClientSave = async () => {
       if (!quickClientName) return;
-      // Fix: Remove 'estado' from object literal as it's omitted in the type definition
       await onAddCliente({
           nombre: quickClientName,
           telefonos: [{ tipo: TipoTelefono.CEL, numero: quickClientPhone }],
@@ -140,13 +137,35 @@ const MovimientoCajaForm: React.FC<{
     setMovimientosVenta(newMovs);
   };
 
-  const addMovimiento = () => setMovimientosVenta([...movimientosVenta, { productoId: '', cantidad: 1, recibidos: 0 }]);
+  const addMovimiento = useCallback(() => setMovimientosVenta(prev => [...prev, { productoId: '', cantidad: 1, recibidos: 0 }]), []);
   const removeMovimiento = (index: number) => setMovimientosVenta(prev => prev.filter((_, i) => i !== index));
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const addPago = useCallback(() => {
+      setFormData((prev: any) => ({...prev, pagos: [...(prev.pagos || []), {monto: 0, metodo: MetodoPago.EFECTIVO}]}));
+  }, []);
+
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSave(isVentaMode ? { ...formData, movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0) } : formData, isVentaMode);
-  };
+  }, [formData, isVentaMode, movimientosVenta, onSave]);
+
+  // Atajos de Teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+        e.preventDefault();
+        if (isVentaMode) addMovimiento();
+      } else if (e.altKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        addPago();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isVentaMode, addMovimiento, addPago, handleSubmit]);
 
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const vendedorOptions = useMemo(() => vendedores.map(v => ({ value: v.id, label: v.nombre })), [vendedores]);
@@ -212,7 +231,7 @@ const MovimientoCajaForm: React.FC<{
                         );
                     })}
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-6">
-                        <AppButton variant="secondary" onClick={addMovimiento} className="w-full md:w-auto border-dashed border-2">+ Agregar Item</AppButton>
+                        <AppButton variant="secondary" onClick={addMovimiento} className="w-full md:w-auto border-dashed border-2">+ Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span></AppButton>
                         <div className="text-right p-4 bg-primary-600 text-white rounded-2xl shadow-lg w-full md:w-auto min-w-[200px]">
                             <span className="text-[10px] font-black opacity-80 uppercase block">Total Sugerido</span>
                             <span className="text-3xl font-black tracking-tighter">${totalVentaCalculado.toLocaleString()}</span>
@@ -232,13 +251,13 @@ const MovimientoCajaForm: React.FC<{
                         <AppButton variant="danger" size="sm" onClick={() => {const newPagos = formData.pagos.filter((_:any, i:number) => i !== index); setFormData({...formData, pagos: newPagos});}} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
                     </div>
                 ))}
-                <AppButton variant="secondary" size="sm" onClick={() => setFormData({...formData, pagos: [...(formData.pagos || []), {monto: 0, metodo: MetodoPago.EFECTIVO}]})} className="w-full border-dashed border-2 py-3">+ Agregar otro método de pago</AppButton>
+                <AppButton variant="secondary" size="sm" onClick={addPago} className="w-full border-dashed border-2 py-3">+ Agregar otro método de pago <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+P)</span></AppButton>
             </div>
         </fieldset>
 
         <div className="flex justify-end gap-3 pt-6 border-t dark:border-gray-700">
             <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-            <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Confirmar Operación</AppButton>
+            <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Confirmar Operación <span className="opacity-60 text-[10px] ml-2 font-normal">(Ctrl+Enter)</span></AppButton>
         </div>
       </form>
     </div>
@@ -263,7 +282,6 @@ const CajaView: React.FC<CajaViewProps> = ({
   const facturasMap = useMemo(() => new Map(facturas.map(f => [f.id, f])), [facturas]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
-  // ADDED: handleSave and handleAddQuickClient to fix line 372 errors
   const handleSave = async (data: any, isVenta: boolean) => {
     try {
         if (isVenta) {
@@ -303,7 +321,6 @@ const CajaView: React.FC<CajaViewProps> = ({
       try {
           await addCliente(clienteData);
           showNotification('Cliente creado.', 'success');
-          // Fix: ensure the return from this function is consistent if needed, but it's used as any here
           return ""; 
       } catch (e) {
           showNotification('Error al crear cliente.', 'error');
