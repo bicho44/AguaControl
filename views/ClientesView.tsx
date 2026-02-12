@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
 import Card from '../components/Card';
@@ -86,18 +85,8 @@ const ClienteForm: React.FC<{
   const [nombreExistente, setNombreExistente] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [mapModalConfig, setMapModalConfig] = useState<{
-    isOpen: boolean;
-    sucursalIndex: number | null;
-    initialLat?: number;
-    initialLng?: number;
-    initialAddress: string;
-  }>({ isOpen: false, sucursalIndex: null, initialAddress: '' });
-
   const isNew = !cliente.id;
-  const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
-  const serviciosActivos = useMemo(() => servicios.filter(s => s.estado === EstadoServicio.ACTIVO), [servicios]);
-  
+
   useEffect(() => {
     if (!isNew) return;
     const cuitLimpio = unformatCuit(formData.cuit);
@@ -157,18 +146,6 @@ const ClienteForm: React.FC<{
 
   const addSucursal = useCallback(() => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `suc_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]})), []);
   const removeSucursal = (index: number) => setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
-
-  const handleAuditChange = (sucursalId: string, productoId: string, newTotal: number) => {
-      setAuditStocks(prev => {
-          const existingIdx = prev.findIndex(s => s.sucursalId === sucursalId && s.productoId === productoId);
-          if (existingIdx >= 0) {
-              const next = [...prev];
-              next[existingIdx] = { ...next[existingIdx], cantidad: newTotal };
-              return next;
-          }
-          return [...prev, { sucursalId, productoId, cantidad: newTotal }];
-      });
-  };
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -316,6 +293,23 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     } catch (e) { showNotification('Error.', 'error'); }
   };
 
+  const openNewModal = useCallback(() => {
+    if (currentUser?.rol !== Rol.ADMINISTRADOR) return;
+    setEditingCliente({estado: EstadoCliente.ACTIVO, sucursales: [{id: 'main', nombre: 'Casa Central', direccion: '', diasReparto: []}]});
+    setIsModalOpen(true);
+  }, [currentUser]);
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) {
+            e.preventDefault();
+            openNewModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isModalOpen, openNewModal]);
+
   const filteredClientes = useMemo(() => {
     return clientes.filter(c => {
         const matchesName = c.nombre.toLowerCase().includes(filter.toLowerCase());
@@ -338,7 +332,11 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Clientes</h1>
-        {currentUser?.rol === Rol.ADMINISTRADOR && <AppButton onClick={() => {setEditingCliente({estado: EstadoCliente.ACTIVO, sucursales: [{id: 'main', nombre: 'Casa Central', direccion: '', diasReparto: []}]}); setIsModalOpen(true);}}>+ Nuevo Cliente</AppButton>}
+        {currentUser?.rol === Rol.ADMINISTRADOR && (
+            <AppButton onClick={openNewModal}>
+                + Nuevo Cliente <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+            </AppButton>
+        )}
       </div>
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
           <input type="text" placeholder="Buscar por nombre..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full md:w-1/3 p-3 bg-white dark:bg-gray-700 rounded-xl border dark:border-gray-600" />

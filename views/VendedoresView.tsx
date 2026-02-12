@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -110,11 +109,28 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
     } catch (e) { showNotification('Error al guardar.', 'error'); }
   };
 
+  const openNewModal = useCallback(() => {
+    setEditingUsuario({ rol: Rol.REPARTIDOR, tipo: TipoVendedor.INTERNO });
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !editingUsuario) {
+            e.preventDefault();
+            openNewModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [editingUsuario, openNewModal]);
+
   return (
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Usuarios del Sistema</h1>
-        <AppButton onClick={() => setEditingUsuario({ rol: Rol.REPARTIDOR, tipo: TipoVendedor.INTERNO })}>+ Nuevo Usuario</AppButton>
+        <AppButton onClick={openNewModal}>
+            + Nuevo Usuario <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+        </AppButton>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {usuarios.map(u => (

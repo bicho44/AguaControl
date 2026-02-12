@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Producto, TipoProducto, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -91,6 +90,22 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
     } catch (e) { showNotification('Error.', 'error'); }
   };
 
+  const openNewModal = useCallback(() => {
+    setEditingProducto({estado: EstadoProducto.ACTIVO, color: '#3b82f6'});
+    setIsModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) {
+            e.preventDefault();
+            openNewModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isModalOpen, openNewModal]);
+
   const filteredProductos = useMemo(() => {
     let list = [...productos].sort((a,b) => a.nombre.localeCompare(b.nombre));
     return statusFilter === 'todos' ? list : list.filter(p => p.estado === statusFilter);
@@ -100,7 +115,9 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Productos</h1>
-        <AppButton onClick={() => {setEditingProducto({estado: EstadoProducto.ACTIVO, color: '#3b82f6'}); setIsModalOpen(true);}}>+ Nuevo Producto</AppButton>
+        <AppButton onClick={openNewModal}>
+            + Nuevo Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+        </AppButton>
       </div>
       <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
         {['Activo', 'Inactivo', 'todos'].map(s => (

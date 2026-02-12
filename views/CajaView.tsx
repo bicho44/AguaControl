@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, PagoDetalle, MetodoPago, Factura, Producto, TipoVendedor, MovimientoVenta, EstadoProducto, EstadoCliente, TipoTelefono, TipoProducto } from '../types';
 import Card from '../components/Card';
@@ -328,6 +327,30 @@ const CajaView: React.FC<CajaViewProps> = ({
       }
   };
 
+  const openIngresoModal = useCallback(() => {
+    setModalConfig({type: 'ingreso', isEdit: false, data: {fecha: new Date().toISOString().split('T')[0], pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
+    setIsModalOpen(true);
+  }, []);
+
+  const openGastoModal = useCallback(() => {
+    setModalConfig({type: 'gasto', isEdit: false, data: {fecha: new Date().toISOString().split('T')[0], pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
+    setIsModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) {
+            e.preventDefault();
+            openIngresoModal();
+        } else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen) {
+            e.preventDefault();
+            openGastoModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isModalOpen, openIngresoModal, openGastoModal]);
+
   const balances: Record<string, number> = useMemo(() => {
     const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
     registrosPago.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
@@ -367,8 +390,12 @@ const CajaView: React.FC<CajaViewProps> = ({
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
         <div className="flex gap-2">
-            <AppButton variant="primary" onClick={() => {setModalConfig({type: 'ingreso', isEdit: false, data: {fecha: new Date().toISOString().split('T')[0], pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); setIsModalOpen(true);}}>+ Ingreso / Venta</AppButton>
-            <AppButton variant="danger" onClick={() => {setModalConfig({type: 'gasto', isEdit: false, data: {fecha: new Date().toISOString().split('T')[0], pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); setIsModalOpen(true);}}>- Gasto</AppButton>
+            <AppButton variant="primary" onClick={openIngresoModal}>
+                + Ingreso / Venta <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+            </AppButton>
+            <AppButton variant="danger" onClick={openGastoModal}>
+                - Gasto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+G)</span>
+            </AppButton>
         </div>
       </div>
       

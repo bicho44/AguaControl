@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { PlanillaDiaria, Usuario, Producto, EstadoPlanilla, Rol, ItemStock, TipoVendedor, Remito, ItemDevolucion, TipoProducto } from '../types';
 import Card from '../components/Card';
@@ -140,10 +139,10 @@ const PlanillaForm: React.FC<{
             </fieldset>
 
             <div className="flex justify-end gap-2 pt-4">
-                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200">Cancelar</button>
-                <button type="submit" disabled={!repartidorId || cargaInicial.length === 0} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-bold">
+                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                <AppButton variant="primary" type="submit" disabled={!repartidorId || cargaInicial.length === 0} className="font-bold">
                     Confirmar Apertura <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
-                </button>
+                </AppButton>
             </div>
         </form>
     );
@@ -255,10 +254,10 @@ const RecargaForm: React.FC<{
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 font-bold">
+                <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                <AppButton variant="primary" type="submit" className="font-bold">
                     Guardar Recarga <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
-                </button>
+                </AppButton>
             </div>
         </form>
     );
@@ -428,7 +427,11 @@ const PlanillaDetailModal: React.FC<{
           if (isClosed) return;
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             e.preventDefault();
-            setIsCloseConfirmOpen(true);
+            if (isCloseConfirmOpen) {
+                confirmClosePlanilla();
+            } else {
+                setIsCloseConfirmOpen(true);
+            }
           } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
             e.preventDefault();
             setIsRecargaOpen(true);
@@ -436,7 +439,7 @@ const PlanillaDetailModal: React.FC<{
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isClosed]);
+    }, [isClosed, isCloseConfirmOpen]);
 
     const productosList = Array.from(productosMap.values());
 
@@ -464,12 +467,14 @@ const PlanillaDetailModal: React.FC<{
                             {planilla.estado.toUpperCase()}
                         </span>
                         {!isClosed && (
-                            <button 
+                            <AppButton 
                                 onClick={() => setIsRecargaOpen(true)}
-                                className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 flex items-center gap-1 shadow-sm"
+                                size="sm"
+                                variant="success"
+                                className="flex items-center gap-1 shadow-sm"
                             >
                                 <CubeIcon className="h-3 w-3"/> Registrar Recarga (Alt+I)
-                            </button>
+                            </AppButton>
                         )}
                     </div>
                 </div>
@@ -540,7 +545,7 @@ const PlanillaDetailModal: React.FC<{
                                         {difLlenos === 0 ? 'OK' : (difLlenos > 0 ? `+${difLlenos}` : difLlenos)}
                                     </td>
                                     <td className="px-2 py-3 text-center border-l-2 border-gray-300 dark:border-gray-600 bg-yellow-50/50 dark:bg-blue-900/10 font-bold text-yellow-700 dark:text-yellow-300">{item.envasesTeoricos}</td>
-                                    <td className="px-2 py-3 text-center bg-yellow-50/50 dark:bg-yellow-900/10">
+                                    <td className="px-2 py-3 text-center bg-yellow-50/50 dark:bg-blue-900/10">
                                         <input 
                                             type="number" 
                                             value={currentAudit.vacios}
@@ -549,7 +554,7 @@ const PlanillaDetailModal: React.FC<{
                                             disabled={isClosed}
                                         />
                                     </td>
-                                    <td className={`px-2 py-3 text-center font-bold bg-yellow-50/50 dark:bg-yellow-900/10 ${difVacios < 0 ? 'text-red-600' : (difVacios > 0 ? 'text-green-600' : 'text-gray-400')}`}>
+                                    <td className={`px-2 py-3 text-center font-bold bg-yellow-50/50 dark:bg-blue-900/10 ${difVacios < 0 ? 'text-red-600' : (difVacios > 0 ? 'text-green-600' : 'text-gray-400')}`}>
                                         {difVacios === 0 ? 'OK' : (difVacios > 0 ? `+${difVacios}` : difVacios)}
                                     </td>
                                 </tr>
@@ -571,16 +576,17 @@ const PlanillaDetailModal: React.FC<{
                 </div>
 
                 <div className="flex justify-end pt-4 gap-4 border-t dark:border-gray-700">
-                    <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400">
+                    <AppButton onClick={onClose} variant="secondary">
                         {isClosed ? 'Cerrar Vista' : 'Cancelar'}
-                    </button>
+                    </AppButton>
                     {!isClosed && (
-                        <button 
+                        <AppButton 
                             onClick={() => setIsCloseConfirmOpen(true)} 
-                            className="px-6 py-2 rounded-md bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg"
+                            variant="danger"
+                            className="px-6 shadow-lg"
                         >
                             Cerrar Planilla y Auditar <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
-                        </button>
+                        </AppButton>
                     )}
                 </div>
             </div>
@@ -597,8 +603,8 @@ const PlanillaDetailModal: React.FC<{
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">¿Cerrar Planilla Definitivamente?</h3>
                         <p className="text-gray-500 dark:text-gray-300 text-sm mb-6">Esta acción guardará los stocks físicos y calculará las diferencias finales.</p>
                         <div className="flex justify-center gap-3">
-                            <button onClick={() => setIsCloseConfirmOpen(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300">Volver</button>
-                            <button onClick={confirmClosePlanilla} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold">Sí, Cerrar Planilla</button>
+                            <AppButton variant="secondary" onClick={() => setIsCloseConfirmOpen(false)}>Volver</AppButton>
+                            <AppButton variant="danger" onClick={confirmClosePlanilla}>Sí, Cerrar Planilla</AppButton>
                         </div>
                     </div>
                 </Modal>
@@ -608,7 +614,6 @@ const PlanillaDetailModal: React.FC<{
 };
 
 const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, productos, remitos, addPlanilla, updatePlanilla }) => {
-  // Fix: Correctly use the notification hook and avoid self-referencing before declaration
   const { showNotification } = useNotification();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -636,11 +641,28 @@ const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, prod
       updatePlanilla(planilla);
   };
 
+  const openNewModal = useCallback(() => {
+    setIsFormOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isFormOpen && !viewingPlanilla) {
+            e.preventDefault();
+            openNewModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isFormOpen, viewingPlanilla, openNewModal]);
+
   return (
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Control de Stock y Reparto</h1>
-        <AppButton onClick={() => setIsFormOpen(true)}>+ Nueva Planilla</AppButton>
+        <AppButton onClick={openNewModal}>
+            + Nueva Planilla <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+        </AppButton>
       </div>
 
       <div className="flex items-center gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">

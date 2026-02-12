@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Servicio, Producto, TipoServicio, TipoProducto, EstadoServicio, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -7,6 +7,7 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
+import AppButton from '../components/ui/AppButton';
 
 interface ServiciosViewProps {
   servicios: Servicio[];
@@ -35,15 +36,25 @@ const ServicioForm: React.FC<{
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSave(formData as Servicio);
-  };
+  }, [formData, onSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit]);
 
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
   const equiposOptions = useMemo(() => productosActivos.filter(p => p.tipo === TipoProducto.EQUIPO).map(p => ({ value: p.id, label: p.nombre })), [productosActivos]);
   const consumoOptions = useMemo(() => productosActivos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).map(p => ({ value: p.id, label: p.nombre })), [productosActivos]);
-
 
   const showEquipo = formData.tipo !== TipoServicio.SOLO_CONSUMO;
   const showMonto = formData.tipo === TipoServicio.ABONO_FIJO || formData.tipo === TipoServicio.ALQUILER_PURO;
@@ -102,9 +113,9 @@ const ServicioForm: React.FC<{
         )}
       </fieldset>
 
-      <div className="flex justify-end space-x-2 pt-4">
-        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
-        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
+      <div className="flex justify-end gap-2 pt-4">
+        <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+        <AppButton variant="primary" type="submit">Guardar Servicio <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )
@@ -145,16 +156,28 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
     setServicioParaBaja(null);
   };
 
-  const openNewModal = () => {
+  const openNewModal = useCallback(() => {
     setEditingServicio({ tipo: TipoServicio.COMODATO, estado: EstadoServicio.ACTIVO });
     setIsModalOpen(true);
-  };
+  }, []);
 
+  // FIX: Add missing openEditModal function
   const openEditModal = (servicio: Servicio) => {
     setEditingServicio(servicio);
     setIsModalOpen(true);
   };
-  
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) {
+            e.preventDefault();
+            openNewModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isModalOpen, openNewModal]);
+
   const filteredServicios = useMemo(() => {
     let serviciosFiltrados = [...servicios].sort((a,b) => a.nombre.localeCompare(b.nombre));
     if (statusFilter !== 'todos') {
@@ -167,9 +190,9 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Servicios</h1>
-        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
-          + Nuevo Servicio
-        </button>
+        <AppButton onClick={openNewModal}>
+          + Nuevo Servicio <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+        </AppButton>
       </div>
       
       <div className="flex items-center space-x-4 bg-gray-200 dark:bg-gray-700 p-2 rounded-md w-fit">

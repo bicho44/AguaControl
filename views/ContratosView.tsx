@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Contrato, Cliente, Producto, TipoServicio, EstadoContrato, TipoProducto, Sucursal, Servicio, EstadoServicio, EstadoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -7,6 +7,7 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
+import AppButton from '../components/ui/AppButton';
 
 interface ContratosViewProps {
   contratos: Contrato[];
@@ -71,10 +72,21 @@ const ContratoForm: React.FC<{
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSave(formData as Contrato);
-  };
+  }, [formData, onSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit]);
 
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const servicioOptions = useMemo(() => {
@@ -164,9 +176,9 @@ const ContratoForm: React.FC<{
           <textarea name="condicionesEspeciales" value={formData.condicionesEspeciales || ''} onChange={(e) => setFormData(prev => ({ ...prev, condicionesEspeciales: e.target.value }))} rows={3} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
         </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
-        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500">Cancelar</button>
-        <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">Guardar</button>
+      <div className="flex justify-end gap-2 pt-4">
+        <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+        <AppButton variant="primary" type="submit">Guardar Contrato <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )
@@ -223,18 +235,29 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
     }
   };
 
-  const openNewModal = () => {
+  const openNewModal = useCallback(() => {
     setEditingContrato({
       fechaInicio: new Date().toISOString().split('T')[0],
       estado: EstadoContrato.ACTIVO,
     });
     setIsModalOpen(true);
-  };
+  }, []);
 
   const openEditModal = (contrato: Contrato) => {
     setEditingContrato(contrato);
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) {
+            e.preventDefault();
+            openNewModal();
+        }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isModalOpen, openNewModal]);
   
   const toggleClientExpansion = (clienteId: string) => {
     setExpandedClientIds(prev => {
@@ -252,9 +275,9 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Contratos de Servicio</h1>
-        <button onClick={openNewModal} className="px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700">
-          + Nuevo Contrato
-        </button>
+        <AppButton onClick={openNewModal}>
+          + Nuevo Contrato <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+        </AppButton>
       </div>
 
       <Card>
@@ -371,7 +394,7 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                                 deleteContrato(contratoParaBorrar.id);
                                 showNotification('Contrato eliminado con éxito.', 'success');
                             } catch (e) {
-                                showNotification('Error al eliminar el contrato.', 'error');
+                                showNotification('Error al eliminar the contrato.', 'error');
                                 console.error(e);
                             }
                             setContratoParaBorrar(null);
