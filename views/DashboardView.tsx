@@ -1,8 +1,8 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import Card from '../components/Card';
-import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings } from '../types';
+import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor } from '../types';
 import LeafletMap from '../components/LeafletMap';
 
 interface DashboardViewProps {
@@ -80,6 +80,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ products, visibleProducts
 
 const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings }) => {
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
+  const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
   
   const consumableProductNames = useMemo(() => {
     return [...new Set(
@@ -124,7 +125,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
       });
   };
 
-  // Helper para parsear fechas de string "YYYY-MM-DD" a Date de medianoche local
   const parseLocalDate = (dateStr: string) => {
       const [y, m, d] = dateStr.split('-').map(Number);
       return new Date(y, m - 1, d, 0, 0, 0);
@@ -158,7 +158,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     saldoOtros,
     monthlySalesVolumeChartData,
     monthlySalesByTypeData,
-    currentMonthDailySalesData
+    currentMonthDailySalesData,
+    externalVendorsPieData
   } = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -175,7 +176,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
 
-    // Filtrado de Remitos (Ignorando Ajustes)
     const activeRemitos = remitos.filter(r => !r.esAjuste);
     const dailyRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha).getTime() === today.getTime());
     const yesterdayRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha).getTime() === yesterday.getTime());
@@ -186,7 +186,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         return d >= startOfLastMonth && d <= endOfLastMonth; 
     });
 
-    // Filtrado de Ventas Caja
     const dailyVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha).getTime() === today.getTime());
     const yesterdayVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha).getTime() === yesterday.getTime());
     const weeklyVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha) >= startOfWeek);
@@ -196,7 +195,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         return d >= startOfLastMonth && d <= endOfLastMonth;
     });
 
-    // Saldos de Caja
     let sEfectivo = 0; let sOtros = 0;
     registrosPago.forEach(pago => {
         if (pago.metodo === MetodoPago.EFECTIVO) sEfectivo += (pago.monto || 0);
@@ -209,7 +207,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         });
     });
 
-    // GRÁFICOS HISTÓRICOS (12 MESES ATRÁS DESDE HOY)
     const monthlyHistoryData: any[] = [];
     const monthlyTypeData: any[] = [];
     
@@ -217,17 +214,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
         const monthLabel = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' }).toUpperCase();
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
         const monthObj: any = { name: monthLabel, sortKey: monthKey };
         const typeObj: any = { name: monthLabel, sortKey: monthKey };
-        
         consumableProductNames.forEach(pName => {
             monthObj[pName] = 0;
             typeObj[`Carga - ${pName}`] = 0;
             typeObj[`Reventa - ${pName}`] = 0;
         });
-
-        // Sumar Remitos del mes
         activeRemitos.forEach(r => {
             const d = parseLocalDate(r.fecha);
             if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()) {
@@ -240,8 +233,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                 });
             }
         });
-
-        // Sumar Ventas Caja del mes
         ventasVendedor.forEach(v => {
             const d = parseLocalDate(v.fecha);
             if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()) {
@@ -254,48 +245,50 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                 });
             }
         });
-
         monthlyHistoryData.push(monthObj);
         monthlyTypeData.push(typeObj);
     }
 
-    // EVOLUCIÓN DIARIA MES ACTUAL
     const dailyEvolutionData: any[] = [];
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    
     for (let d = 1; d <= daysInMonth; d++) {
         const dayLabel = d.toString();
         const dayObj: any = { name: dayLabel };
-        
         consumableProductNames.forEach(pName => {
             dayObj[`Carga - ${pName}`] = 0;
             dayObj[`Reventa - ${pName}`] = 0;
         });
-
         monthlyRemitos.forEach(r => {
             if (parseLocalDate(r.fecha).getDate() === d) {
                 r.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
-                    if (prod && consumableProductNames.includes(prod.nombre)) {
-                        dayObj[`Carga - ${prod.nombre}`] += m.entregados;
-                    }
+                    if (prod && consumableProductNames.includes(prod.nombre)) dayObj[`Carga - ${prod.nombre}`] += m.entregados;
                 });
             }
         });
-
         monthlyVentas.forEach(v => {
             if (parseLocalDate(v.fecha).getDate() === d) {
                 v.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
-                    if (prod && consumableProductNames.includes(prod.nombre)) {
-                        dayObj[`Reventa - ${prod.nombre}`] += m.cantidad;
-                    }
+                    if (prod && consumableProductNames.includes(prod.nombre)) dayObj[`Reventa - ${prod.nombre}`] += m.cantidad;
                 });
             }
         });
-
         dailyEvolutionData.push(dayObj);
     }
+
+    // Estadísticas Vendedores Externos (Mes Actual)
+    const externalSalesMap = new Map<string, number>();
+    monthlyVentas.forEach(v => {
+        const vendor = usuariosMap.get(v.vendedorId);
+        if (vendor?.tipo === TipoVendedor.EXTERNO) {
+            const totalUnits = v.movimientos.reduce((s, m) => s + m.cantidad, 0);
+            externalSalesMap.set(vendor.nombre, (externalSalesMap.get(vendor.nombre) || 0) + totalUnits);
+        }
+    });
+    const externalVendorsPieData = Array.from(externalSalesMap.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
 
     return {
         dailyStats: calculateStatsForPeriod(dailyRemitos, dailyVentas),
@@ -307,11 +300,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         saldoOtros: sOtros,
         monthlySalesVolumeChartData: monthlyHistoryData,
         monthlySalesByTypeData: monthlyTypeData,
-        currentMonthDailySalesData: dailyEvolutionData
+        currentMonthDailySalesData: dailyEvolutionData,
+        externalVendorsPieData
     }
-  }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, consumableProductNames]);
+  }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames]);
 
-  // --- MAPA DE REPARTO ---
   const [mapMarkers, setMapMarkers] = useState<{ lat: number, lng: number, title: string }[]>([]);
   const [todayName, setTodayName] = useState<string>('');
   const [routeLine, setRouteLine] = useState<{ lat: number, lng: number }[]>([]);
@@ -321,7 +314,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     const days = [DiaSemana.DOMINGO, DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO];
     const name = days[new Date().getDay()];
     setTodayName(name);
-
     const markers: { lat: number, lng: number, title: string }[] = [];
     if (empresaSettings?.lat && empresaSettings?.lng) {
         markers.push({ lat: empresaSettings.lat, lng: empresaSettings.lng, title: "Fábrica" });
@@ -364,7 +356,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     setIsOptimized(true);
   };
 
-  const [metricsOrder] = useState(['hoy', 'ayer', 'semana', 'mes', 'mes_anterior']);
+  const metricsOrder = ['hoy', 'ayer', 'semana', 'mes', 'mes_anterior'];
   const metricsComponents: Record<string, React.ReactNode> = {
     'hoy': <StatsCard title="Hoy" stats={dailyStats} />,
     'ayer': <StatsCard title="Ayer" stats={yesterdayStats} />,
@@ -379,8 +371,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
       borderRadius: '1rem',
       color: '#fff',
       fontSize: '12px',
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+      zIndex: 50
   };
+
+  const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
   return (
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
@@ -404,6 +399,103 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Gráfico principal de Evolución Diaria */}
+          <div className="lg:col-span-3">
+              <Card title="Evolución Diaria del Mes Actual (Ventas Totales)">
+                  <ProductFilter products={consumableProductNames} visibleProducts={visibleProducts} colors={productColors} onToggle={toggleProductVisibility} />
+                  <div className="h-80 px-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={currentMonthDailySalesData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} label={{ value: 'Día del Mes', position: 'insideBottom', offset: -5, fontSize: 10 }} />
+                              <YAxis axisLine={false} tickLine={false} />
+                              <Tooltip contentStyle={tooltipStyle} labelFormatter={(l) => `Día ${l}`} />
+                              {consumableProductNames.map(name => visibleProducts.includes(name) && (
+                                  <React.Fragment key={name}>
+                                      <Line type="monotone" dataKey={`Carga - ${name}`} stroke={productColors[name]} strokeWidth={3} dot={false} />
+                                      <Line type="monotone" dataKey={`Reventa - ${name}`} stroke={productColors[name]} strokeWidth={1} strokeDasharray="3 3" dot={false} />
+                                  </React.Fragment>
+                              ))}
+                          </LineChart>
+                      </ResponsiveContainer>
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-2">
+              <Card title="Volumen de Ventas (Histórico 12 Meses)">
+                  <ProductFilter products={consumableProductNames} visibleProducts={visibleProducts} colors={productColors} onToggle={toggleProductVisibility} />
+                  <div className="h-80 px-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={monthlySalesVolumeChartData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
+                              <Tooltip contentStyle={tooltipStyle} />
+                              <Legend iconType="circle" />
+                              {consumableProductNames.map(name => visibleProducts.includes(name) && <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} animationDuration={1000} />)}
+                          </LineChart>
+                      </ResponsiveContainer>
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-1">
+              <Card title="Vendedores Externos (Participación Mensual)">
+                  <div className="h-80 px-2 flex flex-col">
+                      {externalVendorsPieData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                  <Pie
+                                      data={externalVendorsPieData}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={60}
+                                      outerRadius={80}
+                                      paddingAngle={5}
+                                      dataKey="value"
+                                  >
+                                      {externalVendorsPieData.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                      ))}
+                                  </Pie>
+                                  <Tooltip contentStyle={tooltipStyle} />
+                                  <Legend verticalAlign="bottom" height={36}/>
+                              </PieChart>
+                          </ResponsiveContainer>
+                      ) : (
+                          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas externas este mes</div>
+                      )}
+                      <p className="text-[9px] text-center text-gray-400 mt-2 uppercase">Unidades totales por Distribuidor Externo</p>
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-3">
+              <Card title="Reparto vs Mostrador (Carga vs Reventa - Comparativa Anual)">
+                  <ProductFilter products={consumableProductNames} visibleProducts={visibleProducts} colors={productColors} onToggle={toggleProductVisibility} />
+                  <div className="h-80 px-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={monthlySalesByTypeData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                              <YAxis axisLine={false} tickLine={false} />
+                              <Tooltip contentStyle={tooltipStyle} />
+                              <Legend />
+                              {consumableProductNames.map(name => visibleProducts.includes(name) && (
+                                  <React.Fragment key={name}>
+                                      <Line type="monotone" dataKey={`Carga - ${name}`} stroke={productColors[name]} strokeWidth={4} dot={false} />
+                                      <Line type="monotone" dataKey={`Reventa - ${name}`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                  </React.Fragment>
+                              ))}
+                          </LineChart>
+                      </ResponsiveContainer>
+                  </div>
+              </Card>
+          </div>
+      </div>
+
       <div className="space-y-6">
           <Card title={`Ruta de Reparto: ${todayName}`}>
             <div className="p-2 space-y-4">
@@ -415,67 +507,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                                 {isOptimized ? 'Ruta Optimizada ✓' : 'Optimizar Recorrido'}
                             </button>
                         </div>
-                        <LeafletMap markers={mapMarkers} height="400px" route={routeLine} />
+                        <LeafletMap markers={mapMarkers} height="450px" route={routeLine} />
                     </>
                 ) : <div className="h-40 flex items-center justify-center text-gray-400 border-2 border-dashed rounded-2xl">Sin repartos hoy</div>}
             </div>
-          </Card>
-
-          <Card title="Volumen de Ventas (Histórico 12 Meses)">
-              <ProductFilter products={consumableProductNames} visibleProducts={visibleProducts} colors={productColors} onToggle={toggleProductVisibility} />
-              <div className="h-80 px-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlySalesVolumeChartData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-                          <Tooltip contentStyle={tooltipStyle} />
-                          <Legend iconType="circle" />
-                          {consumableProductNames.map(name => visibleProducts.includes(name) && <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} animationDuration={1000} />)}
-                      </LineChart>
-                  </ResponsiveContainer>
-              </div>
-          </Card>
-
-          <Card title="Reparto vs Mostrador (Carga vs Reventa)">
-              <ProductFilter products={consumableProductNames} visibleProducts={visibleProducts} colors={productColors} onToggle={toggleProductVisibility} />
-              <div className="h-80 px-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlySalesByTypeData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                          <YAxis axisLine={false} tickLine={false} />
-                          <Tooltip contentStyle={tooltipStyle} />
-                          <Legend />
-                          {consumableProductNames.map(name => visibleProducts.includes(name) && (
-                              <React.Fragment key={name}>
-                                  <Line type="monotone" dataKey={`Carga - ${name}`} stroke={productColors[name]} strokeWidth={4} dot={false} />
-                                  <Line type="monotone" dataKey={`Reventa - ${name}`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                              </React.Fragment>
-                          ))}
-                      </LineChart>
-                  </ResponsiveContainer>
-              </div>
-          </Card>
-
-          <Card title="Evolución Diaria del Mes (Ventas Totales)">
-              <ProductFilter products={consumableProductNames} visibleProducts={visibleProducts} colors={productColors} onToggle={toggleProductVisibility} />
-              <div className="h-80 px-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={currentMonthDailySalesData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} label={{ value: 'Día del Mes', position: 'insideBottom', offset: -5, fontSize: 10 }} />
-                          <YAxis axisLine={false} tickLine={false} />
-                          <Tooltip contentStyle={tooltipStyle} labelFormatter={(l) => `Día ${l}`} />
-                          {consumableProductNames.map(name => visibleProducts.includes(name) && (
-                              <React.Fragment key={name}>
-                                  <Line type="monotone" dataKey={`Carga - ${name}`} stroke={productColors[name]} strokeWidth={3} dot={false} />
-                                  <Line type="monotone" dataKey={`Reventa - ${name}`} stroke={productColors[name]} strokeWidth={1} strokeDasharray="3 3" dot={false} />
-                              </React.Fragment>
-                          ))}
-                      </LineChart>
-                  </ResponsiveContainer>
-              </div>
           </Card>
       </div>
     </div>
