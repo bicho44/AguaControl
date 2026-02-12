@@ -1,10 +1,7 @@
-
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, getDocs, limit, query, doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { auth } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
-import { Rol, TipoVendedor, Usuario } from '../types';
 
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -26,45 +23,11 @@ const LoginView: React.FC = () => {
     setIsLoading(true);
     try {
       if (isRegistering) {
-        // 1. Verificar base de datos
-        // Nota: Si esto falla por permisos, el catch lo atrapará y avisará
-        try {
-            const usersRef = collection(db, 'usuarios');
-            const q = query(usersRef, limit(1));
-            const snapshot = await getDocs(q);
-
-            if (!snapshot.empty) {
-                showNotification('El sistema ya está inicializado. Inicie sesión.', 'error');
-                setIsLoading(false);
-                return;
-            }
-        } catch (dbError: any) {
-            console.warn("No se pudo verificar existencia de usuarios (probablemente permisos o DB no creada). Intentando crear Admin igual...", dbError);
-            // Continuamos igual para intentar crear el primer usuario
-        }
-
-        // 2. Crear usuario en Auth
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-
-        // 3. Crear documento (Si falla aquí, el AuthContext igual logueará con el fallback)
-        try {
-            const newUser: Usuario = {
-                id: user.uid,
-                nombre: nombre,
-                email: email,
-                rol: Rol.ADMINISTRADOR,
-                tipo: TipoVendedor.INTERNO
-            };
-            await setDoc(doc(db, 'usuarios', user.uid), newUser);
-            showNotification('¡Cuenta creada! Ingresando...', 'success');
-        } catch (writeError) {
-            console.error("Usuario creado en Auth pero falló escritura en DB:", writeError);
-            showNotification('Usuario creado, pero hubo un error guardando el perfil. Verifique reglas de Firestore.', 'success');
-        }
-
+        // El AuthContext se encargará de vincular este nuevo usuario 
+        // con el perfil creado por el administrador (o crear el primer admin)
+        await createUserWithEmailAndPassword(auth, email, password);
+        showNotification('Cuenta creada. Verificando perfil...', 'success');
       } else {
-        // Login Normal
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (error: any) {
@@ -73,8 +36,8 @@ const LoginView: React.FC = () => {
       
       if (error.code === 'auth/invalid-credential') msg = 'Email o contraseña incorrectos.';
       if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado.';
-      if (error.code === 'auth/operation-not-allowed') msg = 'Error: Debes habilitar "Email/Password" en la consola de Firebase -> Authentication.';
-      if (error.code === 'permission-denied') msg = 'Error de permisos: Revisa las Reglas de Firestore.';
+      if (error.code === 'auth/weak-password') msg = 'La contraseña debe tener al menos 6 caracteres.';
+      if (error.code === 'auth/operation-not-allowed') msg = 'Error: Debes habilitar "Email/Password" en Firebase Auth.';
       
       showNotification(msg, 'error');
     } finally {
@@ -88,7 +51,7 @@ const LoginView: React.FC = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">Aguas Puras</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">
-            {isRegistering ? 'Crear Primer Administrador' : 'Iniciar Sesión'}
+            {isRegistering ? 'Crear mi Cuenta' : 'Iniciar Sesión'}
           </p>
         </div>
         
@@ -102,7 +65,7 @@ const LoginView: React.FC = () => {
                 onChange={(e) => setNombre(e.target.value)}
                 className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white"
                 required={isRegistering}
-                placeholder="Ej: Admin Principal"
+                placeholder="Ej: Juan Repartidor"
                 />
             </div>
           )}
@@ -133,7 +96,7 @@ const LoginView: React.FC = () => {
             disabled={isLoading}
             className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-md shadow transition duration-200 disabled:opacity-50"
           >
-            {isLoading ? 'Procesando...' : (isRegistering ? 'Registrar y Entrar' : 'Iniciar Sesión')}
+            {isLoading ? 'Procesando...' : (isRegistering ? 'Registrarse' : 'Entrar')}
           </button>
         </form>
 
@@ -144,20 +107,20 @@ const LoginView: React.FC = () => {
             >
                 {isRegistering 
                     ? '¿Ya tienes cuenta? Iniciar Sesión' 
-                    : '¿Primera vez? Crear cuenta Admin'}
+                    : '¿No tienes cuenta? Regístrate aquí'}
             </button>
             
             <button 
                 onClick={handleResetConfig}
                 className="text-xs text-gray-400 hover:text-red-500 underline"
             >
-                Resetear configuración de base de datos
+                Configuración de base de datos
             </button>
         </div>
       </div>
       
       <div className="mt-8 max-w-md text-xs text-gray-500 dark:text-gray-400 text-center">
-        <p>¿Problemas para entrar? Asegúrate de haber habilitado <strong>"Email/Password"</strong> en la pestaña Authentication y haber creado la base de datos en <strong>Firestore Database</strong> en tu consola de Firebase.</p>
+        <p>Si un administrador ya creó tu perfil, regístrate con el mismo email para acceder.</p>
       </div>
     </div>
   );
