@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase/config';
 import { 
@@ -117,43 +116,76 @@ export const useDataStore = () => {
         await deleteDoc(doc(db, 'remitos', id));
     }, []);
 
+    // Función auxiliar para procesar stock inicial y contratos (reutilizable)
+    const processInitialData = async (clienteId: string, stockInicial?: any[], contratosIniciales?: any[], adminId?: string) => {
+        // 1. Procesar Stock Inicial (Crear Remitos de Ajuste)
+        if (stockInicial && stockInicial.length > 0) {
+            const today = new Date().toISOString().split('T')[0];
+            // Agrupar por sucursal para no crear mil remitos
+            const stockPorSucursal: Record<string, any[]> = {};
+            
+            stockInicial.forEach(item => {
+                const sucId = item.sucursalId || 'main';
+                if (!stockPorSucursal[sucId]) stockPorSucursal[sucId] = [];
+                stockPorSucursal[sucId].push(item);
+            });
+
+            for (const [sucursalId, items] of Object.entries(stockPorSucursal)) {
+                const movimientos = items.map((stock: any) => ({
+                    productoId: stock.productoId,
+                    entregados: stock.cantidad > 0 ? stock.cantidad : 0,
+                    recibidos: stock.cantidad < 0 ? Math.abs(stock.cantidad) : 0
+                })).filter((m: any) => m.entregados > 0 || m.recibidos > 0);
+
+                if (movimientos.length > 0) {
+                    const remitoAjuste = {
+                        fecha: today,
+                        clienteId: clienteId,
+                        sucursalId: sucursalId === 'main' ? null : sucursalId,
+                        vendedorId: adminId || '',
+                        puntoVenta: '0000',
+                        numero: `INI-${Date.now().toString().slice(-6)}`,
+                        esAjuste: true,
+                        movimientos
+                    };
+                    await addDoc(collection(db, 'remitos'), cleanUndefineds(remitoAjuste));
+                }
+            }
+        }
+
+        // 2. Procesar Contratos Iniciales
+        if (contratosIniciales && contratosIniciales.length > 0) {
+            for (const c of contratosIniciales) {
+                await addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: clienteId }));
+            }
+        }
+    };
+
     const addCliente = useCallback(async (c: any) => {
         const { stockInicial, contratosIniciales, ...data } = c;
-        // Fix: Add default active state as views omit it for new clients
+        
+        // 1. Guardar Cliente
         const docRef = await addDoc(collection(db, 'clientes'), { ...cleanUndefineds(data), estado: EstadoCliente.ACTIVO });
+        
+        // 2. Procesar Datos Iniciales (AHORA SÍ SE GUARDAN)
+        const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
+        await processInitialData(docRef.id, stockInicial, contratosIniciales, adminUser?.id || (usuarios.length > 0 ? usuarios[0].id : ''));
+
         return docRef.id;
-    }, []);
+    }, [usuarios]);
 
     const updateCliente = useCallback(async (updatedCliente: Cliente & { 
         stockInicial?: { productoId: string; cantidad: number; sucursalId?: string }[];
         contratosIniciales?: Omit<Contrato, 'id' | 'clienteId'>[];
     }) => {
         const { id, stockInicial, contratosIniciales, ...data } = updatedCliente;
+        
         await updateDoc(doc(db, 'clientes', id), cleanUndefineds(data));
-    
-        if (stockInicial && stockInicial.length > 0) {
-            const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
-            const today = new Date().toISOString().split('T')[0];
-            const remitosDeAjuste = stockInicial.map(stock => ({
-                fecha: today,
-                clienteId: id,
-                sucursalId: stock.sucursalId || null,
-                vendedorId: adminUser?.id || (usuarios.length > 0 ? usuarios[0].id : ''),
-                puntoVenta: '0000',
-                numero: `AJU-${Date.now()}-${Math.floor(Math.random()*100)}`,
-                esAjuste: true,
-                movimientos: [{
-                    productoId: stock.productoId,
-                    entregados: stock.cantidad > 0 ? stock.cantidad : 0,
-                    recibidos: stock.cantidad < 0 ? Math.abs(stock.cantidad) : 0
-                }]
-            }));
-            for (const r of remitosDeAjuste) { await addDoc(collection(db, 'remitos'), cleanUndefineds(r)); }
-        }
-    
-        if (contratosIniciales && contratosIniciales.length > 0) {
-            for (const c of contratosIniciales) { await addDoc(collection(db, 'contratos'), cleanUndefineds({ ...c, clienteId: id })); }
-        }
+        
+        // También procesamos en update por si es una auditoría posterior
+        const adminUser = usuarios.find(u => u.rol === Rol.ADMINISTRADOR);
+        await processInitialData(id, stockInicial, contratosIniciales, adminUser?.id || (usuarios.length > 0 ? usuarios[0].id : ''));
+
     }, [usuarios]);
 
     const deleteCliente = useCallback(async (id: string) => {

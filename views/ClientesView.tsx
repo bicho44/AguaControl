@@ -246,10 +246,14 @@ const ClienteForm: React.FC<{
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
                               <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
                               <div className="relative">
-                                  <AppInput label="Dirección" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} />
-                                  <div className="absolute right-2 top-8 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-600 p-0.5">
-                                      <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"><SearchIcon className="w-4 h-4"/></button>
-                                      <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-1.5 rounded transition-colors ${suc.lat ? 'text-green-500 hover:text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><MapIcon className="w-4 h-4"/></button>
+                                  <div className="flex items-end gap-2">
+                                      <div className="flex-1">
+                                          <AppInput label="Dirección" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} />
+                                      </div>
+                                      <div className="flex gap-1 mb-1">
+                                          <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg"><SearchIcon className="w-5 h-5"/></button>
+                                          <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-2 rounded-lg transition-colors ${suc.lat ? 'text-white bg-green-600 hover:bg-green-700' : 'text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}><MapIcon className="w-5 h-5"/></button>
+                                      </div>
                                   </div>
                               </div>
                           </div>
@@ -300,7 +304,7 @@ const ClienteForm: React.FC<{
               <Card title="Servicios a Contratar (Alta Rápida)">
                   <div className="space-y-3">
                       {contratosIniciales.map((c, idx) => (
-                          <div key={idx} className="flex gap-2 items-center">
+                          <div key={idx} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border dark:border-gray-700">
                               <div className="flex-1">
                                   <SearchableSelect 
                                       options={servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({value: s.id, label: s.nombre}))}
@@ -309,10 +313,10 @@ const ClienteForm: React.FC<{
                                       placeholder="Seleccionar Servicio..."
                                   />
                               </div>
-                              <AppButton variant="danger" size="sm" onClick={() => removeContratoInicial(idx)} className="!p-2"><TrashIcon/></AppButton>
+                              <AppButton variant="danger" size="sm" onClick={() => removeContratoInicial(idx)} className="!p-2 h-10"><TrashIcon/></AppButton>
                           </div>
                       ))}
-                      <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2">+ Agregar Contrato Inicial</AppButton>
+                      <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3">+ Agregar Contrato Inicial</AppButton>
                   </div>
               </Card>
           )}
