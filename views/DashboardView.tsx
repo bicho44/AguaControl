@@ -459,6 +459,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                                       outerRadius={80}
                                       paddingAngle={5}
                                       dataKey="value"
+                                      label={({ value }) => `${value}`} // ETIQUETAS SIEMPRE VISIBLES
                                   >
                                       {externalVendorsPieData.map((entry, index) => (
                                           <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
