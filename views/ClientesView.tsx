@@ -46,7 +46,7 @@ const ClienteForm: React.FC<{
   cliente: Partial<Cliente>;
   productos: Producto[];
   servicios: Servicio[];
-  contratos: Contrato[]; // Recibimos todos los contratos para filtrar los de este cliente
+  contratos: Contrato[]; 
   clientes: Cliente[]; 
   remitos: Remito[];
   onSave: (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
@@ -57,7 +57,6 @@ const ClienteForm: React.FC<{
   const [mapIndex, setMapIndex] = useState<number | null>(null);
   const { showNotification } = useNotification();
   
-  // Filtrar contratos vigentes de este cliente para mostrar en modo lectura
   const contratosVigentes = useMemo(() => {
       if (!cliente.id) return [];
       return contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
@@ -463,6 +462,25 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     }).sort((a,b) => a.nombre.localeCompare(b.nombre));
   }, [clientes, filter, statusFilter]);
 
+  if (isModalOpen) return (
+    <div className="animate-fade-in">
+        <div className="mb-6 flex items-center gap-4">
+            <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+            <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
+        </div>
+        <ClienteForm 
+            cliente={editingCliente || {}} 
+            productos={productos} 
+            servicios={servicios} 
+            contratos={contratos}
+            clientes={clientes} 
+            remitos={remitos} 
+            onSave={handleSave} 
+            onClose={() => setIsModalOpen(false)} 
+        />
+    </div>
+  );
+
   return (
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
@@ -564,25 +582,6 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             )
         })}
       </div>
-      
-      {isModalOpen && (
-        <div className="animate-fade-in">
-            <div className="mb-6 flex items-center gap-4">
-                <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-                <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
-            </div>
-            <ClienteForm 
-                cliente={editingCliente || {}} 
-                productos={productos} 
-                servicios={servicios} 
-                contratos={contratos}
-                clientes={clientes} 
-                remitos={remitos} 
-                onSave={handleSave} 
-                onClose={() => setIsModalOpen(false)} 
-            />
-        </div>
-      )}
 
       {clienteParaBaja && (
         <Modal isOpen={!!clienteParaBaja} onClose={() => setClienteParaBaja(null)}>
