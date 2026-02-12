@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
 import Card from '../components/Card';
@@ -18,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
+import ContratoForm from '../components/ContratoForm';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -30,7 +30,9 @@ interface ClientesViewProps {
   updateCliente: (cliente: Cliente & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   deleteCliente: (clienteId: string) => void;
   reactivarCliente: (clienteId: string) => void;
-  deleteContrato?: (contratoId: string) => void; // Nuevo prop opcional para manejar borrado desde la vista padre
+  deleteContrato?: (contratoId: string) => void; 
+  addContrato?: (contrato: Omit<Contrato, 'id'>) => void;
+  updateContrato?: (contrato: Contrato) => void;
 }
 
 const formatCuit = (value: string = '') => {
@@ -53,11 +55,13 @@ const ClienteForm: React.FC<{
   remitos: Remito[];
   onSave: (data: { cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }, contratosAEliminar: string[] }) => void;
   onClose: () => void;
-}> = ({ cliente, productos, servicios, contratos, clientes, remitos, onSave, onClose }) => {
+  addContrato?: (contrato: Omit<Contrato, 'id'>) => void;
+}> = ({ cliente, productos, servicios, contratos, clientes, remitos, onSave, onClose, addContrato }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   const [mapIndex, setMapIndex] = useState<number | null>(null);
   const [contratosAEliminar, setContratosAEliminar] = useState<Set<string>>(new Set());
+  const [isContratoModalOpen, setIsContratoModalOpen] = useState(false);
   const { showNotification } = useNotification();
   
   const contratosVigentes = useMemo(() => {
@@ -196,19 +200,6 @@ const ClienteForm: React.FC<{
       setAuditStocks(prev => prev.filter(a => !(a.sucursalId === sucursalId && a.productoId === productoId)));
   };
 
-  const addContratoInicial = () => {
-    setContratosIniciales(prev => [...prev, { 
-        servicioId: '', 
-        tipo: TipoServicio.ALQUILER_PURO, 
-        fechaInicio: new Date().toISOString().split('T')[0], 
-        estado: EstadoContrato.ACTIVO 
-    }]);
-  };
-
-  const removeContratoInicial = (index: number) => {
-    setContratosIniciales(prev => prev.filter((_, i) => i !== index));
-  };
-
   const toggleDeleteContrato = (id: string) => {
       setContratosAEliminar(prev => {
           const next = new Set(prev);
@@ -218,25 +209,23 @@ const ClienteForm: React.FC<{
       });
   };
 
-  const updateContratoInicial = (index: number, field: keyof Contrato | 'servicioId', value: any) => {
-    const newC = [...contratosIniciales];
-    if (field === 'servicioId') {
-        const s = servicios.find(s => s.id === value);
-        if (s) {
-            newC[index] = {
-                ...newC[index],
-                servicioId: value,
-                tipo: s.tipo,
-                montoMensual: s.montoMensual,
-                productoId: s.productoId,
-                productoConsumoId: s.productoConsumoId,
-                consumoIncluido: s.consumoIncluido
-            };
-        }
-    } else {
-        newC[index] = { ...newC[index], [field]: value };
-    }
-    setContratosIniciales(newC);
+  const handleSaveContrato = (nuevoContrato: any) => {
+      if (isNew) {
+          // Si el cliente es nuevo, agregamos a la lista temporal
+          setContratosIniciales(prev => [...prev, nuevoContrato]);
+          showNotification('Contrato agregado a la lista (Pendiente de guardar cliente).', 'success');
+      } else {
+          // Si el cliente ya existe, guardamos directamente en BD
+          if (addContrato) {
+              addContrato({ ...nuevoContrato, clienteId: cliente.id });
+              showNotification('Contrato creado exitosamente.', 'success');
+          }
+      }
+      setIsContratoModalOpen(false);
+  };
+
+  const removeContratoInicial = (index: number) => {
+      setContratosIniciales(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
@@ -390,6 +379,13 @@ const ClienteForm: React.FC<{
 
           <Card title="Gestión de Servicios y Contratos">
               <div className="space-y-6">
+                  {/* Botón para abrir modal de nuevo contrato */}
+                  <div className="flex justify-end">
+                      <AppButton onClick={() => setIsContratoModalOpen(true)}>
+                          + Agregar Contrato
+                      </AppButton>
+                  </div>
+
                   {/* Contratos Vigentes (Con opción de borrado) */}
                   {contratosVigentes.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
@@ -428,46 +424,46 @@ const ClienteForm: React.FC<{
                       </div>
                   )}
 
-                  {/* Asignación de Nuevos Contratos (Formulario expandido) */}
-                  <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Alta de Nuevos Servicios</label>
-                          <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="text-xs">
-                              + Agregar
-                          </AppButton>
+                  {/* Contratos Iniciales (Pendientes de guardar si es cliente nuevo) */}
+                  {contratosIniciales.length > 0 && (
+                      <div className="space-y-3">
+                          <label className="text-[10px] font-black text-yellow-600 uppercase tracking-widest px-1">Nuevos Contratos (Por Guardar)</label>
+                          <div className="grid grid-cols-1 gap-3">
+                              {contratosIniciales.map((c, idx) => {
+                                  const s = serviciosMap.get(c.servicioId);
+                                  const sucursal = formData.sucursales?.find(suc => suc.id === c.sucursalId);
+                                  return (
+                                      <div key={idx} className="flex justify-between items-center p-3 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/10 dark:border-yellow-700 rounded-xl shadow-sm">
+                                          <div>
+                                              <div className="flex items-center gap-2">
+                                                  <p className="font-bold text-sm text-gray-800 dark:text-white">
+                                                      {s?.nombre || 'Nuevo Servicio'}
+                                                  </p>
+                                                  <span className="text-[9px] bg-yellow-200 text-yellow-800 px-1.5 rounded font-black uppercase">PENDIENTE DE ALTA</span>
+                                              </div>
+                                              <p className="text-xs text-gray-500">
+                                                  {sucursal ? `Sucursal: ${sucursal.nombre}` : 'Casa Central'} • ${c.montoMensual?.toLocaleString() || 0}/mes
+                                              </p>
+                                          </div>
+                                          <button 
+                                              type="button" 
+                                              onClick={() => removeContratoInicial(idx)} 
+                                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                                          >
+                                              <TrashIcon className="w-4 h-4"/>
+                                          </button>
+                                      </div>
+                                  );
+                              })}
+                          </div>
                       </div>
-                      
-                      {contratosIniciales.map((c, idx) => (
-                          <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border dark:border-gray-700 space-y-3 relative">
-                              <button type="button" onClick={() => removeContratoInicial(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4"/></button>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
-                                  <div className="col-span-2">
-                                      <label className="text-[9px] font-bold text-gray-400 uppercase">Servicio Base</label>
-                                      <SearchableSelect 
-                                          options={servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({value: s.id, label: s.nombre}))}
-                                          value={c.servicioId}
-                                          onChange={(v) => updateContratoInicial(idx, 'servicioId', v)}
-                                          placeholder="Seleccionar..."
-                                      />
-                                  </div>
-                                  <div>
-                                      <label className="text-[9px] font-bold text-gray-400 uppercase">Inicio</label>
-                                      <input type="date" value={c.fechaInicio} onChange={(e) => updateContratoInicial(idx, 'fechaInicio', e.target.value)} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" />
-                                  </div>
-                                  <div>
-                                      <label className="text-[9px] font-bold text-gray-400 uppercase">Monto Mensual</label>
-                                      <input type="number" value={c.montoMensual || ''} onChange={(e) => updateContratoInicial(idx, 'montoMensual', parseFloat(e.target.value))} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm" placeholder="$" />
-                                  </div>
-                              </div>
-                          </div>
-                      ))}
-                      
-                      {contratosIniciales.length === 0 && contratosVigentes.length === 0 && (
-                          <div className="text-center py-4 text-gray-400 text-xs italic border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
-                              Sin servicios asignados.
-                          </div>
-                      )}
-                  </div>
+                  )}
+                  
+                  {contratosIniciales.length === 0 && contratosVigentes.length === 0 && (
+                      <div className="text-center py-4 text-gray-400 text-xs italic border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                          Sin servicios asignados.
+                      </div>
+                  )}
               </div>
           </Card>
       </div>
@@ -492,11 +488,26 @@ const ClienteForm: React.FC<{
             onClose={() => setMapIndex(null)}
         />
     )}
+
+    {isContratoModalOpen && (
+        <Modal isOpen={isContratoModalOpen} onClose={() => setIsContratoModalOpen(false)}>
+            <ContratoForm
+                contrato={{ fechaInicio: new Date().toISOString().split('T')[0] }}
+                clientes={clientes}
+                productos={productos}
+                servicios={servicios}
+                onSave={handleSaveContrato}
+                onClose={() => setIsContratoModalOpen(false)}
+                fixedClienteId={!isNew ? cliente.id : undefined}
+                overrideSucursales={isNew ? formData.sucursales : undefined}
+            />
+        </Modal>
+    )}
     </>
   )
 }
 
-const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, registrosPago, addCliente, updateCliente, deleteCliente, reactivarCliente, deleteContrato }) => {
+const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, registrosPago, addCliente, updateCliente, deleteCliente, reactivarCliente, deleteContrato, addContrato, updateContrato }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Partial<Cliente> | null>(null);
   const [clienteParaBaja, setClienteParaBaja] = useState<Cliente | null>(null);
@@ -602,6 +613,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             remitos={remitos} 
             onSave={handleSave} 
             onClose={() => setIsModalOpen(false)} 
+            addContrato={addContrato}
         />
     </div>
   );

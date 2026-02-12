@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardView from './views/DashboardView';
@@ -162,6 +161,8 @@ function AppContent() {
                   deleteCliente={dataStore.deleteCliente}
                   reactivarCliente={dataStore.reactivarCliente}
                   deleteContrato={dataStore.deleteContrato}
+                  addContrato={dataStore.addContrato}
+                  updateContrato={dataStore.updateContrato}
                 />;
       case 'usuarios':
         return <UsuariosView
