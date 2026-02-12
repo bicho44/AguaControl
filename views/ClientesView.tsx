@@ -52,6 +52,7 @@ const ClienteForm: React.FC<{
 }> = ({ cliente, productos, servicios, clientes, remitos, onSave, onClose }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
+  const [mapIndex, setMapIndex] = useState<number | null>(null);
   const { showNotification } = useNotification();
   
   const currentBalances = useMemo(() => {
@@ -147,6 +148,44 @@ const ClienteForm: React.FC<{
   const addSucursal = useCallback(() => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `suc_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]})), []);
   const removeSucursal = (index: number) => setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
 
+  const handleAuditChange = (sucursalId: string, productoId: string, value: string) => {
+    const qty = parseInt(value) || 0;
+    setAuditStocks(prev => {
+        const others = prev.filter(a => !(a.sucursalId === sucursalId && a.productoId === productoId));
+        if (qty === 0) return others; 
+        return [...others, { sucursalId, productoId, cantidad: qty }];
+    });
+  };
+
+  const addContratoInicial = () => {
+    setContratosIniciales(prev => [...prev, { 
+        servicioId: '', 
+        tipo: TipoServicio.ALQUILER_PURO, 
+        fechaInicio: new Date().toISOString().split('T')[0], 
+        estado: EstadoContrato.ACTIVO 
+    }]);
+  };
+
+  const removeContratoInicial = (index: number) => {
+    setContratosIniciales(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateContratoInicial = (index: number, servicioId: string) => {
+    const s = servicios.find(s => s.id === servicioId);
+    if (!s) return;
+    const newC = [...contratosIniciales];
+    newC[index] = {
+        ...newC[index],
+        servicioId,
+        tipo: s.tipo,
+        montoMensual: s.montoMensual,
+        productoId: s.productoId,
+        productoConsumoId: s.productoConsumoId,
+        consumoIncluido: s.consumoIncluido
+    };
+    setContratosIniciales(newC);
+  };
+
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const stockDeltas: any[] = [];
@@ -174,6 +213,7 @@ const ClienteForm: React.FC<{
   }, [handleSubmit, addSucursal]);
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6 pb-20">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Cliente</h2>
       
@@ -207,7 +247,10 @@ const ClienteForm: React.FC<{
                               <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
                               <div className="relative">
                                   <AppInput label="Dirección" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} />
-                                  <button type="button" onClick={() => handleSearchAddress(index)} className="absolute right-2 top-8 p-1 text-primary-600 hover:bg-primary-50 rounded"><SearchIcon className="w-5 h-5"/></button>
+                                  <div className="absolute right-2 top-8 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-600 p-0.5">
+                                      <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"><SearchIcon className="w-4 h-4"/></button>
+                                      <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-1.5 rounded transition-colors ${suc.lat ? 'text-green-500 hover:text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><MapIcon className="w-4 h-4"/></button>
+                                  </div>
                               </div>
                           </div>
                           <div className="space-y-3">
@@ -225,6 +268,54 @@ const ClienteForm: React.FC<{
                   </button>
               </div>
           </Card>
+
+          <Card title="Stock de Envases (Auditoría / Inicial)">
+              <div className="space-y-4">
+                  {(formData.sucursales || []).length === 0 && <p className="text-gray-500 text-sm italic">Agregue una sucursal para cargar stock.</p>}
+                  {(formData.sucursales || []).map((suc) => (
+                      <div key={suc.id} className="p-4 border dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                          <p className="font-bold text-sm mb-2 uppercase text-gray-600 dark:text-gray-300">{suc.nombre || 'Nueva Sucursal'}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {productos.filter(p => p.tipo === TipoProducto.RETORNABLE).map(p => {
+                                  const val = auditStocks.find(a => a.sucursalId === suc.id && a.productoId === p.id)?.cantidad || 0;
+                                  return (
+                                      <div key={p.id} className="flex flex-col">
+                                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1">{p.nombre}</label>
+                                          <input 
+                                              type="number" 
+                                              value={val} 
+                                              onChange={(e) => handleAuditChange(suc.id, p.id, e.target.value)} 
+                                              className="w-full p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-center font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+                                          />
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </Card>
+
+          {isNew && (
+              <Card title="Servicios a Contratar (Alta Rápida)">
+                  <div className="space-y-3">
+                      {contratosIniciales.map((c, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                              <div className="flex-1">
+                                  <SearchableSelect 
+                                      options={servicios.filter(s => s.estado === EstadoServicio.ACTIVO).map(s => ({value: s.id, label: s.nombre}))}
+                                      value={c.servicioId}
+                                      onChange={(v) => updateContratoInicial(idx, v)}
+                                      placeholder="Seleccionar Servicio..."
+                                  />
+                              </div>
+                              <AppButton variant="danger" size="sm" onClick={() => removeContratoInicial(idx)} className="!p-2"><TrashIcon/></AppButton>
+                          </div>
+                      ))}
+                      <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2">+ Agregar Contrato Inicial</AppButton>
+                  </div>
+              </Card>
+          )}
       </div>
 
       <div className="flex justify-end gap-3 pt-6">
@@ -232,6 +323,22 @@ const ClienteForm: React.FC<{
         <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
+
+    {mapIndex !== null && (
+        <MapPickerModal 
+            initialLat={formData.sucursales?.[mapIndex]?.lat}
+            initialLng={formData.sucursales?.[mapIndex]?.lng}
+            initialAddress={formData.sucursales?.[mapIndex]?.direccion || ''}
+            onConfirm={(lat, lng, address) => {
+                const newSucs = [...(formData.sucursales || [])];
+                newSucs[mapIndex] = { ...newSucs[mapIndex], lat, lng, direccion: address };
+                setFormData(prev => ({ ...prev, sucursales: newSucs }));
+                setMapIndex(null);
+            }}
+            onClose={() => setMapIndex(null)}
+        />
+    )}
+    </>
   )
 }
 
@@ -379,8 +486,13 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                     const sucStockMap = clienteStocks?.get(suc.id);
                                     return (
                                         <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-                                            <p className="font-black text-sm uppercase">{suc.nombre}</p>
-                                            <p className="text-[10px] text-gray-500 mb-2">{suc.direccion}</p>
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-black text-sm uppercase">{suc.nombre}</p>
+                                                    <p className="text-[10px] text-gray-500 mb-2">{suc.direccion}</p>
+                                                </div>
+                                                {suc.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${suc.lat},${suc.lng}`} target="_blank" rel="noreferrer" className="text-green-500 hover:text-green-700"><MapIcon className="w-4 h-4"/></a>}
+                                            </div>
                                             <div className="flex flex-wrap gap-1.5 pt-2 border-t dark:border-gray-700">
                                                 {sucStockMap ? Array.from(sucStockMap.entries()).map(([prodId, qty]) => qty > 0 && <div key={prodId} className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-lg border dark:border-gray-700"><span className="text-[11px] font-black text-primary-600">{qty}</span><span className="text-[9px] text-gray-500 font-bold uppercase">{productosMap.get(prodId)?.nombre}</span></div>) : <p className="text-[9px] text-gray-400 italic">Sin envases.</p>}
                                             </div>
