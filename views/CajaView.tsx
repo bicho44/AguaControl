@@ -205,10 +205,10 @@ const MovimientoCajaForm: React.FC<{
                             </div>
                         </div>
                     ) : (
-                        <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Consumidor Final..." disabled={isEdit} />
+                        <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Consumidor Final..." />
                     )}
                 </div>
-                <SearchableSelect label="Vendedor / Atendido por" options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Seleccionar..." disabled={isEdit} />
+                <SearchableSelect label="Vendedor / Atendido por" options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Seleccionar..." />
             </div>
         )}
 
