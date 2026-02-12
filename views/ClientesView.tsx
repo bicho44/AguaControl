@@ -46,7 +46,7 @@ const ClienteForm: React.FC<{
   cliente: Partial<Cliente>;
   productos: Producto[];
   servicios: Servicio[];
-  contratos: Contrato[]; // Agregado para ver contratos existentes
+  contratos: Contrato[]; // Recibimos todos los contratos para filtrar los de este cliente
   clientes: Cliente[]; 
   remitos: Remito[];
   onSave: (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
@@ -57,8 +57,8 @@ const ClienteForm: React.FC<{
   const [mapIndex, setMapIndex] = useState<number | null>(null);
   const { showNotification } = useNotification();
   
-  // Contratos que YA tiene el cliente (solo lectura en este formulario, para referencia)
-  const contratosExistentes = useMemo(() => {
+  // Filtrar contratos vigentes de este cliente para mostrar en modo lectura
+  const contratosVigentes = useMemo(() => {
       if (!cliente.id) return [];
       return contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
   }, [cliente.id, contratos]);
@@ -310,13 +310,13 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          <Card title="Contratos y Servicios">
+          <Card title="Gestión de Servicios y Contratos">
               <div className="space-y-6">
                   {/* Contratos Vigentes (Solo Lectura) */}
-                  {contratosExistentes.length > 0 && (
+                  {contratosVigentes.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
-                          <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Vigentes</label>
-                          {contratosExistentes.map(c => {
+                          <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Vigentes (Ya Asignados)</label>
+                          {contratosVigentes.map(c => {
                               const s = serviciosMap.get(c.servicioId);
                               return (
                                   <div key={c.id} className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl flex justify-between items-center">
@@ -331,9 +331,9 @@ const ClienteForm: React.FC<{
                       </div>
                   )}
 
-                  {/* Asignación de Nuevos Contratos */}
+                  {/* Asignación de Nuevos Contratos (Funciona tanto para nuevos como para existentes) */}
                   <div className="space-y-3">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Asignar Nuevo Servicio / Contrato</label>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Asignar Nuevo Servicio</label>
                       {contratosIniciales.map((c, idx) => (
                           <div key={idx} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border dark:border-gray-700">
                               <div className="flex-1">
@@ -348,7 +348,7 @@ const ClienteForm: React.FC<{
                           </div>
                       ))}
                       <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3 text-primary-600 border-primary-200 hover:border-primary-500 hover:bg-primary-50">
-                          + Agregar Servicio
+                          + Agregar Servicio / Contrato
                       </AppButton>
                   </div>
               </div>
