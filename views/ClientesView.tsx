@@ -11,6 +11,7 @@ import { ReplyIcon } from '../components/icons/ReplyIcon';
 import { MapIcon } from '../components/icons/MapIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
 import { CubeIcon } from '../components/icons/CubeIcon';
+import { ClipboardListIcon } from '../components/icons/ClipboardListIcon';
 import MapPickerModal from '../components/MapPickerModal';
 import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/ui/AppButton';
@@ -45,16 +46,25 @@ const ClienteForm: React.FC<{
   cliente: Partial<Cliente>;
   productos: Producto[];
   servicios: Servicio[];
+  contratos: Contrato[]; // Agregado para ver contratos existentes
   clientes: Cliente[]; 
   remitos: Remito[];
   onSave: (cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   onClose: () => void;
-}> = ({ cliente, productos, servicios, clientes, remitos, onSave, onClose }) => {
+}> = ({ cliente, productos, servicios, contratos, clientes, remitos, onSave, onClose }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   const [mapIndex, setMapIndex] = useState<number | null>(null);
   const { showNotification } = useNotification();
   
+  // Contratos que YA tiene el cliente (solo lectura en este formulario, para referencia)
+  const contratosExistentes = useMemo(() => {
+      if (!cliente.id) return [];
+      return contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
+  }, [cliente.id, contratos]);
+
+  const serviciosMap = useMemo(() => new Map(servicios.map(s => [s.id, s])), [servicios]);
+
   const currentBalances = useMemo(() => {
     if (!cliente.id) return new Map<string, Map<string, number>>();
     const map = new Map<string, Map<string, number>>();
@@ -300,9 +310,30 @@ const ClienteForm: React.FC<{
               </div>
           </Card>
 
-          {isNew && (
-              <Card title="Servicios a Contratar (Alta Rápida)">
+          <Card title="Contratos y Servicios">
+              <div className="space-y-6">
+                  {/* Contratos Vigentes (Solo Lectura) */}
+                  {contratosExistentes.length > 0 && (
+                      <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
+                          <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Vigentes</label>
+                          {contratosExistentes.map(c => {
+                              const s = serviciosMap.get(c.servicioId);
+                              return (
+                                  <div key={c.id} className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl flex justify-between items-center">
+                                      <div>
+                                          <p className="font-bold text-sm text-green-800 dark:text-green-300">{s?.nombre || 'Servicio'}</p>
+                                          <p className="text-xs text-green-600 dark:text-green-400">Desde: {new Date(c.fechaInicio).toLocaleDateString()}</p>
+                                      </div>
+                                      <span className="text-xs font-black uppercase bg-white dark:bg-gray-800 px-2 py-1 rounded text-green-700">{c.tipo}</span>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  )}
+
+                  {/* Asignación de Nuevos Contratos */}
                   <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Asignar Nuevo Servicio / Contrato</label>
                       {contratosIniciales.map((c, idx) => (
                           <div key={idx} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border dark:border-gray-700">
                               <div className="flex-1">
@@ -316,10 +347,12 @@ const ClienteForm: React.FC<{
                               <AppButton variant="danger" size="sm" onClick={() => removeContratoInicial(idx)} className="!p-2 h-10"><TrashIcon/></AppButton>
                           </div>
                       ))}
-                      <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3">+ Agregar Contrato Inicial</AppButton>
+                      <AppButton variant="secondary" size="sm" onClick={addContratoInicial} className="w-full border-dashed border-2 py-3 text-primary-600 border-primary-200 hover:border-primary-500 hover:bg-primary-50">
+                          + Agregar Servicio
+                      </AppButton>
                   </div>
-              </Card>
-          )}
+              </div>
+          </Card>
       </div>
 
       <div className="flex justify-end gap-3 pt-6">
@@ -356,6 +389,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const { showNotification } = useNotification();
   const { user: currentUser } = useAuth();
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
+  const serviciosMap = useMemo(() => new Map(servicios.map(s => [s.id, s])), [servicios]);
 
   const deudasMap = useMemo(() => {
     const deudas = new Map<string, number>();
@@ -429,16 +463,6 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     }).sort((a,b) => a.nombre.localeCompare(b.nombre));
   }, [clientes, filter, statusFilter]);
 
-  if (isModalOpen) return (
-    <div className="animate-fade-in">
-        <div className="mb-6 flex items-center gap-4">
-            <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-            <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
-        </div>
-        <ClienteForm cliente={editingCliente || {}} productos={productos} servicios={servicios} clientes={clientes} remitos={remitos} onSave={handleSave} onClose={() => setIsModalOpen(false)} />
-    </div>
-  );
-
   return (
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
@@ -462,6 +486,8 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             const isExpanded = expandedClienteId === cliente.id;
             const deuda = deudasMap.get(cliente.id) || 0;
             const clienteStocks = stocksPorSucursal.get(cliente.id);
+            const activeContracts = contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
+
             return (
             <div key={cliente.id} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 transition-all ${cliente.estado === 'Inactivo' ? 'opacity-60' : ''}`}>
                 <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedClienteId(isExpanded ? null : cliente.id)}>
@@ -469,6 +495,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                         <div className="flex items-center gap-2">
                              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{cliente.nombre}</h3>
                              {deuda > 0.01 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-red-100 text-red-700">DEUDA: ${deuda.toLocaleString()}</span>}
+                             {activeContracts.length > 0 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-green-100 text-green-700">{activeContracts.length} Servicios</span>}
                         </div>
                         <p className="text-xs text-gray-500">{cliente.sucursales.length} Punto(s) | {cliente.tieneCuentaCorriente ? 'A Crédito' : 'Contado'}</p>
                     </div>
@@ -480,11 +507,28 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                 {isExpanded && (
                     <div className="px-4 pb-4 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-                                {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
-                                {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
-                                {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
-                            </ul>
+                            <div className="space-y-4">
+                                <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+                                    {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
+                                    {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
+                                    {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
+                                </ul>
+                                
+                                {activeContracts.length > 0 && (
+                                    <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                                        <p className="text-[10px] font-black uppercase text-green-800 dark:text-green-300 mb-2 flex items-center gap-2"><ClipboardListIcon className="w-3 h-3"/> Contratos Activos</p>
+                                        <div className="space-y-1">
+                                            {activeContracts.map(c => (
+                                                <div key={c.id} className="text-xs flex justify-between">
+                                                    <span className="font-bold text-gray-700 dark:text-gray-300">{serviciosMap.get(c.servicioId)?.nombre}</span>
+                                                    <span className="text-gray-500">{new Date(c.fechaInicio).toLocaleDateString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="space-y-3">
                                 {cliente.sucursales.map((suc, i) => {
                                     const sucStockMap = clienteStocks?.get(suc.id);
@@ -520,6 +564,26 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             )
         })}
       </div>
+      
+      {isModalOpen && (
+        <div className="animate-fade-in">
+            <div className="mb-6 flex items-center gap-4">
+                <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+                <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
+            </div>
+            <ClienteForm 
+                cliente={editingCliente || {}} 
+                productos={productos} 
+                servicios={servicios} 
+                contratos={contratos}
+                clientes={clientes} 
+                remitos={remitos} 
+                onSave={handleSave} 
+                onClose={() => setIsModalOpen(false)} 
+            />
+        </div>
+      )}
+
       {clienteParaBaja && (
         <Modal isOpen={!!clienteParaBaja} onClose={() => setClienteParaBaja(null)}>
             <div className="p-6 text-center space-y-4">
