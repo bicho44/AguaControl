@@ -371,19 +371,35 @@ const CajaView: React.FC<CajaViewProps> = ({
       let concepto = ''; let ventaId = undefined;
       if (p1.origen.tipo === 'remito') {
           const r = remitosMap.get(p1.origen.id);
-          concepto = `Remito ${r?.puntoVenta}-${r?.numero} (${clientesMap.get(p1.clienteId!)?.nombre || 'N/A'})`;
+          const clientName = clientesMap.get(p1.clienteId!)?.nombre || 'N/A';
+          // Generar resumen de productos entregados
+          const prodSummary = r?.movimientos
+            .filter(m => m.entregados > 0)
+            .map(m => {
+                const p = productosMap.get(m.productoId);
+                const shortName = p?.nombre.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '') || '?';
+                return `${m.entregados}x${shortName}`;
+            }).join(', ');
+          
+          concepto = `${clientName} (#${r?.puntoVenta}-${r?.numero})${prodSummary ? ` - ${prodSummary}` : ''}`;
       } else if (p1.origen.tipo === 'venta_vendedor') {
           const v = ventasVendedorMap.get(p1.origen.id);
-          concepto = `Venta Stock ${v?.clienteId ? `(${clientesMap.get(v.clienteId)?.nombre})` : `(${vendedoresMap.get(p1.vendedorId!)?.nombre || 'Local'})`}`;
+          const actorName = v?.clienteId ? (clientesMap.get(v.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(p1.vendedorId!)?.nombre || 'Local');
+          concepto = `${actorName} (Venta Stock)`;
           ventaId = p1.origen.id;
       } else concepto = `${p1.concepto || 'Ingreso Manual'} (${clientesMap.get(p1.clienteId!)?.nombre || vendedoresMap.get(p1.vendedorId!)?.nombre || 'N/A'})`;
       
       allMovements.push({ id: p1.origen.id, fecha: p1.fecha, type: 'ingreso', concepto, pagos: grupo.map(p => ({ metodo: p.metodo, monto: p.monto })), total: grupo.reduce((sum, p) => sum + p.monto, 0), original: grupo, ventaId });
     });
 
-    invoicePayments.forEach(p => allMovements.push({ id: p.id, fecha: p.fecha, type: 'ingreso', concepto: `Cobro Fact ${facturasMap.get(p.origen.id)?.numero || 'N/A'} (${clientesMap.get(p.clienteId!)?.nombre || 'N/A'})`, pagos: [{ metodo: p.metodo, monto: p.monto }], total: p.monto, original: [p] }));
+    invoicePayments.forEach(p => {
+        const clientName = clientesMap.get(p.clienteId!)?.nombre || 'N/A';
+        const invoiceNum = facturasMap.get(p.origen.id)?.numero || 'N/A';
+        allMovements.push({ id: p.id, fecha: p.fecha, type: 'ingreso', concepto: `${clientName} (Cobro Fact ${invoiceNum})`, pagos: [{ metodo: p.metodo, monto: p.monto }], total: p.monto, original: [p] });
+    });
+
     return allMovements.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime() || b.id.localeCompare(a.id));
-  }, [gastos, registrosPago, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap]);
+  }, [gastos, registrosPago, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, productosMap]);
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">
