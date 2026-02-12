@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
 import Card from '../components/Card';
@@ -630,6 +631,22 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             const clienteStocks = stocksPorSucursal.get(cliente.id);
             const activeContracts = contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
 
+            // LOGICA DE AGRUPACIÓN DE CONTRATOS (Nuevo)
+            const groupedContracts = activeContracts.reduce((acc, c) => {
+                const key = `${c.servicioId}-${c.sucursalId || 'gral'}`;
+                if (!acc[key]) {
+                    acc[key] = {
+                        servicio: serviciosMap.get(c.servicioId),
+                        sucursal: cliente.sucursales.find(s => s.id === c.sucursalId),
+                        cantidad: 0
+                    };
+                }
+                acc[key].cantidad++;
+                return acc;
+            }, {} as Record<string, { servicio: Servicio | undefined, sucursal: Sucursal | undefined, cantidad: number }>);
+
+            const hasContracts = Object.keys(groupedContracts).length > 0;
+
             return (
             <div key={cliente.id} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 transition-all ${cliente.estado === 'Inactivo' ? 'opacity-60' : ''}`}>
                 <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedClienteId(isExpanded ? null : cliente.id)}>
@@ -637,7 +654,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                         <div className="flex items-center gap-2">
                              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{cliente.nombre}</h3>
                              {deuda > 0.01 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-red-100 text-red-700">DEUDA: ${deuda.toLocaleString()}</span>}
-                             {activeContracts.length > 0 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-green-100 text-green-700">{activeContracts.length} Servicios</span>}
+                             {hasContracts && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-green-100 text-green-700">{activeContracts.length} Servicios</span>}
                         </div>
                         <p className="text-xs text-gray-500">{cliente.sucursales.length} Punto(s) | {cliente.tieneCuentaCorriente ? 'A Crédito' : 'Contado'}</p>
                     </div>
@@ -656,14 +673,21 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                     {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
                                 </ul>
                                 
-                                {activeContracts.length > 0 && (
+                                {hasContracts && (
                                     <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-200 dark:border-green-800">
                                         <p className="text-[10px] font-black uppercase text-green-800 dark:text-green-300 mb-2 flex items-center gap-2"><ClipboardListIcon className="w-3 h-3"/> Contratos Activos</p>
-                                        <div className="space-y-1">
-                                            {activeContracts.map(c => (
-                                                <div key={c.id} className="text-xs flex justify-between">
-                                                    <span className="font-bold text-gray-700 dark:text-gray-300">{serviciosMap.get(c.servicioId)?.nombre}</span>
-                                                    <span className="text-gray-500">{new Date(c.fechaInicio).toLocaleDateString()}</span>
+                                        <div className="space-y-2">
+                                            {Object.values(groupedContracts).map((group: any, idx) => (
+                                                <div key={idx} className="flex justify-between items-center border-b border-green-200 dark:border-green-800/50 pb-1 last:border-0 last:pb-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-black px-1.5 rounded">{group.cantidad}x</span>
+                                                        <span className="font-bold text-gray-700 dark:text-gray-300 text-xs">{group.servicio?.nombre || 'Servicio'}</span>
+                                                    </div>
+                                                    {group.sucursal && (
+                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                                                            {group.sucursal.nombre}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
