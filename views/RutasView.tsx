@@ -69,10 +69,19 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
           });
       });
 
-      return rows.filter(r => 
+      // Filtrado
+      const filtered = rows.filter(r => 
           r.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
           r.direccion.toLowerCase().includes(searchTerm.toLowerCase())
       );
+
+      // Ordenamiento Alfabético (Cliente A-Z, luego Sucursal A-Z)
+      return filtered.sort((a, b) => {
+          const nameCompare = a.clienteNombre.localeCompare(b.clienteNombre);
+          if (nameCompare !== 0) return nameCompare;
+          return a.sucursalNombre.localeCompare(b.sucursalNombre);
+      });
+
   }, [clientes, repartidores, searchTerm]);
 
   // Selección automática del primer repartidor si no hay ninguno seleccionado
@@ -83,10 +92,15 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
   }, [repartidores, selectedRepartidorId]);
 
   const handleCellClick = (rowId: string, dia: DiaSemana, currentDriverId: string | null) => {
-      // Toggle logic: 
-      // Si la celda está vacía -> Asignar repartidor seleccionado.
-      // Si la celda tiene ALGUN repartidor -> Vaciarla (Desasignar día).
-      const newDriverId = currentDriverId ? null : selectedRepartidorId;
+      if (!selectedRepartidorId) {
+          showNotification('Selecciona un repartidor arriba primero', 'error');
+          return;
+      }
+
+      // Lógica inteligente de asignación:
+      // 1. Si la celda tiene asignado al MISMO repartidor seleccionado -> LO QUITA (Toggle OFF)
+      // 2. Si la celda está vacía O tiene OTRO repartidor -> LO ASIGNA (Overwrite)
+      const newDriverId = currentDriverId === selectedRepartidorId ? null : selectedRepartidorId;
       
       const [clienteId, sucursalId] = rowId.split('_');
       
@@ -151,7 +165,7 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Matriz de Rutas</h1>
-            <p className="text-sm text-gray-500">Asigna días y repartidores de forma masiva.</p>
+            <p className="text-sm text-gray-500">Asigna días y repartidores haciendo clic en la grilla.</p>
         </div>
         
         {/* Selector de Repartidor Activo (Contexto) */}
@@ -164,7 +178,7 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
                         onClick={() => setSelectedRepartidorId(rep.id)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
                             selectedRepartidorId === rep.id 
-                            ? 'bg-primary-600 text-white shadow-md scale-105' 
+                            ? 'bg-primary-600 text-white shadow-md scale-105 ring-2 ring-primary-300 dark:ring-primary-900' 
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
                         }`}
                     >
@@ -195,14 +209,14 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
         {/* Tabla Matriz */}
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse">
-                <thead className="text-[10px] uppercase bg-gray-50 dark:bg-gray-700 text-gray-500 font-black tracking-widest sticky top-0 z-10">
+                <thead className="text-[10px] uppercase bg-gray-50 dark:bg-gray-700 text-gray-500 font-black tracking-widest sticky top-0 z-10 shadow-sm">
                     <tr>
-                        <th className="p-4 w-10 text-center border-r dark:border-gray-600">
+                        <th className="p-4 w-10 text-center border-r dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
                             <input type="checkbox" checked={flatRows.length > 0 && selectedRows.size === flatRows.length} onChange={toggleAllRows} className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
                         </th>
-                        <th className="p-4 border-r dark:border-gray-600 min-w-[200px]">Cliente / Sucursal</th>
+                        <th className="p-4 border-r dark:border-gray-600 min-w-[200px] bg-gray-50 dark:bg-gray-700">Cliente / Sucursal</th>
                         {diasOrdenados.map(dia => (
-                            <th key={dia} className="p-2 text-center border-r dark:border-gray-600 min-w-[60px]">{dia.substring(0,3)}</th>
+                            <th key={dia} className="p-2 text-center border-r dark:border-gray-600 min-w-[60px] bg-gray-50 dark:bg-gray-700">{dia.substring(0,3)}</th>
                         ))}
                     </tr>
                 </thead>
@@ -223,26 +237,32 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
                                 const assignedDriverId = row.dias[dia];
                                 const assignedDriver = repartidores.find(r => r.id === assignedDriverId);
                                 const isAssigned = !!assignedDriverId;
+                                const isActiveDriverAssigned = assignedDriverId === selectedRepartidorId;
                                 
                                 return (
                                     <td 
                                         key={dia} 
                                         onClick={() => handleCellClick(row.id, dia, assignedDriverId)}
-                                        className={`p-2 text-center border-r dark:border-gray-700 cursor-pointer select-none transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-600 ${isAssigned ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
+                                        className={`p-2 text-center border-r dark:border-gray-700 cursor-pointer select-none transition-all duration-200 group
+                                            ${isActiveDriverAssigned ? 'bg-green-50 dark:bg-green-900/20' : ''} 
+                                            hover:bg-gray-100 dark:hover:bg-gray-700
+                                        `}
                                     >
-                                        {isAssigned ? (
-                                            <div className="flex flex-col items-center justify-center">
+                                        <div className="flex flex-col items-center justify-center h-full">
+                                            {isAssigned ? (
                                                 <div 
-                                                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-sm"
-                                                    style={{ backgroundColor: assignedDriverId === selectedRepartidorId ? '#2563eb' : '#9ca3af' }} // Azul si coincide con el seleccionado, Gris si es otro
+                                                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-sm transition-transform transform group-hover:scale-110"
+                                                    style={{ backgroundColor: isActiveDriverAssigned ? '#2563eb' : '#9ca3af' }}
                                                     title={assignedDriver?.nombre || 'Desconocido'}
                                                 >
                                                     {assignedDriver ? getInitials(assignedDriver.nombre) : '?'}
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div className="w-8 h-8 mx-auto rounded-full border-2 border-dashed border-gray-200 dark:border-gray-600"></div>
-                                        )}
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                 );
                             })}
