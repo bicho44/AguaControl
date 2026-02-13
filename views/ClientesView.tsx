@@ -228,6 +228,27 @@ const ClienteForm: React.FC<{
       setContratosIniciales(prev => prev.filter((_, i) => i !== index));
   };
 
+  // LOGICA PARA PRECIOS ESPECIALES
+  const handleAddPrecioEspecial = () => {
+      setFormData(prev => ({
+          ...prev,
+          preciosEspeciales: [...(prev.preciosEspeciales || []), { productoId: '', precio: 0 }]
+      }));
+  };
+
+  const handleRemovePrecioEspecial = (index: number) => {
+      setFormData(prev => ({
+          ...prev,
+          preciosEspeciales: prev.preciosEspeciales?.filter((_, i) => i !== index)
+      }));
+  };
+
+  const handleUpdatePrecioEspecial = (index: number, field: keyof PrecioEspecial, value: any) => {
+      const newPrecios = [...(formData.preciosEspeciales || [])];
+      newPrecios[index] = { ...newPrecios[index], [field]: value };
+      setFormData(prev => ({ ...prev, preciosEspeciales: newPrecios }));
+  };
+
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const stockDeltas: any[] = [];
@@ -244,7 +265,9 @@ const ClienteForm: React.FC<{
         cliente: { 
             ...formData as Cliente, 
             stockInicial: stockDeltas, 
-            contratosIniciales: contratosIniciales.filter(c => c.servicioId) 
+            contratosIniciales: contratosIniciales.filter(c => c.servicioId),
+            // Asegurar que no se guarden precios especiales vacíos
+            preciosEspeciales: formData.preciosEspeciales?.filter(p => p.productoId && p.precio > 0)
         },
         contratosAEliminar: Array.from(contratosAEliminar)
     });
@@ -374,6 +397,43 @@ const ClienteForm: React.FC<{
                   <button type="button" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 transition-all font-bold text-sm">
                       + Agregar Sucursal <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span>
                   </button>
+              </div>
+          </Card>
+
+          <Card title="Lista de Precios Personalizada">
+              <div className="space-y-4">
+                  {(formData.preciosEspeciales || []).map((precio, index) => {
+                      const prod = productosMap.get(precio.productoId);
+                      const precioLista = prod?.precio || 0;
+                      return (
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] gap-3 items-end">
+                              <SearchableSelect 
+                                  options={activeProductOptions}
+                                  value={precio.productoId}
+                                  onChange={(v) => handleUpdatePrecioEspecial(index, 'productoId', v)}
+                                  placeholder="Seleccionar Producto..."
+                              />
+                              <div>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase">Precio Especial</label>
+                                  <AppInput 
+                                      type="number" 
+                                      value={precio.precio} 
+                                      onChange={(e) => handleUpdatePrecioEspecial(index, 'precio', parseFloat(e.target.value) || 0)}
+                                      className="font-black text-green-600"
+                                  />
+                              </div>
+                              <div className="pb-3 text-xs text-gray-500">
+                                  Ref. Lista: <span className="font-bold">${precioLista.toLocaleString()}</span>
+                              </div>
+                              <div className="pb-1">
+                                  <AppButton variant="danger" size="sm" onClick={() => handleRemovePrecioEspecial(index)} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
+                              </div>
+                          </div>
+                      );
+                  })}
+                  <AppButton variant="secondary" size="sm" onClick={handleAddPrecioEspecial} className="w-full border-dashed border-2 py-3">
+                      + Agregar Precio Especial
+                  </AppButton>
               </div>
           </Card>
 
