@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import LeafletMap from './LeafletMap';
+import { SearchIcon } from './icons/SearchIcon';
 
 interface MapPickerModalProps {
     initialLat?: number;
@@ -20,18 +21,54 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
     onClose,
     title = "Ubicación" 
 }) => {
+    // Estado de la posición actual (coordenadas)
     const [currentPos, setCurrentPos] = useState<{ lat: number, lng: number } | null>(
         initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null
     );
+    // Dirección mostrada abajo (resultado del pin)
     const [previewAddress, setPreviewAddress] = useState<string>(initialAddress);
+    // Texto del buscador (input superior)
+    const [searchQuery, setSearchQuery] = useState<string>(initialAddress);
+    const [isSearching, setIsSearching] = useState(false);
     const [isResolvingAddress, setIsResolvingAddress] = useState(false);
 
-    // Cuando el mapa nos avisa que cambió la posición (click o drag)
+    // Búsqueda directa (Input -> Coordenadas)
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!searchQuery.trim()) return;
+
+        setIsSearching(true);
+        try {
+            // Agregamos contexto de país si no está presente para mejorar precisión
+            const q = searchQuery.toLowerCase().includes('argentina') ? searchQuery : `${searchQuery}, Argentina`;
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                const newLat = parseFloat(data[0].lat);
+                const newLng = parseFloat(data[0].lon);
+                
+                // 1. Actualizamos posición (Mueve el mapa)
+                setCurrentPos({ lat: newLat, lng: newLng });
+                
+                // 2. Actualizamos la vista previa con el dato oficial encontrado
+                setPreviewAddress(data[0].display_name);
+            } else {
+                setPreviewAddress("Dirección no encontrada.");
+            }
+        } catch (error) {
+            console.error("Error en búsqueda:", error);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    // Cuando el mapa nos avisa que cambió la posición (click o drag del usuario)
     const handleMapPositionChange = async (lat: number, lng: number) => {
         setCurrentPos({ lat, lng });
         setIsResolvingAddress(true);
         try {
-            // Geocodificación Inversa SOLO para mostrar en el modal
+            // Geocodificación Inversa (Coordenadas -> Dirección)
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
             const data = await response.json();
             
@@ -71,33 +108,63 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">✕</button>
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md text-sm text-blue-800 dark:text-blue-200">
-                    <p>Mueva el pin a la posición exacta.</p>
-                </div>
+                {/* Buscador */}
+                <form onSubmit={handleSearch} className="flex gap-2">
+                    <div className="relative flex-grow">
+                        <input 
+                            type="text" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Buscar calle, altura y ciudad..."
+                            className="w-full pl-4 pr-10 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+                            autoFocus={!initialLat} // Autofocus si no hay ubicación previa
+                        />
+                        {isSearching && (
+                            <div className="absolute right-3 top-2.5">
+                                <svg className="animate-spin h-4 w-4 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                        )}
+                    </div>
+                    <button 
+                        type="submit" 
+                        disabled={isSearching || !searchQuery}
+                        className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                        title="Buscar en el mapa"
+                    >
+                        <SearchIcon className="w-5 h-5" />
+                    </button>
+                </form>
 
                 <LeafletMap
-                    initialLat={initialLat}
-                    initialLng={initialLng}
+                    initialLat={currentPos?.lat} 
+                    initialLng={currentPos?.lng}
                     editMode={true}
                     onPositionChange={handleMapPositionChange}
                     height="400px"
                 />
 
-                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
-                    <p className="text-xs text-gray-500 uppercase font-bold">Dirección detectada en el punto:</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-100 dark:border-blue-800">
+                    <p className="text-[10px] text-blue-600 dark:text-blue-300 uppercase font-black tracking-widest mb-1">Dirección detectada en el punto</p>
                     <p className="text-sm font-medium text-gray-800 dark:text-white min-h-[1.25rem]">
-                        {isResolvingAddress ? "Calculando..." : previewAddress || "Haga clic en el mapa para ubicar"}
+                        {isResolvingAddress ? (
+                            <span className="animate-pulse text-gray-400">Obteniendo dirección exacta...</span>
+                        ) : (
+                            previewAddress || <span className="text-gray-400 italic">Mueve el pin o busca una dirección...</span>
+                        )}
                     </p>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                    <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
+                    <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 font-medium text-sm">
                         Cancelar
                     </button>
                     <button 
                         onClick={handleConfirm}
                         disabled={!currentPos}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm shadow-lg shadow-primary-500/30 transition-all active:scale-95"
                     >
                         Confirmar Ubicación
                     </button>

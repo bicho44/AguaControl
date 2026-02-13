@@ -44,7 +44,7 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
         if (!containerRef.current || mapRef.current) return;
 
         // 1. Configurar centro inicial
-        const startLat = initialLat || -34.6037;
+        const startLat = initialLat || -34.6037; // Buenos Aires default
         const startLng = initialLng || -58.3816;
         const startZoom = initialLat ? 15 : 12;
 
@@ -58,7 +58,7 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
 
         mapRef.current = map;
 
-        // 2. Modo Edición
+        // 2. Modo Edición (Listener de clicks en mapa)
         if (editMode) {
             const updateMarker = (lat: number, lng: number) => {
                 if (mainMarkerRef.current) {
@@ -73,12 +73,8 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
                 if (onPositionChange) onPositionChange(lat, lng);
             };
 
-            if (initialLat && initialLng) {
-                updateMarker(initialLat, initialLng);
-            }
-
+            // Listener global de clicks en el mapa para mover el pin
             map.on('click', (e) => updateMarker(e.latlng.lat, e.latlng.lng));
-            map.on('dblclick', (e) => updateMarker(e.latlng.lat, e.latlng.lng));
         }
 
         setTimeout(() => map.invalidateSize(), 100);
@@ -87,7 +83,37 @@ const LeafletMap: React.FC<LeafletMapProps> = ({
             map.remove();
             mapRef.current = null;
         };
-    }, []); // Solo al montar
+    }, []); // Solo al montar el componente
+
+    // NUEVO EFECTO: Reaccionar a cambios externos de posición (Buscador)
+    useEffect(() => {
+        if (!mapRef.current || !initialLat || !initialLng) return;
+
+        const currentMarkerPos = mainMarkerRef.current?.getLatLng();
+        
+        // Evitar bucle si la posición es la misma (ej: generada por el propio drag del marker)
+        // Usamos una pequeña tolerancia por precisión flotante
+        const isSamePosition = currentMarkerPos && 
+            Math.abs(currentMarkerPos.lat - initialLat) < 0.00001 && 
+            Math.abs(currentMarkerPos.lng - initialLng) < 0.00001;
+
+        if (isSamePosition) return;
+
+        // Mover el mapa suavemente
+        mapRef.current.flyTo([initialLat, initialLng], 16);
+
+        // Actualizar o Crear Marcador
+        if (mainMarkerRef.current) {
+            mainMarkerRef.current.setLatLng([initialLat, initialLng]);
+        } else if (editMode) {
+            mainMarkerRef.current = L.marker([initialLat, initialLng], { draggable: true }).addTo(mapRef.current);
+            mainMarkerRef.current.on('dragend', (e) => {
+                const { lat, lng } = e.target.getLatLng();
+                if (onPositionChange) onPositionChange(lat, lng);
+            });
+        }
+    }, [initialLat, initialLng, editMode, onPositionChange]);
+
 
     // Efecto para actualizar marcadores y ruta en modo visualización (Dashboard)
     useEffect(() => {
