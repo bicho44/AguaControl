@@ -31,6 +31,9 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
     const [searchQuery, setSearchQuery] = useState<string>(initialAddress);
     const [isSearching, setIsSearching] = useState(false);
     const [isResolvingAddress, setIsResolvingAddress] = useState(false);
+    
+    // Nuevo estado: Controlar si sobrescribimos el texto
+    const [overwriteAddress, setOverwriteAddress] = useState(false);
 
     // Búsqueda directa (Input -> Coordenadas)
     const handleSearch = async (e: React.FormEvent) => {
@@ -95,7 +98,10 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
 
     const handleConfirm = () => {
         if (currentPos) {
-            onConfirm(currentPos.lat, currentPos.lng, previewAddress);
+            // Lógica clave: Si overwriteAddress es falso, devolvemos la dirección ORIGINAL, no la detectada.
+            // Esto actualiza lat/lng pero deja el texto intacto.
+            const finalAddress = overwriteAddress ? previewAddress : initialAddress;
+            onConfirm(currentPos.lat, currentPos.lng, finalAddress);
         }
         onClose();
     };
@@ -146,15 +152,32 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
                     height="400px"
                 />
 
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-100 dark:border-blue-800">
-                    <p className="text-[10px] text-blue-600 dark:text-blue-300 uppercase font-black tracking-widest mb-1">Dirección detectada en el punto</p>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white min-h-[1.25rem]">
-                        {isResolvingAddress ? (
-                            <span className="animate-pulse text-gray-400">Obteniendo dirección exacta...</span>
-                        ) : (
-                            previewAddress || <span className="text-gray-400 italic">Mueve el pin o busca una dirección...</span>
-                        )}
-                    </p>
+                {/* Panel de Info y Decisión */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                    <div>
+                        <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Dirección Detectada por GPS</p>
+                        <p className="text-sm font-medium text-gray-800 dark:text-white min-h-[1.25rem]">
+                            {isResolvingAddress ? (
+                                <span className="animate-pulse text-gray-400">Obteniendo dirección exacta...</span>
+                            ) : (
+                                previewAddress || <span className="text-gray-400 italic">Mueve el pin o busca una dirección...</span>
+                            )}
+                        </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <input 
+                            type="checkbox" 
+                            id="overwriteAddr" 
+                            checked={overwriteAddress} 
+                            onChange={(e) => setOverwriteAddress(e.target.checked)}
+                            className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 border-gray-300"
+                        />
+                        <label htmlFor="overwriteAddr" className="text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                            Actualizar el texto de la dirección con este resultado
+                            <br/><span className="text-[10px] text-gray-400 font-normal">(Desmarcar para mantener tu dirección manual)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
