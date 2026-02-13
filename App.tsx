@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardView from './views/DashboardView';
@@ -13,6 +14,7 @@ import CajaView from './views/CajaView';
 import SettingsView from './views/SettingsView';
 import ContratosView from './views/ContratosView';
 import PlanillasView from './views/PlanillasView';
+import RutasView from './views/RutasView';
 import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
 import { useDataStore } from './hooks/useDataStore';
@@ -23,7 +25,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.5.1 (Firebase Fix)';
+const APP_VERSION = '2.6.0 (Rutas Matrix)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -211,6 +213,12 @@ function AppContent() {
                   remitos={dataStore.remitos}
                   addPlanilla={dataStore.addPlanilla}
                   updatePlanilla={dataStore.updatePlanilla}
+               />;
+      case 'rutas':
+        return <RutasView
+                  clientes={dataStore.clientes}
+                  usuarios={dataStore.usuarios}
+                  updateRutasMasivo={dataStore.updateRutasMasivo}
                />;
       case 'importar':
         return <ImportarView 

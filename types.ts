@@ -12,7 +12,8 @@ export type View =
   | 'settings'
   | 'contratos'
   | 'servicios'
-  | 'planillas';
+  | 'planillas'
+  | 'rutas'; // Nueva vista
 
 export enum Rol {
   ADMINISTRADOR = 'Administrador',
@@ -75,7 +76,8 @@ export interface Sucursal {
     direccion: string;
     lat?: number;
     lng?: number;
-    diasReparto?: DiaSemana[];
+    diasReparto?: DiaSemana[]; // Mantenemos por compatibilidad
+    repartidoresPorDia?: Record<string, string>; // Nuevo: { 'Lunes': 'id_juan', 'Jueves': 'id_pedro' }
     observaciones?: string;
 }
 

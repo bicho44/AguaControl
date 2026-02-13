@@ -13,6 +13,7 @@ import { CogIcon } from './icons/CogIcon';
 import { HandshakeIcon } from './icons/HandshakeIcon';
 import { ClipboardListIcon } from './icons/ClipboardListIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
+import { MapIcon } from './icons/MapIcon';
 import { View, Usuario, Rol, EmpresaSettings } from '../types';
 
 interface SidebarProps {
@@ -37,6 +38,7 @@ const mainNavItems: NavItem[] = [
   { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR] },
   { view: 'planillas', label: 'Control Stock', icon: <ClipboardCheckIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] }, // Nueva Vista
   { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'cuentacorriente', label: 'Cta. Corriente', icon: <BookOpenIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'facturas', label: 'Facturas', icon: <ReceiptIcon />, roles: [Rol.ADMINISTRADOR] },

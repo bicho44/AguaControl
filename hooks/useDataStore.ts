@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase/config';
 import { 
@@ -30,7 +31,9 @@ import {
   MetodoPago,
   EstadoCliente,
   EstadoProducto,
-  EstadoServicio
+  EstadoServicio,
+  Sucursal,
+  DiaSemana
 } from '../types';
 
 const cleanUndefineds = (obj: any): any => {
@@ -368,6 +371,64 @@ export const useDataStore = () => {
         await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(s));
     }, []);
 
+    // NUEVA FUNCIÓN PARA ACTUALIZACIÓN MASIVA DE RUTAS
+    const updateRutasMasivo = useCallback(async (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => {
+        if (!updates.length) return;
+
+        // Agrupar actualizaciones por cliente para minimizar escrituras
+        const clienteUpdates = new Map<string, { cliente: Cliente, sucursalesMap: Map<string, Sucursal> }>();
+
+        // Precargar clientes necesarios
+        for (const update of updates) {
+            if (!clienteUpdates.has(update.clienteId)) {
+                const cliente = clientes.find(c => c.id === update.clienteId);
+                if (cliente) {
+                    // Mapear sucursales para fácil acceso
+                    const sMap = new Map<string, Sucursal>(cliente.sucursales.map(s => [s.id, { ...s }])); // Shallow copy de sucursal
+                    clienteUpdates.set(update.clienteId, { cliente, sucursalesMap: sMap });
+                }
+            }
+        }
+
+        const batch = writeBatch(db);
+
+        // Aplicar cambios en memoria
+        updates.forEach(({ clienteId, sucursalId, dia, repartidorId }) => {
+            const data = clienteUpdates.get(clienteId);
+            if (!data) return;
+
+            const sucursal = data.sucursalesMap.get(sucursalId);
+            if (!sucursal) return;
+
+            // 1. Actualizar diasReparto (Array simple)
+            const currentDays = new Set(sucursal.diasReparto || []);
+            if (repartidorId) {
+                currentDays.add(dia); // Si hay repartidor, el día está activo
+            } else {
+                currentDays.delete(dia); // Si no, se quita
+            }
+            sucursal.diasReparto = Array.from(currentDays);
+
+            // 2. Actualizar repartidoresPorDia (Mapa detallado)
+            const repartidoresMap = { ...(sucursal.repartidoresPorDia || {}) };
+            if (repartidorId) {
+                repartidoresMap[dia] = repartidorId;
+            } else {
+                delete repartidoresMap[dia];
+            }
+            sucursal.repartidoresPorDia = repartidoresMap;
+        });
+
+        // Crear escrituras batch
+        clienteUpdates.forEach(({ cliente, sucursalesMap }) => {
+            const nuevasSucursales = Array.from(sucursalesMap.values());
+            const ref = doc(db, 'clientes', cliente.id);
+            batch.update(ref, { sucursales: nuevasSucursales });
+        });
+
+        await batch.commit();
+    }, [clientes]);
+
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
@@ -376,6 +437,6 @@ export const useDataStore = () => {
         addProducto, updateProducto, deleteProducto, reactivarProducto,
         addServicio, updateServicio, deleteServicio, reactivarServicio,
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
-        addPlanilla, updatePlanilla, updateEmpresaSettings
+        addPlanilla, updatePlanilla, updateEmpresaSettings, updateRutasMasivo
     };
 };
