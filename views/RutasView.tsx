@@ -5,12 +5,15 @@ import Card from '../components/Card';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import { SearchIcon } from '../components/icons/SearchIcon';
+import { MapIcon } from '../components/icons/MapIcon';
 import { useNotification } from '../context/NotificationContext';
+import MapPickerModal from '../components/MapPickerModal';
 
 interface RutasViewProps {
   clientes: Cliente[];
   usuarios: Usuario[];
   updateRutasMasivo: (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => Promise<void>;
+  updateCliente: (cliente: Cliente) => void;
 }
 
 // Helper para obtener las iniciales del repartidor
@@ -18,11 +21,13 @@ const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 };
 
-const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMasivo }) => {
+const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMasivo, updateCliente }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRepartidorId, setSelectedRepartidorId] = useState<string>('');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); // IDs compuestos "clienteId_sucursalId"
   const [isSaving, setIsSaving] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<{ clienteId: string, sucursalId: string, lat?: number, lng?: number, address: string } | null>(null);
+  
   const { showNotification } = useNotification();
 
   const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR), [usuarios]);
@@ -37,6 +42,8 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
           sucursalId: string, 
           sucursalNombre: string, 
           direccion: string, 
+          lat?: number,
+          lng?: number,
           dias: Record<string, string | null> // Mapa Dia -> RepartidorId (o null)
       }[] = [];
 
@@ -64,6 +71,8 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
                   sucursalId: s.id,
                   sucursalNombre: s.nombre,
                   direccion: s.direccion,
+                  lat: s.lat,
+                  lng: s.lng,
                   dias: diasMap
               });
           });
@@ -160,6 +169,42 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
       else setSelectedRows(new Set(flatRows.map(r => r.id)));
   };
 
+  const handleOpenMap = (row: typeof flatRows[0]) => {
+      setEditingLocation({
+          clienteId: row.clienteId,
+          sucursalId: row.sucursalId,
+          lat: row.lat,
+          lng: row.lng,
+          address: row.direccion
+      });
+  };
+
+  const handleSaveLocation = async (lat: number, lng: number, address: string) => {
+      if (!editingLocation) return;
+      
+      try {
+          const cliente = clientes.find(c => c.id === editingLocation.clienteId);
+          if (cliente) {
+              // Clonamos el cliente para no mutar el estado directamente
+              const updatedCliente = { ...cliente };
+              // Actualizamos la sucursal específica
+              updatedCliente.sucursales = updatedCliente.sucursales.map(s => {
+                  if (s.id === editingLocation.sucursalId) {
+                      return { ...s, lat, lng, direccion: address };
+                  }
+                  return s;
+              });
+              
+              await updateCliente(updatedCliente);
+              showNotification('Ubicación actualizada.', 'success');
+          }
+      } catch (e) {
+          showNotification('Error al guardar ubicación.', 'error');
+      } finally {
+          setEditingLocation(null);
+      }
+  };
+
   return (
     <div className="space-y-6 pt-12 md:pt-0 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -226,11 +271,22 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
                             <td className="p-4 text-center border-r dark:border-gray-700">
                                 <input type="checkbox" checked={selectedRows.has(row.id)} onChange={() => toggleRowSelection(row.id)} className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
                             </td>
-                            <td className="p-4 border-r dark:border-gray-700">
-                                <div className="font-bold text-gray-900 dark:text-white">{row.clienteNombre}</div>
-                                <div className="text-xs text-gray-500 flex items-center gap-1">
-                                    <span className="bg-gray-100 dark:bg-gray-700 px-1.5 rounded text-[9px] uppercase">{row.sucursalNombre}</span>
-                                    <span className="truncate max-w-[200px]">{row.direccion}</span>
+                            <td className="p-4 border-r dark:border-gray-700 relative">
+                                <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                        <div className="font-bold text-gray-900 dark:text-white">{row.clienteNombre}</div>
+                                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                                            <span className="bg-gray-100 dark:bg-gray-700 px-1.5 rounded text-[9px] uppercase">{row.sucursalNombre}</span>
+                                            <span className="truncate max-w-[200px]">{row.direccion}</span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleOpenMap(row)}
+                                        className={`p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${row.lat ? 'text-green-600' : 'text-gray-300 dark:text-gray-600'}`}
+                                        title={row.lat ? 'Ubicación Georeferenciada' : 'Sin ubicación GPS'}
+                                    >
+                                        <MapIcon className="w-5 h-5" />
+                                    </button>
                                 </div>
                             </td>
                             {diasOrdenados.map(dia => {
@@ -297,6 +353,18 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
               <div className="h-8 w-px bg-gray-700"></div>
               <button onClick={() => setSelectedRows(new Set())} className="text-xs text-red-400 hover:text-red-300 font-bold uppercase">Cancelar</button>
           </div>
+      )}
+
+      {/* Modal de Mapa */}
+      {editingLocation && (
+          <MapPickerModal
+              initialLat={editingLocation.lat}
+              initialLng={editingLocation.lng}
+              initialAddress={editingLocation.address}
+              onConfirm={handleSaveLocation}
+              onClose={() => setEditingLocation(null)}
+              title="Geolocalizar Sucursal"
+          />
       )}
     </div>
   );

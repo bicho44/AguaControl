@@ -219,6 +219,7 @@ function AppContent() {
                   clientes={dataStore.clientes}
                   usuarios={dataStore.usuarios}
                   updateRutasMasivo={dataStore.updateRutasMasivo}
+                  updateCliente={dataStore.updateCliente}
                />;
       case 'importar':
         return <ImportarView 
