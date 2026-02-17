@@ -57,6 +57,7 @@ const systemNavItems: NavItem[] = [
   { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'logs', label: 'Logs de Sistema', icon: <div className="text-xs font-mono font-bold bg-gray-200 dark:bg-gray-600 rounded px-1">LOG</div>, roles: [Rol.ADMINISTRADOR] },
 ];
 
 

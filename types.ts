@@ -13,7 +13,8 @@ export type View =
   | 'contratos'
   | 'servicios'
   | 'planillas'
-  | 'rutas'; // Nueva vista
+  | 'rutas'
+  | 'logs'; // Nueva vista
 
 export enum Rol {
   ADMINISTRADOR = 'Administrador',
@@ -104,6 +105,8 @@ export interface Cliente {
   web?: string;
   tieneCuentaCorriente?: boolean;
   preciosEspeciales?: PrecioEspecial[];
+  stockInicial?: any[]; // Helper para importación
+  contratosIniciales?: any[]; // Helper para importación
 }
 
 export enum TipoProducto {
@@ -320,4 +323,23 @@ export interface PlanillaDiaria {
     }[];
     devolucion?: ItemDevolucion[];
     observaciones?: string;
+}
+
+// --- LOGGING ---
+export enum LogLevel {
+    INFO = 'Info',
+    ERROR = 'Error',
+    WARNING = 'Warning'
+}
+
+export interface LogEntry {
+    id: string;
+    timestamp: number; // Date.now()
+    level: LogLevel;
+    message: string;
+    details?: string;
+    userId?: string;
+    userEmail?: string;
+    route?: string;
+    version?: string;
 }

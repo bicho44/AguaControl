@@ -15,17 +15,18 @@ import SettingsView from './views/SettingsView';
 import ContratosView from './views/ContratosView';
 import PlanillasView from './views/PlanillasView';
 import RutasView from './views/RutasView';
+import SystemLogsView from './views/SystemLogsView'; // Nueva vista
 import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
 import { useDataStore } from './hooks/useDataStore';
-import { View, Rol } from './types';
+import { View, Rol, LogLevel } from './types';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import Notification from './components/Notification';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.6.0 (Rutas Matrix)';
+const APP_VERSION = '2.6.5 (Logging System)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -50,6 +51,40 @@ function AppContent() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const dataStore = useDataStore();
   
+  // --- Global Error Capture ---
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      dataStore.addLog({
+        level: LogLevel.ERROR,
+        message: event.message,
+        details: event.error?.stack || 'No stack trace',
+        userEmail: user?.email,
+        userId: user?.id,
+        route: currentView
+      });
+    };
+
+    const handlePromiseRejection = (event: PromiseRejectionEvent) => {
+      dataStore.addLog({
+        level: LogLevel.ERROR,
+        message: 'Unhandled Promise Rejection',
+        details: JSON.stringify(event.reason),
+        userEmail: user?.email,
+        userId: user?.id,
+        route: currentView
+      });
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handlePromiseRejection);
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handlePromiseRejection);
+    };
+  }, [user, currentView, dataStore]);
+  // ----------------------------
+
   useEffect(() => {
     if (user && user.rol === Rol.REPARTIDOR) {
       setCurrentView('remitos');
@@ -234,6 +269,8 @@ function AppContent() {
                     settings={dataStore.empresaSettings}
                     updateSettings={dataStore.updateEmpresaSettings}
                   />;
+      case 'logs':
+          return <SystemLogsView logs={dataStore.logs} />;
       default:
         return <DashboardView 
                   remitos={dataStore.remitos} 

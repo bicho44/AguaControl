@@ -10,7 +10,10 @@ import {
   onSnapshot, 
   getDocs,
   writeBatch,
-  setDoc
+  setDoc,
+  query,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { 
   Cliente, 
@@ -33,7 +36,9 @@ import {
   EstadoProducto,
   EstadoServicio,
   Sucursal,
-  DiaSemana
+  DiaSemana,
+  LogEntry,
+  LogLevel
 } from '../types';
 
 const cleanUndefineds = (obj: any): any => {
@@ -58,6 +63,7 @@ export const useDataStore = () => {
     const [contratos, setContratos] = useState<Contrato[]>([]);
     const [servicios, setServicios] = useState<Servicio[]>([]);
     const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
         nombre: 'Distribuidora Aguas Puras',
         nombreFantasia: 'Aguas Puras'
@@ -65,6 +71,9 @@ export const useDataStore = () => {
 
     useEffect(() => {
         if (!db) return;
+
+        // Query especial para logs: Solo últimos 100 y ordenados
+        const logsQuery = query(collection(db, 'system_logs'), orderBy('timestamp', 'desc'), limit(100));
 
         const unsub = [
             onSnapshot(collection(db, 'remitos'), (s) => setRemitos(s.docs.map(d => ({ id: d.id, ...d.data() } as Remito)))),
@@ -78,6 +87,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'contratos'), (s) => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() } as Contrato)))),
             onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
+            onSnapshot(logsQuery, (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() } as LogEntry)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {
                     setEmpresaSettings(s.data() as EmpresaSettings);
@@ -371,20 +381,16 @@ export const useDataStore = () => {
         await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(s));
     }, []);
 
-    // NUEVA FUNCIÓN PARA ACTUALIZACIÓN MASIVA DE RUTAS
     const updateRutasMasivo = useCallback(async (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => {
         if (!updates.length) return;
 
-        // Agrupar actualizaciones por cliente para minimizar escrituras
         const clienteUpdates = new Map<string, { cliente: Cliente, sucursalesMap: Map<string, Sucursal> }>();
 
-        // Precargar clientes necesarios
         for (const update of updates) {
             if (!clienteUpdates.has(update.clienteId)) {
                 const cliente = clientes.find(c => c.id === update.clienteId);
                 if (cliente) {
-                    // Mapear sucursales para fácil acceso
-                    const sMap = new Map<string, Sucursal>(cliente.sucursales.map(s => [s.id, { ...s }])); // Shallow copy de sucursal
+                    const sMap = new Map<string, Sucursal>(cliente.sucursales.map(s => [s.id, { ...s }]));
                     clienteUpdates.set(update.clienteId, { cliente, sucursalesMap: sMap });
                 }
             }
@@ -392,7 +398,6 @@ export const useDataStore = () => {
 
         const batch = writeBatch(db);
 
-        // Aplicar cambios en memoria
         updates.forEach(({ clienteId, sucursalId, dia, repartidorId }) => {
             const data = clienteUpdates.get(clienteId);
             if (!data) return;
@@ -400,16 +405,14 @@ export const useDataStore = () => {
             const sucursal = data.sucursalesMap.get(sucursalId);
             if (!sucursal) return;
 
-            // 1. Actualizar diasReparto (Array simple)
             const currentDays = new Set(sucursal.diasReparto || []);
             if (repartidorId) {
-                currentDays.add(dia); // Si hay repartidor, el día está activo
+                currentDays.add(dia);
             } else {
-                currentDays.delete(dia); // Si no, se quita
+                currentDays.delete(dia);
             }
             sucursal.diasReparto = Array.from(currentDays);
 
-            // 2. Actualizar repartidoresPorDia (Mapa detallado)
             const repartidoresMap = { ...(sucursal.repartidoresPorDia || {}) };
             if (repartidorId) {
                 repartidoresMap[dia] = repartidorId;
@@ -419,7 +422,6 @@ export const useDataStore = () => {
             sucursal.repartidoresPorDia = repartidoresMap;
         });
 
-        // Crear escrituras batch
         clienteUpdates.forEach(({ cliente, sucursalesMap }) => {
             const nuevasSucursales = Array.from(sucursalesMap.values());
             const ref = doc(db, 'clientes', cliente.id);
@@ -429,14 +431,28 @@ export const useDataStore = () => {
         await batch.commit();
     }, [clientes]);
 
+    // LOGGER
+    const addLog = useCallback(async (logData: Omit<LogEntry, 'id' | 'timestamp'>) => {
+        try {
+            await addDoc(collection(db, 'system_logs'), {
+                ...logData,
+                timestamp: Date.now(),
+                version: '2.6.0'
+            });
+        } catch (e) {
+            console.error("Error crítico al guardar log:", e);
+        }
+    }, []);
+
     return {
-        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings,
+        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings, logs,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
         addProducto, updateProducto, deleteProducto, reactivarProducto,
         addServicio, updateServicio, deleteServicio, reactivarServicio,
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
-        addPlanilla, updatePlanilla, updateEmpresaSettings, updateRutasMasivo
+        addPlanilla, updatePlanilla, updateEmpresaSettings, updateRutasMasivo,
+        addLog
     };
 };
