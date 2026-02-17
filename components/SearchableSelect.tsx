@@ -12,9 +12,19 @@ interface SearchableSelectProps {
   disabled?: boolean;
   label?: string;
   autoFocus?: boolean;
+  disableSort?: boolean; // Nueva prop para controlar el ordenamiento
 }
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder = "Seleccionar...", disabled = false, label, autoFocus = false }) => {
+const SearchableSelect: React.FC<SearchableSelectProps> = ({ 
+    options, 
+    value, 
+    onChange, 
+    placeholder = "Seleccionar...", 
+    disabled = false, 
+    label, 
+    autoFocus = false,
+    disableSort = false 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -27,11 +37,18 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<(HTMLLIElement | null)[]>([]);
 
+  // Ordenar opciones alfabéticamente por defecto
+  const processedOptions = useMemo(() => {
+      if (disableSort) return options;
+      // Creamos una copia para no mutar el array original y ordenamos
+      return [...options].sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+  }, [options, disableSort]);
+
   // Buscamos la opción seleccionada cada vez que cambian las opciones o el valor
-  const selectedOption = useMemo(() => options.find(option => option.value === value), [options, value]);
+  const selectedOption = useMemo(() => processedOptions.find(option => option.value === value), [processedOptions, value]);
 
   // EL VALOR MOSTRADO: Si el usuario está escribiendo, mostramos lo que escribe.
-  // Si no, mostramos el label EXACTO que viene de la base de datos (options).
+  // Si no, mostramos el label EXACTO que viene de la base de datos.
   const displayValue = isTyping ? searchTerm : (selectedOption ? selectedOption.label : '');
 
   useEffect(() => {
@@ -52,10 +69,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
 
   const filteredOptions = useMemo(() => {
     const query = isTyping ? searchTerm.toLowerCase() : '';
-    return options.filter(option =>
+    return processedOptions.filter(option =>
       option.label.toLowerCase().includes(query)
     );
-  }, [options, searchTerm, isTyping]);
+  }, [processedOptions, searchTerm, isTyping]);
 
   const updateDropdownPosition = useCallback(() => {
     if (!isOpen || isMobileMode || !wrapperRef.current) return;
