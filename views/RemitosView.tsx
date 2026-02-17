@@ -287,9 +287,21 @@ const RemitoForm: React.FC<{
     if (isReadOnly) return;
     if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
     
+    // --- SANITIZACIÓN (Ceros decorativos) ---
+    // Convertimos a número y volvemos a string para eliminar ceros a la izquierda antes de guardar
+    // Ejemplo: "0001" -> 1 -> "1"
+    const puntoVentaLimpio = parseInt(formData.puntoVenta || '0').toString();
+    const numeroLimpio = parseInt(formData.numero || '0').toString();
+
+    const remitoFinal = {
+        ...formData,
+        puntoVenta: puntoVentaLimpio,
+        numero: numeroLimpio
+    };
+
     // --- VALIDACIÓN DE DUPLICADOS ---
-    const pvActual = parseInt(formData.puntoVenta || '0');
-    const numActual = parseInt(formData.numero || '0');
+    const pvActual = parseInt(puntoVentaLimpio);
+    const numActual = parseInt(numeroLimpio);
 
     const existe = remitos.some(r => {
         // Ignorar el mismo remito si se está editando
@@ -302,13 +314,13 @@ const RemitoForm: React.FC<{
     });
 
     if (existe) {
-        showNotification(`¡Error! El remito ${formData.puntoVenta}-${formData.numero} ya existe.`, 'error');
+        showNotification(`¡Error! El remito ${puntoVentaLimpio}-${numeroLimpio} ya existe.`, 'error');
         return;
     }
     // ---------------------------------
 
     setIsSaving(true);
-    await onSave(formData as Remito & { pagos: PagoDetalle[] });
+    await onSave(remitoFinal as Remito & { pagos: PagoDetalle[] });
     setIsSaving(false);
   }, [formData, isReadOnly, onSave, showNotification, remitos]);
 
