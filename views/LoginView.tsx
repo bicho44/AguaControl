@@ -21,9 +21,17 @@ const LoginView: React.FC = () => {
   };
 
   const checkEmailExistsInFirestore = async (email: string) => {
-    const q = query(collection(db, 'usuarios'), where('email', '==', email.toLowerCase().trim()), limit(1));
-    const snap = await getDocs(q);
-    return !snap.empty;
+    try {
+        const q = query(collection(db, 'usuarios'), where('email', '==', email.toLowerCase().trim()), limit(1));
+        const snap = await getDocs(q);
+        return !snap.empty;
+    } catch (error: any) {
+        console.error("Error al consultar Firestore:", error);
+        if (error.code === 'permission-denied') {
+            throw new Error('PERMISSION_DENIED_FIRESTORE');
+        }
+        return false;
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -37,42 +45,49 @@ const LoginView: React.FC = () => {
         showNotification('Cuenta creada y vinculada con éxito.', 'success');
       } else {
         try {
+          // 1. Intentar Login Auth
           await signInWithEmailAndPassword(auth, cleanEmail, password);
         } catch (signInError: any) {
-          // Si el login falla, verificamos si es porque el usuario es un "invitado" que no se ha registrado
+          
+          // 2. Si falla Auth, verificamos si existe en DB (Login híbrido)
           if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
-            const existsInDB = await checkEmailExistsInFirestore(cleanEmail);
-            if (existsInDB) {
-              showNotification('Tu perfil fue creado por el Admin, pero aún no tienes contraseña. Por favor, ve a "Registrarse" abajo.', 'error');
-              setIsLoading(false);
-              return;
+            try {
+                const existsInDB = await checkEmailExistsInFirestore(cleanEmail);
+                if (existsInDB) {
+                  showNotification('Tu perfil existe, pero no tienes contraseña. Por favor, regístrate.', 'error');
+                  setIsLoading(false);
+                  return;
+                }
+            } catch (dbError: any) {
+                if (dbError.message === 'PERMISSION_DENIED_FIRESTORE') {
+                    throw { code: 'permission-denied', message: 'Bloqueo de seguridad en base de datos.' };
+                }
             }
           }
-          throw signInError; // Si no existe en DB, lanzamos el error normal
+          throw signInError; // Si no es caso especial, lanzar error original
         }
       }
     } catch (error: any) {
       console.error("Error de autenticación completo:", error);
       let msg = 'Error desconocido de autenticación.';
       
-      // Errores comunes de usuario
-      if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado. Intenta iniciar sesión.';
-      if (error.code === 'auth/weak-password') msg = 'La contraseña debe tener al menos 6 caracteres.';
-      if (error.code === 'auth/invalid-email') msg = 'Formato de email inválido.';
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') msg = 'Email o contraseña incorrectos.';
-      
-      // Errores de Configuración / Firebase (Lo que te está pasando)
-      if (error.code === 'auth/network-request-failed') msg = 'Error de red. Verifica tu conexión o que el dominio esté autorizado en Firebase.';
-      if (error.code === 'auth/operation-not-allowed') msg = 'El inicio de sesión por Email/Password no está habilitado en la consola de Firebase.';
-      if (error.code === 'auth/invalid-api-key') msg = 'La API Key configurada es inválida.';
-      if (error.code === 'auth/app-not-authorized') msg = 'Este dominio no está autorizado en Firebase Authentication.';
-      if (error.code === 'auth/too-many-requests') msg = 'Demasiados intentos fallidos. Intenta más tarde.';
-
-      // Si no es ninguno de los anteriores, mostramos el código técnico para ayudar a depurar
-      if (msg === 'Error desconocido de autenticación.' && error.message) {
-          msg = `Error Sistema: ${error.code || error.message}`;
+      // Errores de Permisos (EL TEMA ACTUAL)
+      if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+          msg = '⛔ ACCESO DENEGADO A BASE DE DATOS. Ve a Firebase Console -> Firestore -> Reglas y cámbialas a "allow read, write: if true;"';
       }
+      // Errores comunes de usuario
+      else if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado. Intenta iniciar sesión.';
+      else if (error.code === 'auth/weak-password') msg = 'La contraseña debe tener al menos 6 caracteres.';
+      else if (error.code === 'auth/invalid-email') msg = 'Formato de email inválido.';
+      else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') msg = 'Email o contraseña incorrectos.';
       
+      // Errores de Configuración
+      else if (error.code === 'auth/network-request-failed') msg = 'Error de red. Verifica tu conexión.';
+      else if (error.code === 'auth/operation-not-allowed') msg = 'El inicio de sesión Email/Pass no está habilitado en Firebase.';
+      else if (error.code === 'auth/invalid-api-key') msg = 'API Key inválida en configuración.';
+      else if (error.code === 'auth/app-not-authorized') msg = 'Dominio no autorizado en Firebase Auth.';
+      else if (error.code === 'auth/too-many-requests') msg = 'Demasiados intentos. Espera unos minutos.';
+
       showNotification(msg, 'error');
     } finally {
       setIsLoading(false);
