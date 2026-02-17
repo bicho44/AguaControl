@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
@@ -51,12 +52,26 @@ const LoginView: React.FC = () => {
         }
       }
     } catch (error: any) {
-      console.error("Error de autenticación:", error);
-      let msg = 'Email o contraseña incorrectos.';
+      console.error("Error de autenticación completo:", error);
+      let msg = 'Error desconocido de autenticación.';
       
+      // Errores comunes de usuario
       if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado. Intenta iniciar sesión.';
       if (error.code === 'auth/weak-password') msg = 'La contraseña debe tener al menos 6 caracteres.';
       if (error.code === 'auth/invalid-email') msg = 'Formato de email inválido.';
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') msg = 'Email o contraseña incorrectos.';
+      
+      // Errores de Configuración / Firebase (Lo que te está pasando)
+      if (error.code === 'auth/network-request-failed') msg = 'Error de red. Verifica tu conexión o que el dominio esté autorizado en Firebase.';
+      if (error.code === 'auth/operation-not-allowed') msg = 'El inicio de sesión por Email/Password no está habilitado en la consola de Firebase.';
+      if (error.code === 'auth/invalid-api-key') msg = 'La API Key configurada es inválida.';
+      if (error.code === 'auth/app-not-authorized') msg = 'Este dominio no está autorizado en Firebase Authentication.';
+      if (error.code === 'auth/too-many-requests') msg = 'Demasiados intentos fallidos. Intenta más tarde.';
+
+      // Si no es ninguno de los anteriores, mostramos el código técnico para ayudar a depurar
+      if (msg === 'Error desconocido de autenticación.' && error.message) {
+          msg = `Error Sistema: ${error.code || error.message}`;
+      }
       
       showNotification(msg, 'error');
     } finally {
