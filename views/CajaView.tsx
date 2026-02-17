@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, PagoDetalle, MetodoPago, Factura, Producto, TipoVendedor, MovimientoVenta, EstadoProducto, EstadoCliente, TipoTelefono, TipoProducto } from '../types';
 import Card from '../components/Card';
@@ -301,8 +302,6 @@ const CajaView: React.FC<CajaViewProps> = ({
                 await updateVentaVendedor(data);
                 
                 // 2. Actualización en CASCADA para los pagos asociados
-                // Si cambiamos el vendedor en la venta, debemos actualizar todos los pagos
-                // (registrosPago) asociados a esa venta para que cuadre la caja del nuevo vendedor.
                 const pagosAsociados = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && p.origen.id === data.id);
                 const updatePromises = pagosAsociados.map(p => {
                     if (p.vendedorId !== data.vendedorId) {
@@ -378,12 +377,27 @@ const CajaView: React.FC<CajaViewProps> = ({
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, [isModalOpen, openIngresoModal, openGastoModal]);
 
-  const balances: Record<string, number> = useMemo(() => {
+  // Función Auxiliar para Calcular Balances
+  const calculateBalances = (pagosList: RegistroPago[], gastosList: Gasto[]) => {
     const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
-    registrosPago.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
-    gastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
-    return { ...balancesPorMetodo, total: Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0) };
-  }, [registrosPago, gastos]);
+    pagosList.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
+    gastosList.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
+    const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
+    return { ...balancesPorMetodo, total };
+  };
+
+  // Fecha de Hoy
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // 1. Balance Diario
+  const dailyBalances = useMemo(() => {
+      const dailyPagos = registrosPago.filter(p => p.fecha === todayStr);
+      const dailyGastos = gastos.filter(g => g.fecha === todayStr);
+      return calculateBalances(dailyPagos, dailyGastos);
+  }, [registrosPago, gastos, todayStr]);
+
+  // 2. Balance Total (Histórico)
+  const totalBalances = useMemo(() => calculateBalances(registrosPago, gastos), [registrosPago, gastos]);
 
   const combinedMovements = useMemo(() => {
     const allMovements: CombinedMovement[] = [];
@@ -399,7 +413,6 @@ const CajaView: React.FC<CajaViewProps> = ({
       if (p1.origen.tipo === 'remito') {
           const r = remitosMap.get(p1.origen.id);
           const clientName = clientesMap.get(p1.clienteId!)?.nombre || 'N/A';
-          // Generar resumen de productos entregados
           const prodSummary = r?.movimientos
             .filter(m => m.entregados > 0)
             .map(m => {
@@ -431,8 +444,33 @@ const CajaView: React.FC<CajaViewProps> = ({
     return allMovements.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime() || b.id.localeCompare(a.id));
   }, [gastos, registrosPago, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, productosMap]);
 
+  // Renderizado de las Cards
+  const renderBalanceSection = (data: Record<string, number>, title: string, isDaily: boolean) => (
+      <div className="space-y-3">
+          <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest pl-1 border-l-4 border-primary-500">{title}</h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Object.entries(data).map(([m, val]) => {
+                // REGLA: Ocultar si es 0, excepto "total" que siempre debe verse. 
+                // "Efectivo" si es diario se suele querer ver aunque sea 0, pero la regla general pedida es ocultar.
+                if (m !== 'total' && val === 0) return null;
+
+                const isTotal = m === 'total';
+                
+                return (
+                    <div key={m} className={`p-4 rounded-2xl border-2 transition-all hover:scale-[1.02] ${isTotal ? 'bg-primary-600 border-primary-700 text-white shadow-xl col-span-2 lg:col-span-1' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm'}`}>
+                        <p className={`text-[9px] font-black uppercase tracking-widest ${isTotal ? 'opacity-80' : 'text-gray-400'}`}>
+                            {isTotal ? (isDaily ? 'Caja del Día' : 'Saldo Total') : m}
+                        </p>
+                        <p className={`text-xl font-black ${isTotal ? '' : 'text-gray-800 dark:text-gray-200'}`}>${val.toLocaleString('es-AR')}</p>
+                    </div>
+                );
+            })}
+          </div>
+      </div>
+  );
+
   return (
-    <div className="space-y-6 pt-12 md:pt-0">
+    <div className="space-y-8 pt-12 md:pt-0">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
         <div className="flex gap-2">
@@ -445,14 +483,11 @@ const CajaView: React.FC<CajaViewProps> = ({
         </div>
       </div>
       
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Object.entries(balances).map(([m, val]) => (
-            <div key={m} className={`p-4 rounded-2xl border-2 transition-all hover:scale-[1.02] ${m === 'total' ? 'bg-primary-600 border-primary-700 text-white shadow-xl col-span-2 lg:col-span-1' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm'}`}>
-                <p className={`text-[9px] font-black uppercase tracking-widest ${m === 'total' ? 'opacity-80' : 'text-gray-400'}`}>{m === 'total' ? 'Caja Total' : m}</p>
-                <p className={`text-xl font-black ${m === 'total' ? '' : 'text-gray-800 dark:text-gray-200'}`}>${val.toLocaleString('es-AR')}</p>
-            </div>
-        ))}
-      </div>
+      {/* SECCIÓN 1: ARQUEO DIARIO */}
+      {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString()})`, true)}
+
+      {/* SECCIÓN 2: HISTÓRICO */}
+      {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
       <Card>
         <div className="overflow-x-auto p-2">
