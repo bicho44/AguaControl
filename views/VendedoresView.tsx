@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -100,6 +101,11 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
   const [editingUsuario, setEditingUsuario] = useState<Partial<Usuario> | null>(null);
   const { showNotification } = useNotification();
 
+  // Ordenar usuarios alfabéticamente
+  const sortedUsuarios = useMemo(() => {
+      return [...usuarios].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [usuarios]);
+
   const handleSaveUsuario = (u: Omit<Usuario, 'id'> | Usuario) => {
     try {
         if ('id' in u) updateUsuario(u as Usuario);
@@ -133,7 +139,7 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
         </AppButton>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {usuarios.map(u => (
+        {sortedUsuarios.map(u => (
           <Card key={u.id}>
             <div className="flex justify-between items-start">
               <div>

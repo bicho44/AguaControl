@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Contrato, Cliente, Producto, TipoServicio, EstadoContrato, TipoProducto, Sucursal, Servicio, EstadoServicio, EstadoProducto } from '../types';
 import Card from '../components/Card';
@@ -44,7 +45,9 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
         cliente: clientesMap.get(clienteId),
         contratos: contratosCliente.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime()),
       }))
-      .filter(group => group.cliente);
+      .filter(group => group.cliente)
+      // Ordenar los grupos por nombre de cliente (A-Z)
+      .sort((a, b) => (a.cliente?.nombre || '').localeCompare(b.cliente?.nombre || ''));
   }, [contratos, clientesMap]);
   
   const filteredData = useMemo(() => {

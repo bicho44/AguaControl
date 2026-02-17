@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { PlanillaDiaria, Usuario, Producto, EstadoPlanilla, Rol, ItemStock, TipoVendedor, Remito, ItemDevolucion, TipoProducto } from '../types';
 import Card from '../components/Card';
@@ -348,7 +349,8 @@ const PlanillaDetailModal: React.FC<{
             item.envasesTeoricos = Math.max(0, item.devolucionesRemito - item.vaciosDescargados);
         });
 
-        return Array.from(summary.values());
+        // Ordenar alfabéticamente los productos en el detalle
+        return Array.from(summary.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
     }, [planilla, remitos, productosMap]);
 
     useEffect(() => {
@@ -623,8 +625,15 @@ const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, prod
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   const filteredPlanillas = useMemo(() => {
-      return planillas.filter(p => p.fecha === filterDate);
-  }, [planillas, filterDate]);
+      return planillas
+        .filter(p => p.fecha === filterDate)
+        // Ordenar planillas por nombre de repartidor
+        .sort((a, b) => {
+            const nameA = usuariosMap.get(a.repartidorId)?.nombre || '';
+            const nameB = usuariosMap.get(b.repartidorId)?.nombre || '';
+            return nameA.localeCompare(nameB);
+        });
+  }, [planillas, filterDate, usuariosMap]);
 
   const handleCreatePlanilla = (newPlanilla: Omit<PlanillaDiaria, 'id'>) => {
       const exists = planillas.some(p => p.fecha === newPlanilla.fecha && p.repartidorId === newPlanilla.repartidorId);
