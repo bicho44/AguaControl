@@ -286,10 +286,31 @@ const RemitoForm: React.FC<{
     if (e) e.preventDefault();
     if (isReadOnly) return;
     if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
+    
+    // --- VALIDACIÓN DE DUPLICADOS ---
+    const pvActual = parseInt(formData.puntoVenta || '0');
+    const numActual = parseInt(formData.numero || '0');
+
+    const existe = remitos.some(r => {
+        // Ignorar el mismo remito si se está editando
+        if (formData.id && r.id === formData.id) return false;
+
+        const rPV = parseInt(r.puntoVenta);
+        const rNum = parseInt(r.numero);
+
+        return rPV === pvActual && rNum === numActual;
+    });
+
+    if (existe) {
+        showNotification(`¡Error! El remito ${formData.puntoVenta}-${formData.numero} ya existe.`, 'error');
+        return;
+    }
+    // ---------------------------------
+
     setIsSaving(true);
     await onSave(formData as Remito & { pagos: PagoDetalle[] });
     setIsSaving(false);
-  }, [formData, isReadOnly, onSave, showNotification]);
+  }, [formData, isReadOnly, onSave, showNotification, remitos]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
