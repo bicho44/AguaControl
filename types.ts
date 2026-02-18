@@ -34,6 +34,7 @@ export interface Usuario {
   rol: Rol;
   tipo: TipoVendedor;
   preciosEspeciales?: PrecioEspecial[];
+  comisionPorUnidad?: number; // Nuevo: Pago fijo por producto retornable entregado (Para Internos)
 }
 
 export enum TipoTelefono {

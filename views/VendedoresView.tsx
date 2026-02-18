@@ -33,7 +33,8 @@ const UsuarioForm: React.FC<{
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const isNum = name === 'comisionPorUnidad';
+    setFormData(prev => ({ ...prev, [name]: isNum ? (parseFloat(value) || 0) : value }));
   };
 
   const handlePrecioEspecialChange = (index: number, field: 'productoId' | 'precio', value: string) => {
@@ -60,6 +61,9 @@ const UsuarioForm: React.FC<{
 
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
 
+  const isInternal = formData.tipo === TipoVendedor.INTERNO;
+  const isExternal = formData.tipo === TipoVendedor.EXTERNO;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
@@ -69,11 +73,27 @@ const UsuarioForm: React.FC<{
           <AppInput label="Contraseña" type="password" name="password" placeholder="Solo para cambiar..." onChange={handleChange} />
           <div className="grid grid-cols-2 gap-4">
               <AppSelect label="Rol" name="rol" value={formData.rol || ''} onChange={handleChange} options={Object.values(Rol).map(r => ({value: r, label: r}))} required />
-              <AppSelect label="Tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} options={[{value: TipoVendedor.INTERNO, label: 'Interno'}, {value: TipoVendedor.EXTERNO, label: 'Externo'}]} required />
+              <AppSelect label="Tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} options={[{value: TipoVendedor.INTERNO, label: 'Interno (Empleado)'}, {value: TipoVendedor.EXTERNO, label: 'Externo (Revendedor)'}]} required />
           </div>
+          
+          {isInternal && (
+              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Configuración de Comisiones</p>
+                  <AppInput 
+                    label="Comisión por Producto Entregado ($)" 
+                    type="number" 
+                    name="comisionPorUnidad" 
+                    value={formData.comisionPorUnidad ?? ''} 
+                    onChange={handleChange} 
+                    step="0.01" 
+                    placeholder="Ej: 50"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">* Se aplica a productos retornables entregados en Remitos.</p>
+              </div>
+          )}
       </div>
 
-      {formData.tipo === TipoVendedor.EXTERNO && (
+      {isExternal && (
         <fieldset className="border-t dark:border-gray-600 pt-4">
             <legend className="text-xs font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Precios de Reventa Especiales</legend>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
@@ -144,12 +164,18 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
             <div className="flex justify-between items-start">
               <div>
                   <h3 className="text-xl font-bold text-gray-800 dark:text-white">{u.nombre}</h3>
-                  <p className="text-xs text-gray-400 font-black uppercase tracking-tighter">{u.rol} | {u.tipo}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded font-black uppercase tracking-tighter text-gray-500">{u.rol}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-tighter ${u.tipo === TipoVendedor.EXTERNO ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{u.tipo}</span>
+                  </div>
               </div>
                <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-colors"><PencilIcon /></button>
             </div>
-            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700">
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 space-y-2">
                 <p className="text-sm font-mono truncate">{u.email}</p>
+                {u.tipo === TipoVendedor.INTERNO && u.comisionPorUnidad && (
+                    <p className="text-xs text-green-600 font-bold">Comisión: ${u.comisionPorUnidad} / unid.</p>
+                )}
             </div>
           </Card>
         ))}
