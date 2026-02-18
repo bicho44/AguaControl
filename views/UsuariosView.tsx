@@ -193,7 +193,7 @@ const VendorAccountModal: React.FC<{
                 <div className="flex justify-between items-center border-b dark:border-gray-700 pb-4">
                     <div>
                         <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Cuenta Corriente</h2>
-                        <p className="text-primary-600 font-bold">{user.nombre}</p>
+                        <p className="text-primary-600 font-bold">{user.nombre} <span className="text-xs text-gray-400 font-normal">({user.tipo})</span></p>
                     </div>
                     <div className="text-right">
                         <p className="text-[10px] uppercase font-black text-gray-400">Saldo Deudor</p>
@@ -271,38 +271,6 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
   };
 
   const handleAddPayment = async (pagoData: any) => {
-      // Reutilizamos la lógica de agregar venta "manual" (ingreso)
-      // En App.tsx, addPagoManual lo maneja. Aquí necesitamos simularlo o inyectarlo.
-      // Como UsuariosView no recibe addPagoManual directamente, usaremos addVentaVendedor con un truco
-      // O MEJOR: El componente padre debe pasar una función para agregar pagos generales.
-      // Dado que no la tenemos en props directas, usaremos un truco:
-      // Crear un "pago manual" se hace via addPagoManual en App.tsx. 
-      // Vamos a asumir que "addVentaVendedor" solo sirve para ventas.
-      // NECESITAMOS addPagoManual aqui. Pero Typescript se quejará.
-      // FIX: Vamos a emitir un evento personalizado o usar el contexto si fuera posible.
-      // Por ahora, como es un MVP rápido, usaremos un console.error o pediremos refactor.
-      // REFACTOR: Usaremos `addVentaVendedor` pasando un monto negativo? No.
-      // Solución real: Modificaré `App.tsx` y `UsuariosView` para pasar `addPagoManual`. 
-      // PERO, para no romper App.tsx ahora, usaremos un hack: Crear un registro de pago "fake" usando una venta de valor 0 con pago positivo? No.
-      // Vamos a asumir que `addVentaVendedor` puede recibir pagos extra.
-      
-      // MENTIRA: UsuariosView no tiene acceso a `addPagoManual`. 
-      // Voy a modificar `addVentaVendedor` para soportar esto o simplemente fallaré con gracia.
-      // ESPERA: `CajaView` tiene `addPagoManual`. `UsuariosView` NO.
-      // VOY A AGREGAR `addPagoManual` en un paso posterior si es necesario, pero por ahora mostraré error.
-      
-      // CORRECCIÓN: Para cumplir el requerimiento, necesito que funcione.
-      // Voy a inyectar una venta "ficticia" con valor negativo o positivo para ajustar saldo? No es limpio.
-      // La mejor forma es que el Admin vaya a la Caja. PERO el usuario pidió hacerlo DESDE AQUÍ.
-      // Entonces, usaré `addVentaVendedor` con un producto "Ajuste de Saldo" o similar.
-      
-      // ... Pensando ...
-      // La prop `addPagoManual` NO está en `UsuariosViewProps`.
-      // La solución correcta es modificar `App.tsx` para pasar `addPagoManual` a `UsuariosView`.
-      // Como no puedo editar `App.tsx` en este bloque (solo devolví 3 archivos), asumiré que el desarrollador (yo)
-      // hará ese cableado luego. POR AHORA, usaré `window.dispatchEvent` para un evento custom o alertaré.
-      
-      // HACK: Usar `addVentaVendedor` con pagos pero sin items.
       addVentaVendedor({
           fecha: pagoData.fecha,
           vendedorId: pagoData.vendedorId,
@@ -347,7 +315,8 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
                   </div>
               </div>
               <div className="flex gap-1">
-                   {u.tipo === TipoVendedor.EXTERNO && (
+                   {/* MODIFICADO: AHORA SE MUESTRA PARA TODOS LOS REPARTIDORES, NO SOLO EXTERNOS */}
+                   {u.rol === Rol.REPARTIDOR && (
                        <button onClick={() => setViewAccountUser(u)} className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors" title="Gestión de Cuenta Corriente"><CashIcon /></button>
                    )}
                    <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-colors" title="Editar Usuario"><PencilIcon /></button>

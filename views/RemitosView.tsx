@@ -74,6 +74,7 @@ const ReassignModal: React.FC<{
     const [toDate, setToDate] = useState('');
     const [oldVendedorId, setOldVendedorId] = useState('');
     const [newVendedorId, setNewVendedorId] = useState('');
+    const [excludeAdjustments, setExcludeAdjustments] = useState(true); // NUEVO ESTADO
     const [isProcessing, setIsProcessing] = useState(false);
 
     const affectedRemitos = useMemo(() => {
@@ -85,10 +86,14 @@ const ReassignModal: React.FC<{
             const d = new Date(r.fecha + 'T00:00:00').getTime();
             const dateMatch = d >= start && d <= end;
             const vendorMatch = !oldVendedorId || r.vendedorId === oldVendedorId;
-            // No reasignar si ya es del nuevo vendedor
+            
+            // Lógica de exclusión de Cargas Iniciales (Importaciones)
+            const isAdjustment = !!r.esAjuste || (r.numero && r.numero.toString().startsWith('INI'));
+            if (excludeAdjustments && isAdjustment) return false;
+
             return dateMatch && vendorMatch && r.vendedorId !== newVendedorId;
         });
-    }, [remitos, fromDate, toDate, oldVendedorId, newVendedorId]);
+    }, [remitos, fromDate, toDate, oldVendedorId, newVendedorId, excludeAdjustments]);
 
     const handleConfirm = async () => {
         setIsProcessing(true);
@@ -103,7 +108,7 @@ const ReassignModal: React.FC<{
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
             <div className="space-y-4">
                 <h2 className="text-xl font-black uppercase text-primary-600">Herramienta de Corrección Masiva</h2>
-                <p className="text-xs text-gray-500">Reasigna remitos de un vendedor a otro en un rango de fechas. Útil si cargaste remitos con el usuario incorrecto.</p>
+                <p className="text-xs text-gray-500">Reasigna remitos de un vendedor a otro en un rango de fechas.</p>
                 
                 <div className="grid grid-cols-2 gap-4">
                     <AppInput type="date" label="Desde" value={fromDate} onChange={e => setFromDate(e.target.value)} />
@@ -124,6 +129,20 @@ const ReassignModal: React.FC<{
                         onChange={e => setNewVendedorId(e.target.value)} 
                         options={[{value: '', label: 'Seleccionar...'}, ...vendedores.map(v => ({value: v.id, label: v.nombre}))]} 
                     />
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <input 
+                        type="checkbox" 
+                        id="excludeAdj" 
+                        checked={excludeAdjustments} 
+                        onChange={e => setExcludeAdjustments(e.target.checked)} 
+                        className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <label htmlFor="excludeAdj" className="text-xs font-bold text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                        Excluir Cargas Iniciales (Importaciones)
+                        <br/><span className="text-[10px] font-normal text-gray-400">Ignora remitos tipo "INI-XXXX" o ajustes de stock.</span>
+                    </label>
                 </div>
 
                 <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
