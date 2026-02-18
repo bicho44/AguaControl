@@ -26,6 +26,11 @@ export enum TipoVendedor {
   EXTERNO = 'Externo',
 }
 
+export interface ComisionProducto {
+    productoId: string;
+    monto: number;
+}
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -34,7 +39,7 @@ export interface Usuario {
   rol: Rol;
   tipo: TipoVendedor;
   preciosEspeciales?: PrecioEspecial[];
-  comisionPorUnidad?: number; // Nuevo: Pago fijo por producto retornable entregado (Para Internos)
+  comisiones?: ComisionProducto[]; // Nuevo: Array de comisiones por producto
 }
 
 export enum TipoTelefono {

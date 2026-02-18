@@ -26,7 +26,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.6.5 (Logging System)';
+const APP_VERSION = '2.7.0 (Commissions & Vendor Dashboard)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -86,9 +86,8 @@ function AppContent() {
   // ----------------------------
 
   useEffect(() => {
-    if (user && user.rol === Rol.REPARTIDOR) {
-      setCurrentView('remitos');
-    } else if (user) {
+    // Al iniciar sesión, siempre vamos al dashboard, independientemente del rol.
+    if (user) {
       setCurrentView('dashboard');
     }
   }, [user]);
@@ -102,19 +101,19 @@ function AppContent() {
   }
 
   const renderView = () => {
-    // Seguridad y redirección para Repartidor
-    if (user.rol === Rol.REPARTIDOR && !['remitos', 'clientes'].includes(currentView)) {
-      return <RemitosView 
+    // Seguridad: Permitir 'dashboard' también a los repartidores
+    const allowedViewsForRepartidor: View[] = ['dashboard', 'remitos', 'clientes'];
+    
+    if (user.rol === Rol.REPARTIDOR && !allowedViewsForRepartidor.includes(currentView)) {
+      return <DashboardView 
                 remitos={dataStore.remitos} 
-                clientes={dataStore.clientes} 
-                vendedores={dataStore.usuarios}
-                productos={dataStore.productos}
+                productos={dataStore.productos} 
                 registrosPago={dataStore.registrosPago}
-                addRemito={dataStore.addRemito}
-                updateRemito={dataStore.updateRemito}
-                deleteRemito={dataStore.deleteRemito}
-                addCliente={dataStore.addCliente}
-                currentUser={user}
+                gastos={dataStore.gastos}
+                usuarios={dataStore.usuarios}
+                clientes={dataStore.clientes}
+                ventasVendedor={dataStore.ventasVendedor}
+                empresaSettings={dataStore.empresaSettings}
               />;
     }
 

@@ -2,6 +2,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import Card from '../components/Card';
+import Modal from '../components/Modal';
+import AppButton from '../components/ui/AppButton';
 import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
@@ -69,10 +71,15 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         
-        const remitosMes = misRemitos.filter(r => new Date(r.fecha) >= startOfMonth);
+        // Fix: Use getTime() for numeric comparison to avoid TS errors
+        const remitosMes = misRemitos.filter(r => new Date(r.fecha).getTime() >= startOfMonth.getTime());
         
         let totalEntregado = 0;
+        let totalComision = 0;
         const dataPorDia: Record<string, number> = {};
+
+        // Mapa rápido de comisiones por producto
+        const comisionesMap = new Map(user.comisiones?.map(c => [c.productoId, c.monto]));
 
         remitosMes.forEach(r => {
             const day = new Date(r.fecha + 'T00:00:00').getDate();
@@ -80,20 +87,22 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
 
             r.movimientos.forEach(m => {
                 const prod = productosMap.get(m.productoId);
+                // Si hay comisión específica, usarla. Si no, 0.
+                const comisionRate = comisionesMap.get(m.productoId) || 0;
+                
                 if (prod && prod.tipo === TipoProducto.RETORNABLE) {
                     totalEntregado += m.entregados;
                     dataPorDia[day] += m.entregados;
+                    totalComision += m.entregados * comisionRate;
                 }
             });
         });
-
-        const comision = totalEntregado * (user.comisionPorUnidad || 0);
         
         // Formatear para gráfico
         const chart = Object.keys(dataPorDia).map(day => ({ name: `Día ${day}`, entregas: dataPorDia[day] }));
 
-        return { entregasTotal: totalEntregado, comisionEstimada: comision, chartData: chart };
-    }, [misRemitos, productosMap, user.comisionPorUnidad]);
+        return { entregasTotal: totalEntregado, comisionEstimada: totalComision, chartData: chart };
+    }, [misRemitos, productosMap, user.comisiones]);
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -111,7 +120,7 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Comisión Estimada</p>
                         <p className="text-5xl font-black text-green-600">${comisionEstimada.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 mt-2">Base: ${user.comisionPorUnidad || 0} / unidad</p>
+                        <p className="text-xs text-gray-400 mt-2">Calculada según configuración</p>
                     </div>
                 </Card>
             </div>
@@ -248,6 +257,8 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
 
 const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings }) => {
   const { user } = useAuth(); // Obtenemos el usuario autenticado
+  const [showDebtDetails, setShowDebtDetails] = useState(false);
+
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
   
@@ -330,7 +341,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     monthlySalesByTypeData,
     currentMonthDailySalesData,
     externalVendorsPieData,
-    totalDeudaExterna // Nueva métrica para admin
+    totalDeudaExterna,
+    debtByVendor // Nueva estructura desglosada
   } = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -378,11 +390,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         });
     });
 
-    // CÁLCULO DEUDA EXTERNA GLOBAL
+    // CÁLCULO DEUDA EXTERNA GLOBAL & DESGLOSADA
     let deudaTotal = 0;
+    const vendorDebts: Record<string, { name: string, bought: number, paid: number }> = {};
+
     ventasVendedor.forEach(v => {
         const vendor = usuariosMap.get(v.vendedorId);
         if (vendor?.tipo === TipoVendedor.EXTERNO) {
+            if (!vendorDebts[v.vendedorId]) vendorDebts[v.vendedorId] = { name: vendor.nombre, bought: 0, paid: 0 };
+            
             let totalVenta = 0;
             v.movimientos.forEach(m => {
                 const prod = productosMap.get(m.productoId);
@@ -393,6 +409,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                 }
             });
             deudaTotal += totalVenta;
+            vendorDebts[v.vendedorId].bought += totalVenta;
         }
     });
     // Restar pagos de vendedores externos
@@ -400,7 +417,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         if (p.vendedorId) {
             const vendor = usuariosMap.get(p.vendedorId);
             if (vendor?.tipo === TipoVendedor.EXTERNO) {
+                if (!vendorDebts[p.vendedorId]) vendorDebts[p.vendedorId] = { name: vendor.nombre, bought: 0, paid: 0 };
                 deudaTotal -= p.monto;
+                vendorDebts[p.vendedorId].paid += p.monto;
             }
         }
     });
@@ -500,7 +519,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         monthlySalesByTypeData: monthlyTypeData,
         currentMonthDailySalesData: dailyEvolutionData,
         externalVendorsPieData,
-        totalDeudaExterna: deudaTotal
+        totalDeudaExterna: deudaTotal,
+        debtByVendor: Object.values(vendorDebts)
     }
   }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames]);
 
@@ -597,11 +617,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Caja Virtual / Bancos</p>
               <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
           </div>
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-orange-100 dark:border-orange-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
-              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Cta. Cte. Revendedores</p>
+          <div 
+            onClick={() => setShowDebtDetails(true)}
+            className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-orange-100 dark:border-orange-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02] cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/10"
+          >
+              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1 flex items-center gap-1">Cta. Cte. Revendedores <span className="text-[8px] bg-orange-200 text-orange-800 px-1 rounded">VER</span></p>
               <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${totalDeudaExterna.toLocaleString('es-AR')}</p>
           </div>
       </div>
+
+      {showDebtDetails && (
+          <Modal isOpen={showDebtDetails} onClose={() => setShowDebtDetails(false)} className="max-w-4xl">
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                      <h2 className="text-xl font-bold text-gray-800 dark:text-white">Estado de Cuenta de Revendedores</h2>
+                      <AppButton variant="secondary" size="sm" onClick={() => setShowDebtDetails(false)}>Cerrar</AppButton>
+                  </div>
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left">
+                          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                              <tr>
+                                  <th className="px-4 py-3">Revendedor</th>
+                                  <th className="px-4 py-3 text-right">Total Comprado</th>
+                                  <th className="px-4 py-3 text-right">Total Pagado</th>
+                                  <th className="px-4 py-3 text-right">Saldo (Deuda)</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {debtByVendor.map((d, i) => {
+                                  const saldo = d.bought - d.paid;
+                                  return (
+                                      <tr key={i} className="border-b dark:border-gray-700">
+                                          <td className="px-4 py-3 font-medium">{d.name}</td>
+                                          <td className="px-4 py-3 text-right">${d.bought.toLocaleString()}</td>
+                                          <td className="px-4 py-3 text-right text-green-600">${d.paid.toLocaleString()}</td>
+                                          <td className={`px-4 py-3 text-right font-black ${saldo > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                              ${saldo.toLocaleString()}
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                              {debtByVendor.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-gray-500">Sin deudas registradas.</td></tr>}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </Modal>
+      )}
 
       <div>
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Entregas Consolidadas</h2>

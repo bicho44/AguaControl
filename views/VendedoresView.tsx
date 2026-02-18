@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto } from '../types';
+import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto, ComisionProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -33,14 +33,19 @@ const UsuarioForm: React.FC<{
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNum = name === 'comisionPorUnidad';
-    setFormData(prev => ({ ...prev, [name]: isNum ? (parseFloat(value) || 0) : value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handlePrecioEspecialChange = (index: number, field: 'productoId' | 'precio', value: string) => {
     const newPrecios = [...(formData.preciosEspeciales || [])];
     newPrecios[index] = { ...newPrecios[index], [field]: field === 'precio' ? (value === '' ? 0 : Number(value)) : value };
     setFormData(prev => ({ ...prev, preciosEspeciales: newPrecios }));
+  }
+
+  const handleComisionChange = (index: number, field: 'productoId' | 'monto', value: string) => {
+    const newComisiones = [...(formData.comisiones || [])];
+    newComisiones[index] = { ...newComisiones[index], [field]: field === 'monto' ? (value === '' ? 0 : Number(value)) : value };
+    setFormData(prev => ({ ...prev, comisiones: newComisiones }));
   }
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
@@ -65,7 +70,7 @@ const UsuarioForm: React.FC<{
   const isExternal = formData.tipo === TipoVendedor.EXTERNO;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
       <div className="space-y-4">
           <AppInput label="Nombre Completo" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
@@ -77,26 +82,26 @@ const UsuarioForm: React.FC<{
           </div>
           
           {isInternal && (
-              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
-                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Configuración de Comisiones</p>
-                  <AppInput 
-                    label="Comisión por Producto Entregado ($)" 
-                    type="number" 
-                    name="comisionPorUnidad" 
-                    value={formData.comisionPorUnidad ?? ''} 
-                    onChange={handleChange} 
-                    step="0.01" 
-                    placeholder="Ej: 50"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">* Se aplica a productos retornables entregados en Remitos.</p>
-              </div>
+              <fieldset className="border-t dark:border-gray-600 pt-4">
+                  <legend className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest px-2 mb-2">Comisiones por Producto</legend>
+                  <div className="space-y-2">
+                    {(formData.comisiones || []).map((comision, index) => (
+                        <div key={index} className="flex gap-2 items-end">
+                            <div className="flex-1"><SearchableSelect options={productosActivos.map(p=>({value:p.id, label:p.nombre}))} value={comision.productoId} onChange={(v) => handleComisionChange(index, 'productoId', v)} /></div>
+                            <div className="w-32"><AppInput type="number" value={comision.monto} onChange={(e) => handleComisionChange(index, 'monto', e.target.value)} step="0.01" placeholder="$ Comision" /></div>
+                            <AppButton variant="danger" size="sm" onClick={() => setFormData({...formData, comisiones: formData.comisiones?.filter((_,i)=>i!==index)})} className="!p-2"><TrashIcon/></AppButton>
+                        </div>
+                    ))}
+                    <AppButton variant="secondary" size="sm" onClick={() => setFormData({...formData, comisiones: [...(formData.comisiones || []), {productoId: '', monto: 0}]})} className="w-full border-dashed border-2 text-blue-600 border-blue-200">+ Agregar Comisión Específica</AppButton>
+                  </div>
+              </fieldset>
           )}
       </div>
 
       {isExternal && (
         <fieldset className="border-t dark:border-gray-600 pt-4">
             <legend className="text-xs font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Precios de Reventa Especiales</legend>
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+            <div className="space-y-2">
             {(formData.preciosEspeciales || []).map((precio, index) => (
                 <div key={index} className="flex gap-2 items-end">
                     <div className="flex-1"><SearchableSelect options={productosActivos.map(p=>({value:p.id, label:p.nombre}))} value={precio.productoId} onChange={(v) => handlePrecioEspecialChange(index, 'productoId', v)} /></div>
@@ -173,8 +178,17 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
             </div>
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 space-y-2">
                 <p className="text-sm font-mono truncate">{u.email}</p>
-                {u.tipo === TipoVendedor.INTERNO && u.comisionPorUnidad && (
-                    <p className="text-xs text-green-600 font-bold">Comisión: ${u.comisionPorUnidad} / unid.</p>
+                {u.tipo === TipoVendedor.INTERNO && u.comisiones && u.comisiones.length > 0 && (
+                    <div className="text-xs text-green-600 bg-green-50 dark:bg-green-900/10 p-2 rounded">
+                        <p className="font-bold">Comisiones Configuradas:</p>
+                        <ul className="list-disc list-inside">
+                            {u.comisiones.slice(0, 3).map((c, i) => {
+                                const prodName = productos.find(p => p.id === c.productoId)?.nombre || 'Producto';
+                                return <li key={i}>{prodName}: ${c.monto}</li>;
+                            })}
+                            {u.comisiones.length > 3 && <li>... y {u.comisiones.length - 3} más</li>}
+                        </ul>
+                    </div>
                 )}
             </div>
           </Card>
