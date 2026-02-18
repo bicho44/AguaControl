@@ -1,9 +1,9 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
+import SearchableSelect from '../components/SearchableSelect';
 import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
@@ -79,7 +79,8 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
         const dataPorDia: Record<string, number> = {};
 
         // Mapa rápido de comisiones por producto
-        const comisionesMap = new Map(user.comisiones?.map(c => [c.productoId, c.monto]));
+        const comisionesMap = new Map<string, number>();
+        user.comisiones?.forEach(c => comisionesMap.set(c.productoId, c.monto));
 
         remitosMes.forEach(r => {
             const day = new Date(r.fecha + 'T00:00:00').getDate();
@@ -106,7 +107,9 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">Mi Rendimiento (Mes Actual)</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+                Rendimiento: <span className="text-primary-600">{user.nombre}</span>
+            </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
@@ -205,7 +208,9 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">Mi Cuenta Corriente</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+                Cuenta Corriente: <span className="text-primary-600">{user.nombre}</span>
+            </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
@@ -258,6 +263,7 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
 const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings }) => {
   const { user } = useAuth(); // Obtenemos el usuario autenticado
   const [showDebtDetails, setShowDebtDetails] = useState(false);
+  const [viewAsId, setViewAsId] = useState<string>(''); // Nuevo estado para "Ver como"
 
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
@@ -392,12 +398,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
 
     // CÁLCULO DEUDA EXTERNA GLOBAL & DESGLOSADA
     let deudaTotal = 0;
-    const vendorDebts: Record<string, { name: string, bought: number, paid: number }> = {};
+    const vendorDebts: Record<string, { id: string, name: string, bought: number, paid: number }> = {};
 
     ventasVendedor.forEach(v => {
         const vendor = usuariosMap.get(v.vendedorId);
         if (vendor?.tipo === TipoVendedor.EXTERNO) {
-            if (!vendorDebts[v.vendedorId]) vendorDebts[v.vendedorId] = { name: vendor.nombre, bought: 0, paid: 0 };
+            if (!vendorDebts[v.vendedorId]) vendorDebts[v.vendedorId] = { id: v.vendedorId, name: vendor.nombre, bought: 0, paid: 0 };
             
             let totalVenta = 0;
             v.movimientos.forEach(m => {
@@ -417,7 +423,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         if (p.vendedorId) {
             const vendor = usuariosMap.get(p.vendedorId);
             if (vendor?.tipo === TipoVendedor.EXTERNO) {
-                if (!vendorDebts[p.vendedorId]) vendorDebts[p.vendedorId] = { name: vendor.nombre, bought: 0, paid: 0 };
+                if (!vendorDebts[p.vendedorId]) vendorDebts[p.vendedorId] = { id: p.vendedorId, name: vendor.nombre, bought: 0, paid: 0 };
                 deudaTotal -= p.monto;
                 vendorDebts[p.vendedorId].paid += p.monto;
             }
@@ -593,20 +599,62 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
 
   if (!user) return <div className="p-4">Cargando perfil...</div>;
 
-  // 1. DASHBOARD REPARTIDOR INTERNO
-  if (user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.INTERNO) {
-      return <InternalVendorDashboard user={user} remitos={remitos} productosMap={productosMap} />;
+  // LOGICA "IMPERSONATE" O DASHBOARD NORMAL
+  let currentUserToRender = user;
+  
+  if (user.rol === Rol.ADMINISTRADOR && viewAsId) {
+      const selectedUser = usuariosMap.get(viewAsId);
+      if (selectedUser) currentUserToRender = selectedUser;
   }
 
-  // 2. DASHBOARD REVENDEDOR EXTERNO
-  if (user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.EXTERNO) {
-      return <ExternalVendorDashboard user={user} ventas={ventasVendedor} pagos={registrosPago} productosMap={productosMap} />;
+  // 1. DASHBOARD REPARTIDOR INTERNO (O ADMIN VIENDO COMO INTERNO)
+  if (currentUserToRender.rol === Rol.REPARTIDOR && currentUserToRender.tipo === TipoVendedor.INTERNO) {
+      return (
+        <div className="space-y-4 pt-12 md:pt-0">
+            {user.rol === Rol.ADMINISTRADOR && (
+                <div className="flex justify-end">
+                    <button onClick={() => setViewAsId('')} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-lg hover:bg-gray-700 transition-all">
+                        ← Volver a Vista Admin
+                    </button>
+                </div>
+            )}
+            <InternalVendorDashboard user={currentUserToRender} remitos={remitos} productosMap={productosMap} />
+        </div>
+      );
+  }
+
+  // 2. DASHBOARD REVENDEDOR EXTERNO (O ADMIN VIENDO COMO EXTERNO)
+  if (currentUserToRender.rol === Rol.REPARTIDOR && currentUserToRender.tipo === TipoVendedor.EXTERNO) {
+      return (
+        <div className="space-y-4 pt-12 md:pt-0">
+            {user.rol === Rol.ADMINISTRADOR && (
+                <div className="flex justify-end">
+                    <button onClick={() => setViewAsId('')} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-lg hover:bg-gray-700 transition-all">
+                        ← Volver a Vista Admin
+                    </button>
+                </div>
+            )}
+            <ExternalVendorDashboard user={currentUserToRender} ventas={ventasVendedor} pagos={registrosPago} productosMap={productosMap} />
+        </div>
+      );
   }
 
   // 3. DASHBOARD ADMINISTRADOR (Original + Mejoras)
   return (
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
-      <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
+          
+          <div className="w-full md:w-64">
+              <SearchableSelect 
+                  options={usuarios.filter(u => u.rol === Rol.REPARTIDOR).map(u => ({ value: u.id, label: `Ver como: ${u.nombre}` }))}
+                  value={viewAsId}
+                  onChange={setViewAsId}
+                  placeholder="Administrador (Vista General)"
+                  disableSort
+              />
+          </div>
+      </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
@@ -641,6 +689,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                                   <th className="px-4 py-3 text-right">Total Comprado</th>
                                   <th className="px-4 py-3 text-right">Total Pagado</th>
                                   <th className="px-4 py-3 text-right">Saldo (Deuda)</th>
+                                  <th className="px-4 py-3 text-right">Acción</th>
                               </tr>
                           </thead>
                           <tbody>
@@ -654,10 +703,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                                           <td className={`px-4 py-3 text-right font-black ${saldo > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                               ${saldo.toLocaleString()}
                                           </td>
+                                          <td className="px-4 py-3 text-right">
+                                              <button 
+                                                onClick={() => { setShowDebtDetails(false); setViewAsId(d.id); }}
+                                                className="text-xs text-blue-600 hover:underline font-bold"
+                                              >
+                                                  Ver Detalle
+                                              </button>
+                                          </td>
                                       </tr>
                                   );
                               })}
-                              {debtByVendor.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-gray-500">Sin deudas registradas.</td></tr>}
+                              {debtByVendor.length === 0 && <tr><td colSpan={5} className="text-center py-4 text-gray-500">Sin deudas registradas.</td></tr>}
                           </tbody>
                       </table>
                   </div>

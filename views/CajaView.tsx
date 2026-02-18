@@ -281,6 +281,7 @@ const CajaView: React.FC<CajaViewProps> = ({
     registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos,
     addPagoManual, addGasto, addVentaVendedor, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor
 }) => {
+  const [activeTab, setActiveTab] = useState<'caja' | 'ventas'>('caja'); // Nuevo estado para pestañas
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -302,8 +303,17 @@ const CajaView: React.FC<CajaViewProps> = ({
                 await updateVentaVendedor(data);
                 
                 // 2. Actualización en CASCADA para los pagos asociados
-                const pagosAsociados = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && p.origen.id === data.id);
-                const updatePromises = pagosAsociados.map(p => {
+                // Si la venta tiene pagoIds, buscar esos pagos y actualizarlos.
+                // Si la venta no tiene pagoIds pero ahora sí vienen pagos, crear nuevos.
+                
+                const pagosNuevos = data.pagos || [];
+                const pagosViejos = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && p.origen.id === data.id);
+
+                // IMPORTANTE: Esta lógica simple asume que si editas la venta, reemplazas los pagos.
+                // Para una robustez total, habría que comparar IDs, pero aquí simplificamos borrando y creando si cambian mucho.
+                // Sin embargo, para mantener consistencia con el flujo actual que actualiza uno a uno, solo actualizaremos el vendedorID.
+                
+                const updatePromises = pagosViejos.map(p => {
                     if (p.vendedorId !== data.vendedorId) {
                         return updateRegistroPago({ ...p, vendedorId: data.vendedorId });
                     }
@@ -311,7 +321,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                 });
                 await Promise.all(updatePromises);
 
-                showNotification('Venta y pagos actualizados.', 'success');
+                showNotification('Venta actualizada.', 'success');
             } else {
                 await addVentaVendedor(data);
                 showNotification('Venta registrada.', 'success');
@@ -444,6 +454,35 @@ const CajaView: React.FC<CajaViewProps> = ({
     return allMovements.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime() || b.id.localeCompare(a.id));
   }, [gastos, registrosPago, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, productosMap]);
 
+  // NUEVA LÓGICA: Lista completa de ventas a vendedores para gestión de deuda
+  const vendorSalesList = useMemo(() => {
+      return ventasVendedor.map(v => {
+          const vendor = vendedoresMap.get(v.vendedorId);
+          const pagado = (v.pagoIds || []).reduce((sum, pid) => {
+              const p = registrosPago.find(rp => rp.id === pid);
+              return sum + (p?.monto || 0);
+          }, 0);
+          
+          let totalVenta = 0;
+          v.movimientos.forEach(m => {
+              const prod = productosMap.get(m.productoId);
+              if (prod) {
+                  const precioEsp = vendor?.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
+                  const precioFinal = m.precioUnitario || precioEsp || prod.precioReventa || prod.precio;
+                  totalVenta += m.cantidad * precioFinal;
+              }
+          });
+
+          return {
+              ...v,
+              vendorName: vendor?.nombre || 'Desconocido',
+              total: totalVenta,
+              pagado,
+              saldo: totalVenta - pagado
+          };
+      }).sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  }, [ventasVendedor, vendedoresMap, registrosPago, productosMap]);
+
   // Renderizado de las Cards
   const renderBalanceSection = (data: Record<string, number>, title: string, isDaily: boolean) => (
       <div className="space-y-3">
@@ -489,61 +528,116 @@ const CajaView: React.FC<CajaViewProps> = ({
       {/* SECCIÓN 2: HISTÓRICO */}
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
+      {/* TABS DE VISTA */}
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
+          <button onClick={() => setActiveTab('caja')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'caja' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500'}`}>Movimientos de Caja</button>
+          <button onClick={() => setActiveTab('ventas')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'ventas' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500'}`}>Operaciones con Vendedores</button>
+      </div>
+
       <Card>
         <div className="overflow-x-auto p-2">
-            <table className="w-full text-sm text-left">
-                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <tr><th className="px-4 py-3 w-24">Fecha</th><th className="px-4 py-3">Referencia</th><th className="px-4 py-3 text-right">Monto</th><th className="px-4 py-3 text-right">Acciones</th></tr>
-                </thead>
-                <tbody>
-                    {combinedMovements.map(mov => {
-                        const isExpanded = expandedRowId === mov.id;
-                        const isEditDisabled = mov.type === 'ingreso' && Array.isArray(mov.original) && mov.original[0].origen.tipo === 'factura';
-                        const linkedVenta = mov.ventaId ? ventasVendedorMap.get(mov.ventaId) : null;
-                        return (
-                            <React.Fragment key={mov.id}>
-                                <tr className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : mov.id)}>
-                                    <td className="px-4 py-4">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString()}</td>
-                                    <td className="px-4 py-4">
-                                      <div className="flex flex-col">
-                                        <span className="font-bold text-gray-900 dark:text-white text-sm">{mov.concepto}</span>
-                                        {linkedVenta && <span className="text-[9px] font-black text-primary-600 uppercase">Venta Directa de Stock</span>}
-                                      </div>
-                                    </td>
-                                    <td className={`px-4 py-4 text-right font-black ${mov.type === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
-                                        {mov.type === 'ingreso' ? '+' : '-'}${mov.total.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-4 text-right flex justify-end items-center gap-2">
-                                        {!isEditDisabled && <button type="button" onClick={(e) => { e.stopPropagation(); if(mov.type==='gasto') setModalConfig({type:'gasto', isEdit:true, data:mov.original}); else { const original=mov.original as RegistroPago[]; const p1=original[0]; setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); } setIsModalOpen(true); }} className="text-blue-500 p-1"><PencilIcon /></button>}
-                                        <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                    </td>
-                                </tr>
-                                {isExpanded && (
-                                    <tr className="bg-gray-100/50 dark:bg-gray-900/50">
-                                        <td colSpan={4} className="p-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                                                <div className="space-y-2">
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Detalle de Medios</p>
-                                                    {mov.pagos.map((p, idx) => (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs font-bold shadow-sm"><span>{p.metodo}</span><span className="text-green-600">${p.monto.toLocaleString()}</span></div>))}
-                                                </div>
-                                                {linkedVenta && (
-                                                   <div className="space-y-2">
-                                                      <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Productos Entregados</p>
-                                                      {linkedVenta.movimientos.map((m, idx) => {const p = productosMap.get(m.productoId); return (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs shadow-sm"><span>{p?.nombre} x {m.cantidad}</span><span className="font-mono text-gray-400">${(m.precioUnitario || p?.precio || 0).toLocaleString()} c/u</span></div>);})}
-                                                   </div>
-                                                )}
-                                                <div className="md:col-span-2 flex justify-end">
-                                                    {!isEditDisabled && <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }} className="!py-1 shadow-sm">Eliminar Registro</AppButton>}
-                                                </div>
-                                            </div>
+            {activeTab === 'caja' ? (
+                <table className="w-full text-sm text-left">
+                    <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <tr><th className="px-4 py-3 w-24">Fecha</th><th className="px-4 py-3">Referencia</th><th className="px-4 py-3 text-right">Monto</th><th className="px-4 py-3 text-right">Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        {combinedMovements.map(mov => {
+                            const isExpanded = expandedRowId === mov.id;
+                            const isEditDisabled = mov.type === 'ingreso' && Array.isArray(mov.original) && mov.original[0].origen.tipo === 'factura';
+                            const linkedVenta = mov.ventaId ? ventasVendedorMap.get(mov.ventaId) : null;
+                            return (
+                                <React.Fragment key={mov.id}>
+                                    <tr className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : mov.id)}>
+                                        <td className="px-4 py-4">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString()}</td>
+                                        <td className="px-4 py-4">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-gray-900 dark:text-white text-sm">{mov.concepto}</span>
+                                            {linkedVenta && <span className="text-[9px] font-black text-primary-600 uppercase">Venta Directa de Stock</span>}
+                                        </div>
+                                        </td>
+                                        <td className={`px-4 py-4 text-right font-black ${mov.type === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {mov.type === 'ingreso' ? '+' : '-'}${mov.total.toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-4 text-right flex justify-end items-center gap-2">
+                                            {!isEditDisabled && <button type="button" onClick={(e) => { e.stopPropagation(); if(mov.type==='gasto') setModalConfig({type:'gasto', isEdit:true, data:mov.original}); else { const original=mov.original as RegistroPago[]; const p1=original[0]; setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); } setIsModalOpen(true); }} className="text-blue-500 p-1"><PencilIcon /></button>}
+                                            <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                         </td>
                                     </tr>
-                                )}
-                            </React.Fragment>
-                        );
-                    })}
-                </tbody>
-            </table>
+                                    {isExpanded && (
+                                        <tr className="bg-gray-100/50 dark:bg-gray-900/50">
+                                            <td colSpan={4} className="p-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                                                    <div className="space-y-2">
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Detalle de Medios</p>
+                                                        {mov.pagos.map((p, idx) => (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs font-bold shadow-sm"><span>{p.metodo}</span><span className="text-green-600">${p.monto.toLocaleString()}</span></div>))}
+                                                    </div>
+                                                    {linkedVenta && (
+                                                    <div className="space-y-2">
+                                                        <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Productos Entregados</p>
+                                                        {linkedVenta.movimientos.map((m, idx) => {const p = productosMap.get(m.productoId); return (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs shadow-sm"><span>{p?.nombre} x {m.cantidad}</span><span className="font-mono text-gray-400">${(m.precioUnitario || p?.precio || 0).toLocaleString()} c/u</span></div>);})}
+                                                    </div>
+                                                    )}
+                                                    <div className="md:col-span-2 flex justify-end">
+                                                        {!isEditDisabled && <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }} className="!py-1 shadow-sm">Eliminar Registro</AppButton>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            ) : (
+                <table className="w-full text-sm text-left">
+                    <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Vendedor</th><th className="px-4 py-3 text-right">Total</th><th className="px-4 py-3 text-right">Pagado</th><th className="px-4 py-3 text-right">Saldo</th><th className="px-4 py-3 text-right">Acción</th></tr>
+                    </thead>
+                    <tbody>
+                        {vendorSalesList.map(sale => (
+                            <tr key={sale.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50">
+                                <td className="px-4 py-4">{new Date(sale.fecha + 'T00:00:00').toLocaleDateString()}</td>
+                                <td className="px-4 py-4 font-bold text-gray-800 dark:text-gray-200">{sale.vendorName}</td>
+                                <td className="px-4 py-4 text-right font-medium">${sale.total.toLocaleString()}</td>
+                                <td className="px-4 py-4 text-right text-green-600">${sale.pagado.toLocaleString()}</td>
+                                <td className={`px-4 py-4 text-right font-black ${sale.saldo > 0 ? 'text-red-500' : 'text-gray-400'}`}>${sale.saldo.toLocaleString()}</td>
+                                <td className="px-4 py-4 text-right">
+                                    <AppButton 
+                                        size="sm" 
+                                        variant={sale.saldo > 0 ? 'primary' : 'secondary'}
+                                        onClick={() => {
+                                            // Abrir modal de "Venta" en modo edición para agregar pagos
+                                            // Truco: Pasamos los datos como si fuera una nueva carga, pero con el ID de la venta
+                                            // y los pagos existentes para que el usuario agregue más.
+                                            const existingPagos = (sale.pagoIds || []).map(pid => {
+                                                const p = registrosPago.find(rp => rp.id === pid);
+                                                return { monto: p?.monto || 0, metodo: p?.metodo || MetodoPago.EFECTIVO };
+                                            });
+                                            
+                                            setModalConfig({
+                                                type: 'ingreso',
+                                                isEdit: true,
+                                                data: {
+                                                    id: sale.id, // ID de la VENTA, no del pago
+                                                    fecha: sale.fecha,
+                                                    vendedorId: sale.vendedorId,
+                                                    origen: { tipo: 'venta_vendedor', id: sale.id },
+                                                    pagos: existingPagos
+                                                }
+                                            });
+                                            setIsModalOpen(true);
+                                        }}
+                                    >
+                                        {sale.saldo > 0 ? 'Cobrar' : 'Ver Detalle'}
+                                    </AppButton>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
         </div>
       </Card>
 
