@@ -1,9 +1,9 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
-import SearchableSelect from '../components/SearchableSelect';
 import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
@@ -262,8 +262,6 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
 
 const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings }) => {
   const { user } = useAuth(); // Obtenemos el usuario autenticado
-  const [showDebtDetails, setShowDebtDetails] = useState(false);
-  const [viewAsId, setViewAsId] = useState<string>(''); // Nuevo estado para "Ver como"
 
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
@@ -344,11 +342,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
     saldoEfectivo,
     saldoOtros,
     monthlySalesVolumeChartData,
-    monthlySalesByTypeData,
     currentMonthDailySalesData,
     externalVendorsPieData,
-    totalDeudaExterna,
-    debtByVendor // Nueva estructura desglosada
   } = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -396,54 +391,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         });
     });
 
-    // CÁLCULO DEUDA EXTERNA GLOBAL & DESGLOSADA
-    let deudaTotal = 0;
-    const vendorDebts: Record<string, { id: string, name: string, bought: number, paid: number }> = {};
-
-    ventasVendedor.forEach(v => {
-        const vendor = usuariosMap.get(v.vendedorId);
-        if (vendor?.tipo === TipoVendedor.EXTERNO) {
-            if (!vendorDebts[v.vendedorId]) vendorDebts[v.vendedorId] = { id: v.vendedorId, name: vendor.nombre, bought: 0, paid: 0 };
-            
-            let totalVenta = 0;
-            v.movimientos.forEach(m => {
-                const prod = productosMap.get(m.productoId);
-                if (prod) {
-                    const precioEsp = vendor.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
-                    const precioFinal = m.precioUnitario || precioEsp || prod.precioReventa || prod.precio;
-                    totalVenta += m.cantidad * precioFinal;
-                }
-            });
-            deudaTotal += totalVenta;
-            vendorDebts[v.vendedorId].bought += totalVenta;
-        }
-    });
-    // Restar pagos de vendedores externos
-    registrosPago.forEach(p => {
-        if (p.vendedorId) {
-            const vendor = usuariosMap.get(p.vendedorId);
-            if (vendor?.tipo === TipoVendedor.EXTERNO) {
-                if (!vendorDebts[p.vendedorId]) vendorDebts[p.vendedorId] = { id: p.vendedorId, name: vendor.nombre, bought: 0, paid: 0 };
-                deudaTotal -= p.monto;
-                vendorDebts[p.vendedorId].paid += p.monto;
-            }
-        }
-    });
-
-
     const monthlyHistoryData: any[] = [];
-    const monthlyTypeData: any[] = [];
     
     for (let i = 11; i >= 0; i--) {
         const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
         const monthLabel = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' }).toUpperCase();
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthObj: any = { name: monthLabel, sortKey: monthKey };
-        const typeObj: any = { name: monthLabel, sortKey: monthKey };
         consumableProductNames.forEach(pName => {
             monthObj[pName] = 0;
-            typeObj[`Carga - ${pName}`] = 0;
-            typeObj[`Caja - ${pName}`] = 0;
         });
         activeRemitos.forEach(r => {
             const d = parseLocalDate(r.fecha);
@@ -452,7 +408,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                     const prod = productosMap.get(m.productoId);
                     if (prod && consumableProductNames.includes(prod.nombre)) {
                         monthObj[prod.nombre] += m.entregados;
-                        typeObj[`Carga - ${prod.nombre}`] += m.entregados;
                     }
                 });
             }
@@ -464,13 +419,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
                     const prod = productosMap.get(m.productoId);
                     if (prod && consumableProductNames.includes(prod.nombre)) {
                         monthObj[prod.nombre] += m.cantidad;
-                        typeObj[`Caja - ${prod.nombre}`] += m.cantidad;
                     }
                 });
             }
         });
         monthlyHistoryData.push(monthObj);
-        monthlyTypeData.push(typeObj);
     }
 
     const dailyEvolutionData: any[] = [];
@@ -522,11 +475,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
         saldoEfectivo: sEfectivo,
         saldoOtros: sOtros,
         monthlySalesVolumeChartData: monthlyHistoryData,
-        monthlySalesByTypeData: monthlyTypeData,
         currentMonthDailySalesData: dailyEvolutionData,
         externalVendorsPieData,
-        totalDeudaExterna: deudaTotal,
-        debtByVendor: Object.values(vendorDebts)
     }
   }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames]);
 
@@ -599,42 +549,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
 
   if (!user) return <div className="p-4">Cargando perfil...</div>;
 
-  // LOGICA "IMPERSONATE" O DASHBOARD NORMAL
-  let currentUserToRender = user;
-  
-  if (user.rol === Rol.ADMINISTRADOR && viewAsId) {
-      const selectedUser = usuariosMap.get(viewAsId);
-      if (selectedUser) currentUserToRender = selectedUser;
-  }
-
-  // 1. DASHBOARD REPARTIDOR INTERNO (O ADMIN VIENDO COMO INTERNO)
-  if (currentUserToRender.rol === Rol.REPARTIDOR && currentUserToRender.tipo === TipoVendedor.INTERNO) {
+  // 1. DASHBOARD REPARTIDOR INTERNO
+  if (user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.INTERNO) {
       return (
         <div className="space-y-4 pt-12 md:pt-0">
-            {user.rol === Rol.ADMINISTRADOR && (
-                <div className="flex justify-end">
-                    <button onClick={() => setViewAsId('')} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-lg hover:bg-gray-700 transition-all">
-                        ← Volver a Vista Admin
-                    </button>
-                </div>
-            )}
-            <InternalVendorDashboard user={currentUserToRender} remitos={remitos} productosMap={productosMap} />
+            <InternalVendorDashboard user={user} remitos={remitos} productosMap={productosMap} />
         </div>
       );
   }
 
-  // 2. DASHBOARD REVENDEDOR EXTERNO (O ADMIN VIENDO COMO EXTERNO)
-  if (currentUserToRender.rol === Rol.REPARTIDOR && currentUserToRender.tipo === TipoVendedor.EXTERNO) {
+  // 2. DASHBOARD REVENDEDOR EXTERNO
+  if (user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.EXTERNO) {
       return (
         <div className="space-y-4 pt-12 md:pt-0">
-            {user.rol === Rol.ADMINISTRADOR && (
-                <div className="flex justify-end">
-                    <button onClick={() => setViewAsId('')} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-lg hover:bg-gray-700 transition-all">
-                        ← Volver a Vista Admin
-                    </button>
-                </div>
-            )}
-            <ExternalVendorDashboard user={currentUserToRender} ventas={ventasVendedor} pagos={registrosPago} productosMap={productosMap} />
+            <ExternalVendorDashboard user={user} ventas={ventasVendedor} pagos={registrosPago} productosMap={productosMap} />
         </div>
       );
   }
@@ -642,21 +570,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
   // 3. DASHBOARD ADMINISTRADOR (Original + Mejoras)
   return (
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
-          
-          <div className="w-full md:w-64">
-              <SearchableSelect 
-                  options={usuarios.filter(u => u.rol === Rol.REPARTIDOR).map(u => ({ value: u.id, label: `Ver como: ${u.nombre}` }))}
-                  value={viewAsId}
-                  onChange={setViewAsId}
-                  placeholder="Administrador (Vista General)"
-                  disableSort
-              />
-          </div>
-      </div>
+      <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
       
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
               <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
               <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoEfectivo.toLocaleString('es-AR')}</p>
@@ -665,62 +581,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Caja Virtual / Bancos</p>
               <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
           </div>
-          <div 
-            onClick={() => setShowDebtDetails(true)}
-            className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-orange-100 dark:border-orange-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02] cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/10"
-          >
-              <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1 flex items-center gap-1">Cta. Cte. Revendedores <span className="text-[8px] bg-orange-200 text-orange-800 px-1 rounded">VER</span></p>
-              <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${totalDeudaExterna.toLocaleString('es-AR')}</p>
-          </div>
       </div>
-
-      {showDebtDetails && (
-          <Modal isOpen={showDebtDetails} onClose={() => setShowDebtDetails(false)} className="max-w-4xl">
-              <div className="space-y-4">
-                  <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
-                      <h2 className="text-xl font-bold text-gray-800 dark:text-white">Estado de Cuenta de Revendedores</h2>
-                      <AppButton variant="secondary" size="sm" onClick={() => setShowDebtDetails(false)}>Cerrar</AppButton>
-                  </div>
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-sm text-left">
-                          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                              <tr>
-                                  <th className="px-4 py-3">Revendedor</th>
-                                  <th className="px-4 py-3 text-right">Total Comprado</th>
-                                  <th className="px-4 py-3 text-right">Total Pagado</th>
-                                  <th className="px-4 py-3 text-right">Saldo (Deuda)</th>
-                                  <th className="px-4 py-3 text-right">Acción</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {debtByVendor.map((d, i) => {
-                                  const saldo = d.bought - d.paid;
-                                  return (
-                                      <tr key={i} className="border-b dark:border-gray-700">
-                                          <td className="px-4 py-3 font-medium">{d.name}</td>
-                                          <td className="px-4 py-3 text-right">${d.bought.toLocaleString()}</td>
-                                          <td className="px-4 py-3 text-right text-green-600">${d.paid.toLocaleString()}</td>
-                                          <td className={`px-4 py-3 text-right font-black ${saldo > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                              ${saldo.toLocaleString()}
-                                          </td>
-                                          <td className="px-4 py-3 text-right">
-                                              <button 
-                                                onClick={() => { setShowDebtDetails(false); setViewAsId(d.id); }}
-                                                className="text-xs text-blue-600 hover:underline font-bold"
-                                              >
-                                                  Ver Detalle
-                                              </button>
-                                          </td>
-                                      </tr>
-                                  );
-                              })}
-                              {debtByVendor.length === 0 && <tr><td colSpan={5} className="text-center py-4 text-gray-500">Sin deudas registradas.</td></tr>}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-          </Modal>
-      )}
 
       <div>
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Entregas Consolidadas</h2>

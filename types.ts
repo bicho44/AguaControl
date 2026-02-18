@@ -227,6 +227,7 @@ export interface Gasto {
     pagos: PagoDetalle[];
     concepto: string;
     nroRecibo?: string;
+    vendedorId?: string; // Nuevo: Asignado a un responsable
 }
 
 export interface EmailTemplate {

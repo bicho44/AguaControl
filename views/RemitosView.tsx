@@ -12,6 +12,7 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import { MapIcon } from '../components/icons/MapIcon';
+import { CogIcon } from '../components/icons/CogIcon';
 
 type PaymentStatus = 'facturado' | 'pagado' | 'pagado_parcial' | 'pendiente' | 'gratis' | 'ajuste';
 type PaymentStatusFilter = 'todos' | 'pendiente' | 'pagado' | 'facturado' | 'ajuste';
@@ -56,6 +57,84 @@ const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                 </div>
                 <div className="mt-6 text-center">
                     <p className="text-[10px] text-gray-400">En Mac, 'Alt' corresponde a la tecla 'Option' (⌥).</p>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const ReassignModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    vendedores: Usuario[];
+    remitos: Remito[];
+    onReassign: (remitoIds: string[], newVendedorId: string) => Promise<void>;
+}> = ({ isOpen, onClose, vendedores, remitos, onReassign }) => {
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [oldVendedorId, setOldVendedorId] = useState('');
+    const [newVendedorId, setNewVendedorId] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const affectedRemitos = useMemo(() => {
+        if (!fromDate || !toDate || !newVendedorId) return [];
+        const start = new Date(fromDate + 'T00:00:00').getTime();
+        const end = new Date(toDate + 'T23:59:59').getTime();
+        
+        return remitos.filter(r => {
+            const d = new Date(r.fecha + 'T00:00:00').getTime();
+            const dateMatch = d >= start && d <= end;
+            const vendorMatch = !oldVendedorId || r.vendedorId === oldVendedorId;
+            // No reasignar si ya es del nuevo vendedor
+            return dateMatch && vendorMatch && r.vendedorId !== newVendedorId;
+        });
+    }, [remitos, fromDate, toDate, oldVendedorId, newVendedorId]);
+
+    const handleConfirm = async () => {
+        setIsProcessing(true);
+        await onReassign(affectedRemitos.map(r => r.id), newVendedorId);
+        setIsProcessing(false);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
+            <div className="space-y-4">
+                <h2 className="text-xl font-black uppercase text-primary-600">Herramienta de Corrección Masiva</h2>
+                <p className="text-xs text-gray-500">Reasigna remitos de un vendedor a otro en un rango de fechas. Útil si cargaste remitos con el usuario incorrecto.</p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <AppInput type="date" label="Desde" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+                    <AppInput type="date" label="Hasta" value={toDate} onChange={e => setToDate(e.target.value)} />
+                </div>
+
+                <div className="space-y-2 pt-2">
+                    <p className="text-[10px] font-bold uppercase text-gray-400">Filtros de Vendedor</p>
+                    <AppSelect 
+                        label="Vendedor Original (Opcional)" 
+                        value={oldVendedorId} 
+                        onChange={e => setOldVendedorId(e.target.value)} 
+                        options={[{value: '', label: 'Cualquiera'}, ...vendedores.map(v => ({value: v.id, label: v.nombre}))]} 
+                    />
+                    <AppSelect 
+                        label="NUEVO Vendedor Asignado" 
+                        value={newVendedorId} 
+                        onChange={e => setNewVendedorId(e.target.value)} 
+                        options={[{value: '', label: 'Seleccionar...'}, ...vendedores.map(v => ({value: v.id, label: v.nombre}))]} 
+                    />
+                </div>
+
+                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <p className="text-sm font-bold text-yellow-800 text-center">
+                        {affectedRemitos.length > 0 ? `Se actualizarán ${affectedRemitos.length} remitos.` : 'No hay remitos que coincidan.'}
+                    </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                    <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                    <AppButton onClick={handleConfirm} disabled={affectedRemitos.length === 0 || isProcessing} isLoading={isProcessing}>Aplicar Cambios</AppButton>
                 </div>
             </div>
         </Modal>
@@ -288,8 +367,6 @@ const RemitoForm: React.FC<{
     if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
     
     // --- SANITIZACIÓN (Ceros decorativos) ---
-    // Convertimos a número y volvemos a string para eliminar ceros a la izquierda antes de guardar
-    // Ejemplo: "0001" -> 1 -> "1"
     const puntoVentaLimpio = parseInt(formData.puntoVenta || '0').toString();
     const numeroLimpio = parseInt(formData.numero || '0').toString();
 
@@ -304,12 +381,9 @@ const RemitoForm: React.FC<{
     const numActual = parseInt(numeroLimpio);
 
     const existe = remitos.some(r => {
-        // Ignorar el mismo remito si se está editando
         if (formData.id && r.id === formData.id) return false;
-
         const rPV = parseInt(r.puntoVenta);
         const rNum = parseInt(r.numero);
-
         return rPV === pvActual && rNum === numActual;
     });
 
@@ -317,7 +391,6 @@ const RemitoForm: React.FC<{
         showNotification(`¡Error! El remito ${puntoVentaLimpio}-${numeroLimpio} ya existe.`, 'error');
         return;
     }
-    // ---------------------------------
 
     setIsSaving(true);
     await onSave(remitoFinal as Remito & { pagos: PagoDetalle[] });
@@ -354,7 +427,17 @@ const RemitoForm: React.FC<{
       <form onSubmit={handleSubmit} className="space-y-6 pb-20">
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
-            {isAdmin && !isReadOnly && <span className="text-[10px] bg-primary-100 text-primary-700 px-2 py-1 rounded-full font-black uppercase">Carga Continua Activada</span>}
+            {isAdmin && !isReadOnly && (
+                <div className="flex gap-2">
+                    <SearchableSelect 
+                        label="" 
+                        placeholder="Cambiar Vendedor" 
+                        options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
+                        value={formData.vendedorId || ''} 
+                        onChange={v => setFormData({...formData, vendedorId: v})} 
+                    />
+                </div>
+            )}
         </div>
         {deudaPendiente > 0 && <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -391,7 +474,6 @@ const RemitoForm: React.FC<{
               required 
               disabled={isReadOnly || !isAdmin}
             />
-            {!isAdmin && isNew && <p className="text-[10px] text-gray-400 mt-1">* Solo el administrador puede cargar fechas anteriores.</p>}
           </div>
         </div>
         <fieldset className="border-t dark:border-gray-600 pt-4">
@@ -456,6 +538,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [formInstanceId, setFormInstanceId] = useState(0);
   const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -549,6 +632,20 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     } catch (e) { showNotification('Error.', 'error'); }
   };
 
+  const handleReassign = async (remitoIds: string[], newVendorId: string) => {
+      try {
+          const promises = remitoIds.map(id => {
+              const remito = remitos.find(r => r.id === id);
+              if (remito) return updateRemito({ ...remito, vendedorId: newVendorId });
+              return Promise.resolve();
+          });
+          await Promise.all(promises);
+          showNotification('Remitos reasignados con éxito.', 'success');
+      } catch (e) {
+          showNotification('Error al reasignar.', 'error');
+      }
+  };
+
   const openNewModal = useCallback(() => {
     const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
     const defaultPto = lastRemito?.puntoVenta || '1';
@@ -612,7 +709,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </button>
           </div>
-          <AppButton onClick={openNewModal}>+ Nuevo Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
+          <div className="flex gap-2">
+              {currentUser.rol === Rol.ADMINISTRADOR && (
+                  <button 
+                    onClick={() => setShowReassignModal(true)} 
+                    className="p-2 bg-yellow-100 text-yellow-800 rounded-xl hover:bg-yellow-200 transition-colors flex items-center gap-2"
+                    title="Corrección Masiva de Asignación"
+                  >
+                      <CogIcon className="w-5 h-5" />
+                  </button>
+              )}
+              <AppButton onClick={openNewModal}>+ Nuevo Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
+          </div>
       </div>
       <Card>
         <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -675,6 +783,14 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       )}
       
       <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      
+      <ReassignModal 
+        isOpen={showReassignModal} 
+        onClose={() => setShowReassignModal(false)}
+        vendedores={vendedores}
+        remitos={remitos}
+        onReassign={handleReassign}
+      />
     </div>
   )
 }

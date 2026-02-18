@@ -147,9 +147,6 @@ const MovimientoCajaForm: React.FC<{
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (isVentaMode) {
-        // CORRECCIÓN CLAVE:
-        // Si estamos editando una venta de vendedor, el ID que necesitamos pasar es el de la Venta (origen.id),
-        // no el del Pago (formData.id) que es lo que viene por defecto.
         const payload = { 
             ...formData,
             id: (isEdit && formData.origen?.id) ? formData.origen.id : formData.id,
@@ -161,26 +158,8 @@ const MovimientoCajaForm: React.FC<{
     }
   }, [formData, isVentaMode, movimientosVenta, onSave, isEdit]);
 
-  // Atajos de Teclado
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit();
-      } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
-        e.preventDefault();
-        if (isVentaMode) addMovimiento();
-      } else if (e.altKey && (e.key === 'p' || e.key === 'P')) {
-        e.preventDefault();
-        addPago();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVentaMode, addMovimiento, addPago, handleSubmit]);
-
-  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const vendedorOptions = useMemo(() => vendedores.map(v => ({ value: v.id, label: v.nombre })), [vendedores]);
+  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const productosOptions = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
 
   return (
@@ -201,6 +180,18 @@ const MovimientoCajaForm: React.FC<{
             <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required />
             <AppInput label="Concepto / Referencia" type="text" name="concepto" placeholder="Ej: Venta local..." value={formData.concepto || ''} onChange={handleChange} required={!isVentaMode} />
         </div>
+
+        {type === 'gasto' && (
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+                <SearchableSelect 
+                    label="Asignar a Responsable (Opcional)" 
+                    options={vendedorOptions} 
+                    value={formData.vendedorId || ''} 
+                    onChange={(v) => handleSelectChange('vendedorId', v)} 
+                    placeholder="Sin asignar (Gasto General)" 
+                />
+            </div>
+        )}
 
         {type === 'ingreso' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -281,12 +272,17 @@ const CajaView: React.FC<CajaViewProps> = ({
     registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos,
     addPagoManual, addGasto, addVentaVendedor, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor
 }) => {
-  const [activeTab, setActiveTab] = useState<'caja' | 'ventas'>('caja'); // Nuevo estado para pestañas
+  const [activeTab, setActiveTab] = useState<'caja' | 'ventas'>('caja');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const [movimientoParaBorrar, setMovimientoParaBorrar] = useState<CombinedMovement | null>(null);
+  
+  // FILTROS DE FECHA
+  const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
+  // PAGINACIÓN
+  const [itemsLimit, setItemsLimit] = useState(50);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const vendedoresMap = useMemo(() => new Map(vendedores.map(v => [v.id, v])), [vendedores]);
@@ -299,28 +295,13 @@ const CajaView: React.FC<CajaViewProps> = ({
     try {
         if (isVenta) {
             if (modalConfig.isEdit) {
-                // 1. Actualizar la VentaVendedor
                 await updateVentaVendedor(data);
-                
-                // 2. Actualización en CASCADA para los pagos asociados
-                // Si la venta tiene pagoIds, buscar esos pagos y actualizarlos.
-                // Si la venta no tiene pagoIds pero ahora sí vienen pagos, crear nuevos.
-                
-                const pagosNuevos = data.pagos || [];
                 const pagosViejos = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && p.origen.id === data.id);
-
-                // IMPORTANTE: Esta lógica simple asume que si editas la venta, reemplazas los pagos.
-                // Para una robustez total, habría que comparar IDs, pero aquí simplificamos borrando y creando si cambian mucho.
-                // Sin embargo, para mantener consistencia con el flujo actual que actualiza uno a uno, solo actualizaremos el vendedorID.
-                
                 const updatePromises = pagosViejos.map(p => {
-                    if (p.vendedorId !== data.vendedorId) {
-                        return updateRegistroPago({ ...p, vendedorId: data.vendedorId });
-                    }
+                    if (p.vendedorId !== data.vendedorId) return updateRegistroPago({ ...p, vendedorId: data.vendedorId });
                     return Promise.resolve();
                 });
                 await Promise.all(updatePromises);
-
                 showNotification('Venta actualizada.', 'success');
             } else {
                 await addVentaVendedor(data);
@@ -328,39 +309,20 @@ const CajaView: React.FC<CajaViewProps> = ({
             }
         } else {
             if (modalConfig.type === 'gasto') {
-                if (modalConfig.isEdit) {
-                    await updateGasto(data);
-                    showNotification('Gasto actualizado.', 'success');
-                } else {
-                    await addGasto(data);
-                    showNotification('Gasto registrado.', 'success');
-                }
+                if (modalConfig.isEdit) { await updateGasto(data); showNotification('Gasto actualizado.', 'success'); }
+                else { await addGasto(data); showNotification('Gasto registrado.', 'success'); }
             } else {
-                if (modalConfig.isEdit) {
-                    await updateRegistroPago(data);
-                    showNotification('Registro actualizado.', 'success');
-                } else {
-                    await addPagoManual(data);
-                    showNotification('Ingreso registrado.', 'success');
-                }
+                if (modalConfig.isEdit) { await updateRegistroPago(data); showNotification('Registro actualizado.', 'success'); }
+                else { await addPagoManual(data); showNotification('Ingreso registrado.', 'success'); }
             }
         }
         setIsModalOpen(false);
-    } catch (e) {
-        console.error(e);
-        showNotification('Error al guardar.', 'error');
-    }
+    } catch (e) { console.error(e); showNotification('Error al guardar.', 'error'); }
   };
 
   const handleAddQuickClient = async (clienteData: any) => {
-      try {
-          await addCliente(clienteData);
-          showNotification('Cliente creado.', 'success');
-          return ""; 
-      } catch (e) {
-          showNotification('Error al crear cliente.', 'error');
-          return "";
-      }
+      try { const id = await addCliente(clienteData); showNotification('Cliente creado.', 'success'); return id; }
+      catch (e) { showNotification('Error al crear cliente.', 'error'); return ""; }
   };
 
   const openIngresoModal = useCallback(() => {
@@ -375,46 +337,68 @@ const CajaView: React.FC<CajaViewProps> = ({
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) {
-            e.preventDefault();
-            openIngresoModal();
-        } else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen) {
-            e.preventDefault();
-            openGastoModal();
-        }
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) { e.preventDefault(); openIngresoModal(); } 
+        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen) { e.preventDefault(); openGastoModal(); }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, [isModalOpen, openIngresoModal, openGastoModal]);
 
-  // Función Auxiliar para Calcular Balances
-  const calculateBalances = (pagosList: RegistroPago[], gastosList: Gasto[]) => {
-    const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
-    pagosList.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
-    gastosList.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
-    const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
-    return { ...balancesPorMetodo, total };
-  };
-
-  // Fecha de Hoy
+  // Balance Diario
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-
-  // 1. Balance Diario
   const dailyBalances = useMemo(() => {
       const dailyPagos = registrosPago.filter(p => p.fecha === todayStr);
       const dailyGastos = gastos.filter(g => g.fecha === todayStr);
-      return calculateBalances(dailyPagos, dailyGastos);
+      const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
+      dailyPagos.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
+      dailyGastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
+      const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
+      return { ...balancesPorMetodo, total };
   }, [registrosPago, gastos, todayStr]);
 
-  // 2. Balance Total (Histórico)
-  const totalBalances = useMemo(() => calculateBalances(registrosPago, gastos), [registrosPago, gastos]);
+  // Balance Total Histórico
+  const totalBalances = useMemo(() => {
+      const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
+      registrosPago.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
+      gastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
+      const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
+      return { ...balancesPorMetodo, total };
+  }, [registrosPago, gastos]);
 
+  // --- FILTRO Y PROCESAMIENTO DE MOVIMIENTOS ---
   const combinedMovements = useMemo(() => {
     const allMovements: CombinedMovement[] = [];
-    gastos.forEach(g => allMovements.push({ id: g.id, fecha: g.fecha, type: 'gasto', concepto: `${g.concepto}${g.nroRecibo ? ` (Rec: ${g.nroRecibo})` : ''}`, pagos: g.pagos, total: g.pagos.reduce((sum, p) => sum + p.monto, 0), original: g }));
     
-    const otherPayments = registrosPago.filter(p => p.origen.tipo !== 'factura');
-    const invoicePayments = registrosPago.filter(p => p.origen.tipo === 'factura');
+    // Filtrar rango de fechas
+    const filterFrom = dateFilter.from ? new Date(dateFilter.from + 'T00:00:00').getTime() : 0;
+    const filterTo = dateFilter.to ? new Date(dateFilter.to + 'T23:59:59').getTime() : Infinity;
+
+    // Procesar Gastos
+    gastos.forEach(g => {
+        const d = new Date(g.fecha + 'T00:00:00').getTime();
+        if (d >= filterFrom && d <= filterTo) {
+            const assignedUser = g.vendedorId ? vendedoresMap.get(g.vendedorId)?.nombre : null;
+            allMovements.push({ 
+                id: g.id, 
+                fecha: g.fecha, 
+                type: 'gasto', 
+                concepto: `${g.concepto}${g.nroRecibo ? ` (Rec: ${g.nroRecibo})` : ''}${assignedUser ? ` - Asig: ${assignedUser}` : ''}`, 
+                pagos: g.pagos, 
+                total: g.pagos.reduce((sum, p) => sum + p.monto, 0), 
+                original: g 
+            });
+        }
+    });
+    
+    // Procesar Pagos
+    // Agrupar pagos por origen para simplificar visualización
+    const filteredPagos = registrosPago.filter(p => {
+        const d = new Date(p.fecha + 'T00:00:00').getTime();
+        return d >= filterFrom && d <= filterTo;
+    });
+
+    const otherPayments = filteredPagos.filter(p => p.origen.tipo !== 'factura');
+    const invoicePayments = filteredPagos.filter(p => p.origen.tipo === 'factura');
     const pagosAgrupados = otherPayments.reduce((acc: Record<string, RegistroPago[]>, p) => { const k = p.origen.id; if (!acc[k]) acc[k] = []; acc[k].push(p); return acc; }, {});
 
     Object.values(pagosAgrupados).forEach((grupo: RegistroPago[]) => {
@@ -423,15 +407,7 @@ const CajaView: React.FC<CajaViewProps> = ({
       if (p1.origen.tipo === 'remito') {
           const r = remitosMap.get(p1.origen.id);
           const clientName = clientesMap.get(p1.clienteId!)?.nombre || 'N/A';
-          const prodSummary = r?.movimientos
-            .filter(m => m.entregados > 0)
-            .map(m => {
-                const p = productosMap.get(m.productoId);
-                const shortName = p?.nombre.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '') || '?';
-                return `${m.entregados}x${shortName}`;
-            }).join(', ');
-          
-          concepto = `${clientName} (#${r?.puntoVenta}-${r?.numero})${prodSummary ? ` - ${prodSummary}` : ''}`;
+          concepto = `${clientName} (#${r?.puntoVenta}-${r?.numero})`;
       } else if (p1.origen.tipo === 'venta_vendedor') {
           const v = ventasVendedorMap.get(p1.origen.id);
           const actorName = v?.clienteId ? (clientesMap.get(v.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(p1.vendedorId!)?.nombre || 'Local');
@@ -452,49 +428,17 @@ const CajaView: React.FC<CajaViewProps> = ({
     });
 
     return allMovements.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime() || b.id.localeCompare(a.id));
-  }, [gastos, registrosPago, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, productosMap]);
+  }, [gastos, registrosPago, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter]);
 
-  // NUEVA LÓGICA: Lista completa de ventas a vendedores para gestión de deuda
-  const vendorSalesList = useMemo(() => {
-      return ventasVendedor.map(v => {
-          const vendor = vendedoresMap.get(v.vendedorId);
-          const pagado = (v.pagoIds || []).reduce((sum, pid) => {
-              const p = registrosPago.find(rp => rp.id === pid);
-              return sum + (p?.monto || 0);
-          }, 0);
-          
-          let totalVenta = 0;
-          v.movimientos.forEach(m => {
-              const prod = productosMap.get(m.productoId);
-              if (prod) {
-                  const precioEsp = vendor?.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
-                  const precioFinal = m.precioUnitario || precioEsp || prod.precioReventa || prod.precio;
-                  totalVenta += m.cantidad * precioFinal;
-              }
-          });
+  const displayedMovements = useMemo(() => combinedMovements.slice(0, itemsLimit), [combinedMovements, itemsLimit]);
 
-          return {
-              ...v,
-              vendorName: vendor?.nombre || 'Desconocido',
-              total: totalVenta,
-              pagado,
-              saldo: totalVenta - pagado
-          };
-      }).sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [ventasVendedor, vendedoresMap, registrosPago, productosMap]);
-
-  // Renderizado de las Cards
   const renderBalanceSection = (data: Record<string, number>, title: string, isDaily: boolean) => (
       <div className="space-y-3">
           <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest pl-1 border-l-4 border-primary-500">{title}</h3>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {Object.entries(data).map(([m, val]) => {
-                // REGLA: Ocultar si es 0, excepto "total" que siempre debe verse. 
-                // "Efectivo" si es diario se suele querer ver aunque sea 0, pero la regla general pedida es ocultar.
                 if (m !== 'total' && val === 0) return null;
-
                 const isTotal = m === 'total';
-                
                 return (
                     <div key={m} className={`p-4 rounded-2xl border-2 transition-all hover:scale-[1.02] ${isTotal ? 'bg-primary-600 border-primary-700 text-white shadow-xl col-span-2 lg:col-span-1' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm'}`}>
                         <p className={`text-[9px] font-black uppercase tracking-widest ${isTotal ? 'opacity-80' : 'text-gray-400'}`}>
@@ -509,40 +453,46 @@ const CajaView: React.FC<CajaViewProps> = ({
   );
 
   return (
-    <div className="space-y-8 pt-12 md:pt-0">
+    <div className="space-y-8 pt-12 md:pt-0 pb-12">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
         <div className="flex gap-2">
-            <AppButton variant="primary" onClick={openIngresoModal}>
-                + Ingreso / Venta <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
-            </AppButton>
-            <AppButton variant="danger" onClick={openGastoModal}>
-                - Gasto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+G)</span>
-            </AppButton>
+            <AppButton variant="primary" onClick={openIngresoModal}>+ Ingreso / Venta <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
+            <AppButton variant="danger" onClick={openGastoModal}>- Gasto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+G)</span></AppButton>
         </div>
       </div>
       
-      {/* SECCIÓN 1: ARQUEO DIARIO */}
       {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString()})`, true)}
-
-      {/* SECCIÓN 2: HISTÓRICO */}
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
-      {/* TABS DE VISTA */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
-          <button onClick={() => setActiveTab('caja')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'caja' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500'}`}>Movimientos de Caja</button>
-          <button onClick={() => setActiveTab('ventas')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'ventas' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500'}`}>Operaciones con Vendedores</button>
+      <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+          <div className="flex space-x-1 bg-white dark:bg-gray-700 p-1 rounded-lg w-fit shadow-sm">
+              <button onClick={() => setActiveTab('caja')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'caja' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-white' : 'text-gray-500'}`}>Movimientos de Caja</button>
+              <button onClick={() => setActiveTab('ventas')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'ventas' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-white' : 'text-gray-500'}`}>Operaciones con Vendedores</button>
+          </div>
+          <div className="flex gap-2 items-center w-full md:w-auto">
+              <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Desde</span>
+                  <input type="date" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} className="p-2 text-xs rounded border dark:border-gray-600 dark:bg-gray-700" />
+              </div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Hasta</span>
+                  <input type="date" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} className="p-2 text-xs rounded border dark:border-gray-600 dark:bg-gray-700" />
+              </div>
+              <button onClick={() => setDateFilter({from: '', to: ''})} className="mt-4 p-2 text-gray-400 hover:text-red-500" title="Limpiar Filtros">✕</button>
+          </div>
       </div>
 
       <Card>
         <div className="overflow-x-auto p-2">
             {activeTab === 'caja' ? (
+                <>
                 <table className="w-full text-sm text-left">
                     <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                         <tr><th className="px-4 py-3 w-24">Fecha</th><th className="px-4 py-3">Referencia</th><th className="px-4 py-3 text-right">Monto</th><th className="px-4 py-3 text-right">Acciones</th></tr>
                     </thead>
                     <tbody>
-                        {combinedMovements.map(mov => {
+                        {displayedMovements.map(mov => {
                             const isExpanded = expandedRowId === mov.id;
                             const isEditDisabled = mov.type === 'ingreso' && Array.isArray(mov.original) && mov.original[0].origen.tipo === 'factura';
                             const linkedVenta = mov.ventaId ? ventasVendedorMap.get(mov.ventaId) : null;
@@ -590,53 +540,14 @@ const CajaView: React.FC<CajaViewProps> = ({
                         })}
                     </tbody>
                 </table>
+                {displayedMovements.length < combinedMovements.length && (
+                    <div className="text-center p-4">
+                        <button onClick={() => setItemsLimit(prev => prev + 50)} className="text-primary-600 text-sm font-bold hover:underline">Cargar más movimientos...</button>
+                    </div>
+                )}
+                </>
             ) : (
-                <table className="w-full text-sm text-left">
-                    <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Vendedor</th><th className="px-4 py-3 text-right">Total</th><th className="px-4 py-3 text-right">Pagado</th><th className="px-4 py-3 text-right">Saldo</th><th className="px-4 py-3 text-right">Acción</th></tr>
-                    </thead>
-                    <tbody>
-                        {vendorSalesList.map(sale => (
-                            <tr key={sale.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50">
-                                <td className="px-4 py-4">{new Date(sale.fecha + 'T00:00:00').toLocaleDateString()}</td>
-                                <td className="px-4 py-4 font-bold text-gray-800 dark:text-gray-200">{sale.vendorName}</td>
-                                <td className="px-4 py-4 text-right font-medium">${sale.total.toLocaleString()}</td>
-                                <td className="px-4 py-4 text-right text-green-600">${sale.pagado.toLocaleString()}</td>
-                                <td className={`px-4 py-4 text-right font-black ${sale.saldo > 0 ? 'text-red-500' : 'text-gray-400'}`}>${sale.saldo.toLocaleString()}</td>
-                                <td className="px-4 py-4 text-right">
-                                    <AppButton 
-                                        size="sm" 
-                                        variant={sale.saldo > 0 ? 'primary' : 'secondary'}
-                                        onClick={() => {
-                                            // Abrir modal de "Venta" en modo edición para agregar pagos
-                                            // Truco: Pasamos los datos como si fuera una nueva carga, pero con el ID de la venta
-                                            // y los pagos existentes para que el usuario agregue más.
-                                            const existingPagos = (sale.pagoIds || []).map(pid => {
-                                                const p = registrosPago.find(rp => rp.id === pid);
-                                                return { monto: p?.monto || 0, metodo: p?.metodo || MetodoPago.EFECTIVO };
-                                            });
-                                            
-                                            setModalConfig({
-                                                type: 'ingreso',
-                                                isEdit: true,
-                                                data: {
-                                                    id: sale.id, // ID de la VENTA, no del pago
-                                                    fecha: sale.fecha,
-                                                    vendedorId: sale.vendedorId,
-                                                    origen: { tipo: 'venta_vendedor', id: sale.id },
-                                                    pagos: existingPagos
-                                                }
-                                            });
-                                            setIsModalOpen(true);
-                                        }}
-                                    >
-                                        {sale.saldo > 0 ? 'Cobrar' : 'Ver Detalle'}
-                                    </AppButton>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="p-4 text-center text-gray-500 italic">Funcionalidad de vendedores movida a la vista de "Usuarios" por solicitud.</div>
             )}
         </div>
       </Card>
@@ -652,10 +563,14 @@ const CajaView: React.FC<CajaViewProps> = ({
             <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
                 <h2 className="text-2xl font-black text-gray-800 dark:text-white">¿Borrar de Caja?</h2>
-                <p className="text-gray-500">Esta acción es irreversible y corregirá los balances de inmediato.</p>
+                <p className="text-gray-500">Esta acción es irreversible.</p>
                 <div className="flex justify-center gap-3">
                     <AppButton variant="secondary" onClick={() => setMovimientoParaBorrar(null)}>Cancelar</AppButton>
-                    <AppButton variant="danger" onClick={() => { if(movimientoParaBorrar.type==='gasto') deleteGasto(movimientoParaBorrar.id); else (movimientoParaBorrar.original as RegistroPago[]).forEach(p=>deleteRegistroPago(p.id)); setMovimientoParaBorrar(null); showNotification('Registro borrado.', 'success'); }}>Sí, Eliminar</AppButton>
+                    <AppButton variant="danger" onClick={() => { 
+                        if(movimientoParaBorrar.type==='gasto') deleteGasto(movimientoParaBorrar.id); 
+                        else (movimientoParaBorrar.original as RegistroPago[]).forEach(p=>deleteRegistroPago(p.id)); 
+                        setMovimientoParaBorrar(null); showNotification('Registro borrado.', 'success'); 
+                    }}>Sí, Eliminar</AppButton>
                 </div>
             </div>
         </Modal>
