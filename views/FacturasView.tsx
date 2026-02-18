@@ -101,6 +101,7 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
   const [selectedRemitos, setSelectedRemitos] = useState<Set<string>>(new Set());
   const [pagandoFacturaInfo, setPagandoFacturaInfo] = useState<{ factura: Factura; montoRestante: number } | null>(null);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'nombre' | 'deuda'>('nombre');
   const { showNotification } = useNotification();
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -115,8 +116,15 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
         return sum + (f.monto - pagado);
       }, 0);
       return { cliente, deudaTotal, facturasPendientes: facturasCliente.length };
-    }).filter(c => !clientSearchTerm || c.cliente.nombre.toLowerCase().includes(clientSearchTerm.toLowerCase())).sort((a,b) => b.deudaTotal - a.deudaTotal);
-  }, [clientes, facturas, registrosPago, clientSearchTerm]);
+    })
+    .filter(c => !clientSearchTerm || c.cliente.nombre.toLowerCase().includes(clientSearchTerm.toLowerCase()))
+    .sort((a,b) => {
+        if (sortOrder === 'deuda') {
+            return b.deudaTotal - a.deudaTotal;
+        }
+        return a.cliente.nombre.localeCompare(b.cliente.nombre);
+    });
+  }, [clientes, facturas, registrosPago, clientSearchTerm, sortOrder]);
   
   const getRemitoTotal = useCallback((remito: Remito) => {
     if (remito.esAjuste) return 0;
@@ -155,15 +163,29 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
             <Card>
-                <div className="p-4 border-b dark:border-gray-700">
+                <div className="p-4 border-b dark:border-gray-700 space-y-3">
                     <div className="relative">
                         <AppInput placeholder="Buscar cliente..." value={clientSearchTerm} onChange={(e) => setClientSearchTerm(e.target.value)} className="pl-10" />
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pt-6"><SearchIcon className="h-5 w-5 text-gray-400" /></div>
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><SearchIcon className="h-5 w-5 text-gray-400" /></div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setSortOrder('nombre')} 
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${sortOrder === 'nombre' ? 'bg-primary-600 text-white border-primary-600' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
+                        >
+                            A-Z (Nombre)
+                        </button>
+                        <button 
+                            onClick={() => setSortOrder('deuda')} 
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${sortOrder === 'deuda' ? 'bg-primary-600 text-white border-primary-600' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
+                        >
+                            $$$ (Mayor Deuda)
+                        </button>
                     </div>
                 </div>
                 <div className="max-h-[calc(100vh-20rem)] overflow-y-auto">
                     {filteredClientesList.map(({ cliente, deudaTotal, facturasPendientes }) => (
-                        <button key={cliente.id} onClick={() => { setSelectedClienteId(cliente.id); setSelectedRemitos(new Set()); }} className={`w-full text-left p-4 border-b dark:border-gray-700 hover:bg-gray-50 transition-colors ${selectedClienteId === cliente.id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''}`}>
+                        <button key={cliente.id} onClick={() => { setSelectedClienteId(cliente.id); setSelectedRemitos(new Set()); }} className={`w-full text-left p-4 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedClienteId === cliente.id ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600' : ''}`}>
                             <p className="font-bold text-gray-800 dark:text-gray-200">{cliente.nombre}</p>
                             <div className="flex justify-between items-center text-xs mt-1 uppercase font-black tracking-tighter"><span className="text-gray-400">{facturasPendientes} fac. pend.</span><span className={`${deudaTotal > 0 ? 'text-red-500' : 'text-green-500'}`}>${deudaTotal.toLocaleString()}</span></div>
                         </button>
@@ -181,8 +203,8 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
                     <Card title="Remitos Pendientes de Facturación">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
-                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50"><tr><th className="p-3 w-12 text-center">Sel.</th><th className="p-3">Fecha</th><th className="p-3">Número</th><th className="p-3 text-right">Monto</th></tr></thead>
-                                <tbody>{clienteData.remitosPendientes.map(r => (<tr key={r.id} className="border-b dark:border-gray-700 hover:bg-gray-50"><td className="p-3 text-center"><input type="checkbox" checked={selectedRemitos.has(r.id)} onChange={() => { const ns = new Set(selectedRemitos); if(ns.has(r.id)) ns.delete(r.id); else ns.add(r.id); setSelectedRemitos(ns); }} className="w-5 h-5 rounded" /></td><td className="p-3">{new Date(r.fecha + 'T00:00:00').toLocaleDateString()}</td><td className="p-3 font-mono">{r.puntoVenta}-{r.numero}</td><td className="p-3 text-right font-black text-primary-600">${getRemitoTotal(r).toLocaleString()}</td></tr>))}</tbody>
+                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700 dark:text-gray-400"><tr><th className="p-3 w-12 text-center">Sel.</th><th className="p-3">Fecha</th><th className="p-3">Número</th><th className="p-3 text-right">Monto</th></tr></thead>
+                                <tbody>{clienteData.remitosPendientes.map(r => (<tr key={r.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"><td className="p-3 text-center"><input type="checkbox" checked={selectedRemitos.has(r.id)} onChange={() => { const ns = new Set(selectedRemitos); if(ns.has(r.id)) ns.delete(r.id); else ns.add(r.id); setSelectedRemitos(ns); }} className="w-5 h-5 rounded" /></td><td className="p-3">{new Date(r.fecha + 'T00:00:00').toLocaleDateString()}</td><td className="p-3 font-mono">{r.puntoVenta}-{r.numero}</td><td className="p-3 text-right font-black text-primary-600 dark:text-primary-400">${getRemitoTotal(r).toLocaleString()}</td></tr>))}</tbody>
                             </table>
                         </div>
                     </Card>
