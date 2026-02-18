@@ -22,6 +22,8 @@ interface UsuariosViewProps {
   addUsuario: (usuario: Omit<Usuario, 'id'>) => void;
   updateUsuario: (usuario: Usuario) => void;
   addVentaVendedor: (venta: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => void;
+  deleteRegistroPago: (id: string) => Promise<void>;
+  deleteVentaVendedor: (id: string) => Promise<void>;
 }
 
 const UsuarioForm: React.FC<{
@@ -130,9 +132,12 @@ const VendorAccountModal: React.FC<{
     productosMap: Map<string, Producto>;
     onClose: () => void;
     onAddPayment: (pago: any) => void;
-}> = ({ user, ventas, pagos, productosMap, onClose, onAddPayment }) => {
+    onDeletePayment: (id: string) => Promise<void>;
+    onDeleteSale: (id: string) => Promise<void>;
+}> = ({ user, ventas, pagos, productosMap, onClose, onAddPayment, onDeletePayment, onDeleteSale }) => {
     const [isPaymentMode, setIsPaymentMode] = useState(false);
     const [paymentData, setPaymentData] = useState<{ monto: number, metodo: MetodoPago, concepto: string }>({ monto: 0, metodo: MetodoPago.EFECTIVO, concepto: '' });
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
         const misVentas = ventas.filter(v => v.vendedorId === user.id);
@@ -153,6 +158,8 @@ const VendorAccountModal: React.FC<{
             });
             comprado += totalVenta;
             historialCombinado.push({
+                id: v.id,
+                type: 'sale',
                 fecha: v.fecha,
                 concepto: 'Compra de Stock',
                 monto: -totalVenta,
@@ -164,6 +171,8 @@ const VendorAccountModal: React.FC<{
         misPagos.forEach(p => {
             pagado += p.monto;
             historialCombinado.push({
+                id: p.id,
+                type: 'payment',
                 fecha: p.fecha,
                 concepto: `Pago (${p.metodo})`,
                 monto: p.monto,
@@ -185,6 +194,20 @@ const VendorAccountModal: React.FC<{
             pagos: [{ monto: paymentData.monto, metodo: paymentData.metodo }]
         });
         setIsPaymentMode(false);
+    };
+
+    const handleDelete = async (id: string, type: string) => {
+        if (!window.confirm('¿Seguro que deseas eliminar este registro? Se ajustará el saldo.')) return;
+        setDeletingId(id);
+        try {
+            if (type === 'payment') await onDeletePayment(id);
+            if (type === 'sale') await onDeleteSale(id);
+        } catch (e) {
+            console.error(e);
+            alert('Error al eliminar');
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     return (
@@ -223,7 +246,13 @@ const VendorAccountModal: React.FC<{
                 <div className="overflow-x-auto max-h-96 border rounded-xl dark:border-gray-700">
                     <table className="w-full text-sm text-left">
                         <thead className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 sticky top-0">
-                            <tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Movimiento</th><th className="px-4 py-3">Detalle</th><th className="px-4 py-3 text-right">Importe</th></tr>
+                            <tr>
+                                <th className="px-4 py-3">Fecha</th>
+                                <th className="px-4 py-3">Movimiento</th>
+                                <th className="px-4 py-3">Detalle</th>
+                                <th className="px-4 py-3 text-right">Importe</th>
+                                <th className="px-4 py-3 w-10"></th>
+                            </tr>
                         </thead>
                         <tbody>
                             {historial.map((h, i) => (
@@ -234,9 +263,19 @@ const VendorAccountModal: React.FC<{
                                     <td className={`px-4 py-3 text-right font-bold ${h.monto < 0 ? 'text-red-500' : 'text-green-500'}`}>
                                         {h.monto < 0 ? '-' : '+'}${Math.abs(h.monto).toLocaleString()}
                                     </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <button 
+                                            onClick={() => handleDelete(h.id, h.type)}
+                                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                            title="Eliminar registro (Corrección)"
+                                            disabled={deletingId === h.id}
+                                        >
+                                            {deletingId === h.id ? '...' : <TrashIcon className="w-4 h-4" />}
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
-                            {historial.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-gray-400">Sin movimientos registrados.</td></tr>}
+                            {historial.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-gray-400">Sin movimientos registrados.</td></tr>}
                         </tbody>
                     </table>
                 </div>
@@ -249,7 +288,7 @@ const VendorAccountModal: React.FC<{
     );
 };
 
-const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, addUsuario, updateUsuario, addVentaVendedor }) => {
+const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, addUsuario, updateUsuario, addVentaVendedor, deleteRegistroPago, deleteVentaVendedor }) => {
   const [editingUsuario, setEditingUsuario] = useState<Partial<Usuario> | null>(null);
   const [viewAccountUser, setViewAccountUser] = useState<Usuario | null>(null);
   const { showNotification } = useNotification();
@@ -316,7 +355,7 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
               </div>
               <div className="flex gap-1">
                    {/* MODIFICADO: AHORA SE MUESTRA PARA TODOS LOS REPARTIDORES, NO SOLO EXTERNOS */}
-                   {u.rol === Rol.REPARTIDOR && (
+                   {(u.rol === Rol.REPARTIDOR || u.tipo === TipoVendedor.EXTERNO) && (
                        <button onClick={() => setViewAccountUser(u)} className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors" title="Gestión de Cuenta Corriente"><CashIcon /></button>
                    )}
                    <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-colors" title="Editar Usuario"><PencilIcon /></button>
@@ -353,6 +392,8 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
             productosMap={productosMap} 
             onClose={() => setViewAccountUser(null)} 
             onAddPayment={handleAddPayment}
+            onDeletePayment={deleteRegistroPago}
+            onDeleteSale={deleteVentaVendedor}
           />
       )}
     </div>

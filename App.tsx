@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import DashboardView from './views/DashboardView';
 import RemitosView from './views/RemitosView';
 import ClientesView from './views/ClientesView';
-import UsuariosView from './views/VendedoresView';
+import UsuariosView from './views/UsuariosView';
 import ProductosView from './views/ProductosView';
 import ServiciosView from './views/ServiciosView';
 import CuentaCorrienteView from './views/FacturasView';
@@ -26,7 +26,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.7.0 (Commissions & Vendor Dashboard)';
+const APP_VERSION = '2.7.2 (Corrección Admin Cta Cte)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -211,6 +211,8 @@ function AppContent() {
                   updateUsuario={dataStore.updateUsuario}
                   ventasVendedor={dataStore.ventasVendedor}
                   addVentaVendedor={dataStore.addVentaVendedor}
+                  deleteRegistroPago={dataStore.deleteRegistroPago}
+                  deleteVentaVendedor={dataStore.deleteVentaVendedor}
                 />;
       case 'productos':
         return <ProductosView

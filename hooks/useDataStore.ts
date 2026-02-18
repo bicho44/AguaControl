@@ -267,6 +267,11 @@ export const useDataStore = () => {
         await updateDoc(doc(db, 'ventasVendedor', id), cleanUndefineds(data));
     }, []);
 
+    // NUEVO: Función para eliminar ventas de vendedores (corrección de stock)
+    const deleteVentaVendedor = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'ventasVendedor', id));
+    }, []);
+
     const addUsuario = useCallback(async (u: any) => {
         await addDoc(collection(db, 'usuarios'), cleanUndefineds(u));
     }, []);
@@ -447,7 +452,7 @@ export const useDataStore = () => {
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings, logs,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
-        addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor,
+        addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
         addProducto, updateProducto, deleteProducto, reactivarProducto,
         addServicio, updateServicio, deleteServicio, reactivarServicio,
