@@ -64,6 +64,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
     setFormData(prev => ({ ...prev, emails: newEmails }));
   }
 
+  // --- Lógica AFIP ---
+  const handleAfipChange = (field: string, value: any) => {
+      setFormData(prev => ({
+          ...prev,
+          afipConfig: {
+              ...prev.afipConfig,
+              enabled: prev.afipConfig?.enabled ?? false, // asegurar booleano
+              [field]: value
+          }
+      }));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'cert' | 'key') => {
+      if (e.target.files && e.target.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+              const content = ev.target?.result as string;
+              handleAfipChange(field, content);
+              showNotification(`Archivo ${field === 'cert' ? 'Certificado' : 'Llave'} cargado.`, 'success');
+          };
+          reader.readAsText(e.target.files[0]);
+      }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(formData);
@@ -94,6 +118,76 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                         <button type="button" onClick={() => setIsMapOpen(true)} className={`absolute right-2 top-8 p-1 rounded ${formData.lat ? 'text-green-500' : 'text-gray-400'}`}><MapIcon className="w-6 h-6"/></button>
                     </div>
                 </div>
+            </div>
+        </Card>
+
+        <Card title="Integración AFIP (Facturación y Padrón)">
+            <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                    <input 
+                        type="checkbox" 
+                        id="afipEnabled"
+                        checked={formData.afipConfig?.enabled || false}
+                        onChange={(e) => handleAfipChange('enabled', e.target.checked)}
+                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                        <label htmlFor="afipEnabled" className="font-bold text-gray-800 dark:text-gray-200 cursor-pointer">Habilitar conexión con AFIP</label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Permite consultar padrón A13 y preparar facturación electrónica.</p>
+                    </div>
+                </div>
+
+                {formData.afipConfig?.enabled && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                        <div className="md:col-span-2">
+                            <AppInput 
+                                label="URL del Backend / API (Middleware)" 
+                                value={formData.afipConfig?.apiUrl || ''} 
+                                onChange={(e) => handleAfipChange('apiUrl', e.target.value)} 
+                                placeholder="Ej: https://tu-app.vercel.app/api/afip o https://api.proveedor.com"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1 ml-1">Si usas Vercel Functions, suele ser <code>/api/afip</code>.</p>
+                        </div>
+
+                        <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-bold uppercase text-gray-500">Certificado (.crt)</span>
+                                {formData.afipConfig?.cert && <span className="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded">CARGADO</span>}
+                            </div>
+                            <label className="cursor-pointer block">
+                                <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-blue-500 transition-colors">
+                                    <UploadIcon /> <span className="text-xs font-bold">Subir archivo .CRT</span>
+                                </div>
+                                <input type="file" accept=".crt,.pem" className="hidden" onChange={(e) => handleFileUpload(e, 'cert')} />
+                            </label>
+                            <textarea 
+                                value={formData.afipConfig?.cert || ''}
+                                onChange={(e) => handleAfipChange('cert', e.target.value)}
+                                className="w-full mt-2 h-20 p-2 text-[10px] font-mono bg-gray-100 dark:bg-gray-900 border-none rounded resize-none focus:ring-0"
+                                placeholder="-----BEGIN CERTIFICATE-----..."
+                            />
+                        </div>
+
+                        <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-bold uppercase text-gray-500">Llave Privada (.key)</span>
+                                {formData.afipConfig?.key && <span className="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded">CARGADO</span>}
+                            </div>
+                            <label className="cursor-pointer block">
+                                <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-blue-500 transition-colors">
+                                    <UploadIcon /> <span className="text-xs font-bold">Subir archivo .KEY</span>
+                                </div>
+                                <input type="file" accept=".key" className="hidden" onChange={(e) => handleFileUpload(e, 'key')} />
+                            </label>
+                            <textarea 
+                                value={formData.afipConfig?.key || ''}
+                                onChange={(e) => handleAfipChange('key', e.target.value)}
+                                className="w-full mt-2 h-20 p-2 text-[10px] font-mono bg-gray-100 dark:bg-gray-900 border-none rounded resize-none focus:ring-0 password-mask"
+                                placeholder="-----BEGIN PRIVATE KEY-----..."
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         </Card>
 

@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial } from '../types';
+import { Cliente, Sucursal, Remito, Producto, TipoProducto, TipoFacturacion, Telefono, TipoTelefono, Contrato, EstadoContrato, Servicio, TipoServicio, EstadoCliente, EstadoServicio, EstadoProducto, DiaSemana, RegistroPago, Rol, PrecioEspecial, EmpresaSettings } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -18,6 +19,8 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import ContratoForm from '../components/ContratoForm';
+import { fetchDatosPadron } from '../services/afip'; // Importamos el servicio real
+import { useDataStore } from '../hooks/useDataStore'; // Para acceder a settings
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -62,8 +65,12 @@ const ClienteForm: React.FC<{
   const [mapIndex, setMapIndex] = useState<number | null>(null);
   const [contratosAEliminar, setContratosAEliminar] = useState<Set<string>>(new Set());
   const [isContratoModalOpen, setIsContratoModalOpen] = useState(false);
+  const [isSearchingCuit, setIsSearchingCuit] = useState(false);
   const { showNotification } = useNotification();
   
+  // Acceso a la configuración global para obtener la URL de AFIP
+  const { empresaSettings } = useDataStore();
+
   const contratosVigentes = useMemo(() => {
       if (!cliente.id) return [];
       return contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
@@ -162,24 +169,49 @@ const ClienteForm: React.FC<{
       finally { setIsSearching(false); }
   };
 
+  const handleSearchCuit = async () => {
+      if (!formData.cuit || formData.cuit.length !== 11) {
+          showNotification('Ingrese un CUIT válido de 11 dígitos.', 'error');
+          return;
+      }
+      setIsSearchingCuit(true);
+      
+      try {
+          // LLAMADA AL SERVICIO REAL USANDO LA URL CONFIGURADA
+          const apiUrl = empresaSettings?.afipConfig?.apiUrl;
+          const datosFiscales = await fetchDatosPadron(formData.cuit, apiUrl);
+          
+          setFormData(prev => ({
+              ...prev,
+              ...datosFiscales,
+              // Si el nombre comercial está vacío, sugerimos la Razón Social
+              nombre: prev.nombre || datosFiscales.nombreFiscal || ''
+          }));
+          
+          showNotification('Datos fiscales obtenidos de AFIP.', 'success');
+      } catch (error: any) {
+          console.error(error);
+          const msg = error.message;
+          showNotification(msg, 'error');
+      } finally {
+          setIsSearchingCuit(false);
+      }
+  };
+
   const addSucursal = useCallback(() => setFormData(prev => ({...prev, sucursales: [...(prev.sucursales || []), { id: `suc_${Date.now()}`, nombre: '', direccion: '', diasReparto: [] }]})), []);
   const removeSucursal = (index: number) => setFormData(prev => ({...prev, sucursales: prev.sucursales?.filter((_, i) => i !== index)}));
 
   const handleAuditChange = (sucursalId: string, productoId: string, value: string) => {
     const qty = parseInt(value) || 0;
     setAuditStocks(prev => {
-        // Filtramos el item anterior de este producto en esta sucursal
         const others = prev.filter(a => !(a.sucursalId === sucursalId && a.productoId === productoId));
-        // Agregamos el nuevo valor
         return [...others, { sucursalId, productoId, cantidad: qty }];
     });
   };
 
   const handleAddStockItem = (sucursalId: string) => {
-      // Buscar un producto que no esté ya en la lista de auditoría para esa sucursal
       const existingIds = new Set(auditStocks.filter(a => a.sucursalId === sucursalId).map(a => a.productoId));
       const candidate = productos.find(p => !existingIds.has(p.id) && p.estado === EstadoProducto.ACTIVO);
-      
       if (candidate) {
           setAuditStocks(prev => [...prev, { sucursalId, productoId: candidate.id, cantidad: 0 }]);
       } else {
@@ -211,11 +243,9 @@ const ClienteForm: React.FC<{
 
   const handleSaveContrato = (nuevoContrato: any) => {
       if (isNew) {
-          // Si el cliente es nuevo, agregamos a la lista temporal
           setContratosIniciales(prev => [...prev, nuevoContrato]);
           showNotification('Contrato agregado a la lista (Pendiente de guardar cliente).', 'success');
       } else {
-          // Si el cliente ya existe, guardamos directamente en BD
           if (addContrato) {
               addContrato({ ...nuevoContrato, clienteId: cliente.id });
               showNotification('Contrato creado exitosamente.', 'success');
@@ -228,7 +258,6 @@ const ClienteForm: React.FC<{
       setContratosIniciales(prev => prev.filter((_, i) => i !== index));
   };
 
-  // LOGICA PARA PRECIOS ESPECIALES
   const handleAddPrecioEspecial = () => {
       setFormData(prev => ({
           ...prev,
@@ -253,7 +282,6 @@ const ClienteForm: React.FC<{
     if (e) e.preventDefault();
     const stockDeltas: any[] = [];
     
-    // Calcular diferencias de stock
     auditStocks.forEach(audit => {
         if (!audit.productoId) return;
         const currentQty = currentBalances.get(audit.sucursalId)?.get(audit.productoId) || 0;
@@ -266,7 +294,6 @@ const ClienteForm: React.FC<{
             ...formData as Cliente, 
             stockInicial: stockDeltas, 
             contratosIniciales: contratosIniciales.filter(c => c.servicioId),
-            // Asegurar que no se guarden precios especiales vacíos
             preciosEspeciales: formData.preciosEspeciales?.filter(p => p.productoId && p.precio > 0)
         },
         contratosAEliminar: Array.from(contratosAEliminar)
@@ -295,19 +322,51 @@ const ClienteForm: React.FC<{
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Cliente</h2>
       
       <div className="space-y-6">
-          <Card title="Información Comercial">
+          <Card title="Información Comercial y Fiscal">
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <AppInput label="Nombre de Fantasía (Local)" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
+                    <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                            <AppInput label="CUIT (Sin guiones)" name="cuit" value={formData.cuit || ''} onChange={handleChange} error={cuitExistente ? `CUIT de ${cuitExistente}` : undefined} placeholder="20123456789" />
+                        </div>
+                        <button 
+                            type="button" 
+                            onClick={handleSearchCuit} 
+                            disabled={isSearchingCuit || !formData.cuit || formData.cuit.length < 11}
+                            className="bg-primary-600 text-white p-3 rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all active:scale-95 mb-0.5"
+                            title="Buscar datos Oficiales (Requiere API)"
+                        >
+                            {isSearchingCuit ? (
+                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            ) : (
+                                <SearchIcon className="h-5 w-5" />
+                            )}
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-dashed dark:border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                        <AppInput label="Razón Social (Fiscal)" name="nombreFiscal" value={formData.nombreFiscal || ''} onChange={handleChange} placeholder="Ej: Perez Juan SRL" />
+                    </div>
+                    <AppSelect label="Condición IVA" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
+                    
+                    <div className="md:col-span-2">
+                        <AppInput label="Dirección Fiscal (Facturación)" name="direccionFiscal" value={formData.direccionFiscal || ''} onChange={handleChange} placeholder="Calle, Altura, Piso..." />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                        <AppInput label="Localidad" name="localidad" value={formData.localidad || ''} onChange={handleChange} />
+                        <div className="grid grid-cols-2 gap-2">
+                            <AppInput label="Provincia" name="provincia" value={formData.provincia || ''} onChange={handleChange} />
+                            <AppInput label="CP" name="codPostal" value={formData.codPostal || ''} onChange={handleChange} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <AppSelect label="Estado" name="estado" value={formData.estado || EstadoCliente.ACTIVO} onChange={handleChange} options={[{ value: EstadoCliente.ACTIVO, label: 'Activo' }, { value: EstadoCliente.INACTIVO, label: 'Inactivo' }]} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <AppInput label="Nombre Fiscal (Razón Social)" name="nombreFiscal" value={formData.nombreFiscal || ''} onChange={handleChange} placeholder="Ej: Perez Juan SRL" />
-                    <AppInput label="CUIT" name="cuit" value={formatCuit(formData.cuit)} onChange={handleChange} error={cuitExistente ? `CUIT de ${cuitExistente}` : undefined} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <AppSelect label="Condición Fiscal" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600 mt-6 md:mt-0">
                         <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" />
                         <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer select-none">Habilitar Cuenta Corriente</label>
                     </div>
@@ -315,7 +374,7 @@ const ClienteForm: React.FC<{
             </div>
           </Card>
 
-          <Card title="Sucursales y Stock">
+          <Card title="Sucursales de Entrega y Stock">
               <div className="space-y-6">
                   {(formData.sucursales || []).map((suc, index) => (
                       <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
@@ -327,7 +386,7 @@ const ClienteForm: React.FC<{
                               <div className="relative">
                                   <div className="flex items-end gap-2">
                                       <div className="flex-1">
-                                          <AppInput label="Dirección" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} />
+                                          <AppInput label="Dirección de Entrega" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} />
                                       </div>
                                       <div className="flex gap-1 mb-1">
                                           <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg"><SearchIcon className="w-5 h-5"/></button>
@@ -341,7 +400,7 @@ const ClienteForm: React.FC<{
                               <div className="space-y-3">
                                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Días de Reparto</label>
                                   <div className="flex flex-wrap gap-2">
-                                      {Object.values(DiaSemana).map(day => (
+                                      {(Object.values(DiaSemana) as DiaSemana[]).map(day => (
                                           <button key={day} type="button" onClick={() => toggleDiaReparto(index, day)} className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${suc.diasReparto?.includes(day) ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:border-gray-600 hover:bg-gray-100'}`}>{day.substring(0,3).toUpperCase()}</button>
                                       ))}
                                   </div>
@@ -619,12 +678,10 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
 
   const handleSave = ({ cliente: c, contratosAEliminar }: { cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente), contratosAEliminar: string[] }) => {
     try {
-        // 1. Procesar eliminación de contratos si los hay y si tenemos la función
         if (contratosAEliminar.length > 0 && deleteContrato) {
             contratosAEliminar.forEach(id => deleteContrato(id));
         }
 
-        // 2. Guardar o Actualizar Cliente
         if ('id' in c && c.id) updateCliente(c as Cliente);
         else addCliente(c as Omit<Cliente, 'id' | 'estado'>);
         
@@ -703,12 +760,9 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             const clienteStocks = stocksPorSucursal.get(cliente.id);
             const activeContracts = contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
 
-            // LOGICA DE AGRUPACIÓN POR SUCURSAL
             const contractsBySucursal = activeContracts.reduce((acc, contrato) => {
                 const key = contrato.sucursalId || 'general';
                 if (!acc[key]) acc[key] = [];
-                
-                // Agrupar por Servicio dentro de la sucursal (para que no salgan líneas repetidas)
                 const existingGroup = acc[key].find(g => g.servicioId === contrato.servicioId);
                 if (existingGroup) {
                     existingGroup.cantidad++;
@@ -747,6 +801,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                 <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
                                     {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
                                     {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
+                                    {cliente.direccionFiscal && <li><span className="text-gray-400">Dir. Fiscal:</span> {cliente.direccionFiscal}</li>}
                                     {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
                                 </ul>
                                 
@@ -777,12 +832,11 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
                                                     <p className="font-black text-sm uppercase">{suc.nombre}</p>
-                                                    <p className="text-[10px] text-gray-500">{suc.direccion}</p>
+                                                    <p className="text-sm text-gray-500">{suc.direccion}</p>
                                                 </div>
                                                 {suc.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${suc.lat},${suc.lng}`} target="_blank" rel="noreferrer" className="text-green-500 hover:text-green-700"><MapIcon className="w-4 h-4"/></a>}
                                             </div>
 
-                                            {/* CONTRATOS ESPECIFICOS DE LA SUCURSAL */}
                                             {branchContracts.length > 0 && (
                                                 <div className="mb-3 py-2 border-y border-dashed border-gray-200 dark:border-gray-700">
                                                     <p className="text-[9px] font-black text-green-600 mb-1 uppercase">Equipos en Comodato/Alquiler</p>

@@ -349,7 +349,7 @@ const CajaView: React.FC<CajaViewProps> = ({
   const dailyBalances = useMemo(() => {
       const dailyPagos = registrosPago.filter(p => p.fecha === todayStr);
       const dailyGastos = gastos.filter(g => g.fecha === todayStr);
-      const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
+      const balancesPorMetodo = (Object.values(MetodoPago) as MetodoPago[]).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
       dailyPagos.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
       dailyGastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
       const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
@@ -358,7 +358,7 @@ const CajaView: React.FC<CajaViewProps> = ({
 
   // Balance Total Histórico
   const totalBalances = useMemo(() => {
-      const balancesPorMetodo = Object.values(MetodoPago).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
+      const balancesPorMetodo = (Object.values(MetodoPago) as MetodoPago[]).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
       registrosPago.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
       gastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
       const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
