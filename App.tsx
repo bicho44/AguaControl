@@ -26,7 +26,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.7.2 (Corrección Admin Cta Cte)';
+const APP_VERSION = '2.7.5 (UX Vendedores)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
@@ -104,31 +104,30 @@ function AppContent() {
     // Seguridad: Permitir 'dashboard' también a los repartidores
     const allowedViewsForRepartidor: View[] = ['dashboard', 'remitos', 'clientes'];
     
+    // Props comunes para Dashboard (ahora incluye funciones de acción)
+    const dashboardProps = {
+        remitos: dataStore.remitos,
+        productos: dataStore.productos,
+        registrosPago: dataStore.registrosPago,
+        gastos: dataStore.gastos,
+        usuarios: dataStore.usuarios,
+        clientes: dataStore.clientes,
+        ventasVendedor: dataStore.ventasVendedor,
+        empresaSettings: dataStore.empresaSettings,
+        // Acciones para botones rápidos
+        addRemito: dataStore.addRemito,
+        addPagoManual: dataStore.addPagoManual,
+        addVentaVendedor: dataStore.addVentaVendedor,
+        addCliente: dataStore.addCliente
+    };
+
     if (user.rol === Rol.REPARTIDOR && !allowedViewsForRepartidor.includes(currentView)) {
-      return <DashboardView 
-                remitos={dataStore.remitos} 
-                productos={dataStore.productos} 
-                registrosPago={dataStore.registrosPago}
-                gastos={dataStore.gastos}
-                usuarios={dataStore.usuarios}
-                clientes={dataStore.clientes}
-                ventasVendedor={dataStore.ventasVendedor}
-                empresaSettings={dataStore.empresaSettings}
-              />;
+      return <DashboardView {...dashboardProps} />;
     }
 
     switch (currentView) {
       case 'dashboard':
-        return <DashboardView 
-                  remitos={dataStore.remitos} 
-                  productos={dataStore.productos} 
-                  registrosPago={dataStore.registrosPago}
-                  gastos={dataStore.gastos}
-                  usuarios={dataStore.usuarios}
-                  clientes={dataStore.clientes}
-                  ventasVendedor={dataStore.ventasVendedor}
-                  empresaSettings={dataStore.empresaSettings}
-                />;
+        return <DashboardView {...dashboardProps} />;
       case 'caja':
         return <CajaView 
                   registrosPago={dataStore.registrosPago}
@@ -273,16 +272,7 @@ function AppContent() {
       case 'logs':
           return <SystemLogsView logs={dataStore.logs} />;
       default:
-        return <DashboardView 
-                  remitos={dataStore.remitos} 
-                  productos={dataStore.productos}
-                  registrosPago={dataStore.registrosPago}
-                  gastos={dataStore.gastos}
-                  usuarios={dataStore.usuarios}
-                  clientes={dataStore.clientes}
-                  ventasVendedor={dataStore.ventasVendedor}
-                  empresaSettings={dataStore.empresaSettings}
-                />;
+        return <DashboardView {...dashboardProps} />;
     }
   };
 

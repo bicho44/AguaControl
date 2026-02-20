@@ -1,12 +1,16 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
-import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol } from '../types';
+import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
+// Importamos formularios
+import RemitoForm from '../components/RemitoForm';
+import MovimientoCajaForm from '../components/MovimientoCajaForm';
 
 interface DashboardViewProps {
   remitos: Remito[];
@@ -17,6 +21,11 @@ interface DashboardViewProps {
   clientes: Cliente[];
   ventasVendedor: VentaVendedor[];
   empresaSettings?: EmpresaSettings;
+  // New props for actions
+  addRemito?: (remito: any) => Promise<void>;
+  addPagoManual?: (pago: any) => Promise<void>;
+  addVentaVendedor?: (venta: any) => Promise<void>;
+  addCliente?: (cliente: any) => Promise<string>;
 }
 
 // ----------------------------------------------------------------------
@@ -62,7 +71,12 @@ const lightTooltipStyle = {
 // ----------------------------------------------------------------------
 // DASHBOARD PARA VENDEDOR INTERNO (EMPLEADO)
 // ----------------------------------------------------------------------
-const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], productosMap: Map<string, Producto> }> = ({ user, remitos, productosMap }) => {
+const InternalVendorDashboard: React.FC<{ 
+    user: Usuario, 
+    remitos: Remito[], 
+    productosMap: Map<string, Producto>,
+    onOpenRemito: () => void 
+}> = ({ user, remitos, productosMap, onOpenRemito }) => {
     // Filtrar remitos del vendedor
     const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.esAjuste), [remitos, user.id]);
     
@@ -107,9 +121,14 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
-                Rendimiento: <span className="text-primary-600">{user.nombre}</span>
-            </h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+                    Rendimiento: <span className="text-primary-600">{user.nombre}</span>
+                </h2>
+                <AppButton onClick={onOpenRemito} className="shadow-lg transform active:scale-95">
+                    + Nuevo Remito Rápido
+                </AppButton>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
@@ -154,7 +173,14 @@ const InternalVendorDashboard: React.FC<{ user: Usuario, remitos: Remito[], prod
 // ----------------------------------------------------------------------
 // DASHBOARD PARA VENDEDOR EXTERNO (REVENDEDOR)
 // ----------------------------------------------------------------------
-const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[], pagos: RegistroPago[], productosMap: Map<string, Producto> }> = ({ user, ventas, pagos, productosMap }) => {
+const ExternalVendorDashboard: React.FC<{ 
+    user: Usuario, 
+    ventas: VentaVendedor[], 
+    pagos: RegistroPago[], 
+    productosMap: Map<string, Producto>,
+    onOpenRemito: () => void,
+    onOpenPago: () => void
+}> = ({ user, ventas, pagos, productosMap, onOpenRemito, onOpenPago }) => {
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id), [ventas, user.id]);
     
     const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
@@ -183,8 +209,6 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
         });
 
         // 2. Sumar Pagos (RegistroPago vinculados a ventas de este vendedor)
-        // Buscamos pagos donde: origen.tipo === 'venta_vendedor' Y vendedorId === user.id
-        // O pagos manuales asignados a este vendedor.
         const misPagos = pagos.filter(p => p.vendedorId === user.id);
         
         let pagado = 0;
@@ -208,9 +232,19 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
-                Cuenta Corriente: <span className="text-primary-600">{user.nombre}</span>
-            </h2>
+            <div className="flex justify-between items-center flex-wrap gap-2">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+                    Cuenta Corriente: <span className="text-primary-600">{user.nombre}</span>
+                </h2>
+                <div className="flex gap-2">
+                    <AppButton onClick={onOpenPago} variant="success" className="shadow-lg">
+                        $ Cargar Pago
+                    </AppButton>
+                    <AppButton onClick={onOpenRemito} className="shadow-lg">
+                        + Nueva Venta (Remito)
+                    </AppButton>
+                </div>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
@@ -260,12 +294,89 @@ const ExternalVendorDashboard: React.FC<{ user: Usuario, ventas: VentaVendedor[]
 // DASHBOARD PRINCIPAL (CONTAINER)
 // ----------------------------------------------------------------------
 
-const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings }) => {
-  const { user } = useAuth(); // Obtenemos el usuario autenticado
+const DashboardView: React.FC<DashboardViewProps> = ({ 
+    remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings,
+    addRemito, addPagoManual, addVentaVendedor, addCliente
+}) => {
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
+  
+  // States for Modals
+  const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
+  const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+  
+  // Data for Modals
+  const [newRemitoData, setNewRemitoData] = useState<any>(null);
+  const [newPagoData, setNewPagoData] = useState<any>(null);
 
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
   
+  // Handler para abrir Remito desde Dashboard
+  const handleOpenRemito = useCallback(() => {
+      // Calcular último punto de venta y numero
+      const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+      const defaultPto = lastRemito?.puntoVenta || '1';
+      
+      setNewRemitoData({
+          fecha: new Date().toISOString().split('T')[0],
+          puntoVenta: defaultPto,
+          numero: '',
+          movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }],
+          pagos: [],
+          vendedorId: user?.id
+      });
+      setIsRemitoModalOpen(true);
+  }, [remitos, user]);
+
+  // Handler para abrir Pago desde Dashboard
+  const handleOpenPago = useCallback(() => {
+      setNewPagoData({
+          fecha: new Date().toISOString().split('T')[0],
+          vendedorId: user?.id,
+          clienteId: null,
+          concepto: 'Pago a Cuenta',
+          pagos: [{ monto: 0, metodo: MetodoPago.EFECTIVO }]
+      });
+      setIsPagoModalOpen(true);
+  }, [user]);
+
+  // Handler para Guardar Remito
+  const handleSaveRemito = async (remito: any) => {
+      if (!addRemito) return;
+      try {
+          await addRemito(remito);
+          showNotification('Remito creado exitosamente', 'success');
+          setIsRemitoModalOpen(false);
+      } catch (e) {
+          showNotification('Error al crear remito', 'error');
+      }
+  };
+
+  // Handler para Guardar Pago (Vendedor Externo)
+  const handleSavePago = async (data: any) => {
+      if (!addVentaVendedor) return; // Usamos addVentaVendedor con solo pagos para registrar ingreso de revendedor
+      try {
+          // Adaptamos la estructura para que sea una venta "vacía" pero con pagos
+          await addVentaVendedor({
+              fecha: data.fecha,
+              vendedorId: user?.id,
+              movimientos: [],
+              pagos: data.pagos
+          });
+          showNotification('Pago registrado correctamente', 'success');
+          setIsPagoModalOpen(false);
+      } catch (e) {
+          showNotification('Error al registrar pago', 'error');
+      }
+  };
+
+  // Handler wrapper para addCliente
+  const handleAddClienteWrapper = async (c: any) => {
+      if(!addCliente) return "";
+      return await addCliente(c);
+  }
+
   // --- LÓGICA COMPARTIDA PARA ADMIN DASHBOARD ---
   const consumableProductNames = useMemo(() => {
     return [...new Set(
@@ -549,23 +660,67 @@ const DashboardView: React.FC<DashboardViewProps> = ({ remitos, productos, regis
 
   if (!user) return <div className="p-4">Cargando perfil...</div>;
 
-  // 1. DASHBOARD REPARTIDOR INTERNO
-  if (user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.INTERNO) {
-      return (
-        <div className="space-y-4 pt-12 md:pt-0">
-            <InternalVendorDashboard user={user} remitos={remitos} productosMap={productosMap} />
-        </div>
-      );
-  }
+  // Render para Vendedores (usando los nuevos modales)
+  const vendorDashboard = (
+      <>
+        {user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.INTERNO && (
+            <div className="space-y-4 pt-12 md:pt-0">
+                <InternalVendorDashboard user={user} remitos={remitos} productosMap={productosMap} onOpenRemito={handleOpenRemito} />
+            </div>
+        )}
+        
+        {user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.EXTERNO && (
+            <div className="space-y-4 pt-12 md:pt-0">
+                <ExternalVendorDashboard 
+                    user={user} 
+                    ventas={ventasVendedor} 
+                    pagos={registrosPago} 
+                    productosMap={productosMap} 
+                    onOpenRemito={handleOpenRemito}
+                    onOpenPago={handleOpenPago}
+                />
+            </div>
+        )}
 
-  // 2. DASHBOARD REVENDEDOR EXTERNO
-  if (user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.EXTERNO) {
-      return (
-        <div className="space-y-4 pt-12 md:pt-0">
-            <ExternalVendorDashboard user={user} ventas={ventasVendedor} pagos={registrosPago} productosMap={productosMap} />
-        </div>
-      );
-  }
+        {/* MODAL REMITO COMPARTIDO */}
+        {isRemitoModalOpen && (
+            <Modal isOpen={isRemitoModalOpen} onClose={() => setIsRemitoModalOpen(false)}>
+                <RemitoForm 
+                    remito={newRemitoData} 
+                    clientes={clientes} // Nota: Si es externo, ClientesView filtra esto, aquí deberíamos filtrar también o dejar que el componente lo maneje
+                    vendedores={usuarios} 
+                    productos={productos} 
+                    currentUser={user} 
+                    onSave={handleSaveRemito} 
+                    onAddCliente={handleAddClienteWrapper} 
+                    onClose={() => setIsRemitoModalOpen(false)} 
+                    remitos={remitos} 
+                    registrosPago={registrosPago} 
+                />
+            </Modal>
+        )}
+
+        {/* MODAL PAGO CAJA (Para Externos) */}
+        {isPagoModalOpen && (
+            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-4xl">
+                <MovimientoCajaForm 
+                    type="ingreso" // Vendedor carga plata (pago de su deuda)
+                    movimiento={newPagoData} 
+                    isEdit={false} 
+                    onSave={handleSavePago} 
+                    onAddCliente={handleAddClienteWrapper} 
+                    onClose={() => setIsPagoModalOpen(false)} 
+                    clientes={clientes} 
+                    vendedores={usuarios} 
+                    productos={productos} 
+                    ventasVendedor={ventasVendedor} 
+                />
+            </Modal>
+        )}
+      </>
+  );
+
+  if (user.rol === Rol.REPARTIDOR) return vendorDashboard;
 
   // 3. DASHBOARD ADMINISTRADOR (Original + Mejoras)
   return (
