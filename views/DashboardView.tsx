@@ -80,29 +80,36 @@ const InternalVendorDashboard: React.FC<{
     // Filtrar remitos del vendedor
     const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.esAjuste), [remitos, user.id]);
     
-    // Cálculo de Comisiones (Mes Actual)
-    const { entregasTotal, comisionEstimada, chartData } = useMemo(() => {
+    // Cálculo de Comisiones (Mes Actual) y Entregas Hoy/Ayer
+    const { entregasTotal, comisionEstimada, chartData, entregasHoy, entregasAyer } = useMemo(() => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         
+        const todayStr = now.toISOString().split('T')[0];
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
         // Fix: Use getTime() for numeric comparison to avoid TS errors
         const remitosMes = misRemitos.filter(r => new Date(r.fecha).getTime() >= startOfMonth.getTime());
         
         let totalEntregado = 0;
         let totalComision = 0;
+        let cantHoy = 0;
+        let cantAyer = 0;
         const dataPorDia: Record<string, number> = {};
 
         // Mapa rápido de comisiones por producto
         const comisionesMap = new Map<string, number>();
         user.comisiones?.forEach(c => comisionesMap.set(c.productoId, c.monto));
 
+        // Procesar Histórico Mes
         remitosMes.forEach(r => {
             const day = new Date(r.fecha + 'T00:00:00').getDate();
             if (!dataPorDia[day]) dataPorDia[day] = 0;
 
             r.movimientos.forEach(m => {
                 const prod = productosMap.get(m.productoId);
-                // Si hay comisión específica, usarla. Si no, 0.
                 const comisionRate = comisionesMap.get(m.productoId) || 0;
                 
                 if (prod && prod.tipo === TipoProducto.RETORNABLE) {
@@ -112,11 +119,26 @@ const InternalVendorDashboard: React.FC<{
                 }
             });
         });
+
+        // Procesar Hoy y Ayer (Puede que remitosMes no tenga Ayer si cambió el mes, así que iteramos todo misRemitos para estos contadores específicos si es necesario, pero por simplicidad usaremos los del mes si coinciden, o iteramos recent)
+        // Para mayor precisión iteramos los recientes
+        misRemitos.forEach(r => {
+            const rDate = r.fecha.split('T')[0];
+            if (rDate === todayStr || rDate === yesterdayStr) {
+                r.movimientos.forEach(m => {
+                    const p = productosMap.get(m.productoId);
+                    if (p && p.tipo === TipoProducto.RETORNABLE) {
+                        if (rDate === todayStr) cantHoy += m.entregados;
+                        else cantAyer += m.entregados;
+                    }
+                });
+            }
+        });
         
         // Formatear para gráfico
         const chart = Object.keys(dataPorDia).map(day => ({ name: `Día ${day}`, entregas: dataPorDia[day] }));
 
-        return { entregasTotal: totalEntregado, comisionEstimada: totalComision, chartData: chart };
+        return { entregasTotal: totalEntregado, comisionEstimada: totalComision, chartData: chart, entregasHoy: cantHoy, entregasAyer: cantAyer };
     }, [misRemitos, productosMap, user.comisiones]);
 
     return (
@@ -130,19 +152,37 @@ const InternalVendorDashboard: React.FC<{
                 </AppButton>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                    <div className="flex flex-col items-center justify-center py-6 text-center">
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Envases Entregados</p>
-                        <p className="text-5xl font-black text-blue-600">{entregasTotal}</p>
-                        <p className="text-xs text-gray-400 mt-2">Productos Retornables</p>
-                    </div>
-                </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Comisión Estimada</p>
                         <p className="text-5xl font-black text-green-600">${comisionEstimada.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 mt-2">Calculada según configuración</p>
+                        <p className="text-xs text-gray-400 mt-2">Mes Actual</p>
+                    </div>
+                </Card>
+                
+                {/* CARD DE ENTREGAS HOY/AYER */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Ritmo de Entrega (Envases)</h3>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-blue-600">{entregasHoy}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-gray-400">{entregasAyer}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
+                        </div>
+                    </div>
+                </div>
+
+                <Card>
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Mensual</p>
+                        <p className="text-5xl font-black text-blue-600">{entregasTotal}</p>
+                        <p className="text-xs text-gray-400 mt-2">Productos Retornables</p>
                     </div>
                 </Card>
             </div>
@@ -178,25 +218,39 @@ const ExternalVendorDashboard: React.FC<{
     ventas: VentaVendedor[], 
     pagos: RegistroPago[], 
     productosMap: Map<string, Producto>,
-    onOpenStockPurchase: () => void, // Cambio de nombre: Antes onOpenRemito
+    onOpenStockPurchase: () => void,
     onOpenPago: () => void
 }> = ({ user, ventas, pagos, productosMap, onOpenStockPurchase, onOpenPago }) => {
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id), [ventas, user.id]);
     
-    const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
+    const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
         let comprado = 0;
         const historialCombinado: any[] = [];
+        const todayStr = new Date().toISOString().split('T')[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        let hoy = 0;
+        let ayer = 0;
 
         // 1. Sumar Compras (VentaVendedor)
         misVentas.forEach(v => {
             let totalVenta = 0;
+            const vDate = v.fecha.split('T')[0];
+
             v.movimientos.forEach(m => {
                 const prod = productosMap.get(m.productoId);
                 if (prod) {
-                    // Lógica de precio: Usar precio especial del vendedor si existe, sino precio reventa, sino precio lista
                     const precioEsp = user.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
                     const precioFinal = m.precioUnitario || precioEsp || prod.precioReventa || prod.precio;
                     totalVenta += m.cantidad * precioFinal;
+
+                    // Contar envases retirados hoy/ayer (solo retornables)
+                    if (prod.tipo === TipoProducto.RETORNABLE) {
+                        if (vDate === todayStr) hoy += m.cantidad;
+                        if (vDate === yesterdayStr) ayer += m.cantidad;
+                    }
                 }
             });
             comprado += totalVenta;
@@ -227,7 +281,7 @@ const ExternalVendorDashboard: React.FC<{
         // Ordenar historial
         historialCombinado.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        return { totalComprado: comprado, totalPagado: pagado, saldoPendiente: deuda, historial: historialCombinado };
+        return { totalComprado: comprado, totalPagado: pagado, saldoPendiente: deuda, historial: historialCombinado, retiradosHoy: hoy, retiradosAyer: ayer };
     }, [misVentas, pagos, user.id, productosMap, user.preciosEspeciales]);
 
     return (
@@ -246,22 +300,27 @@ const ExternalVendorDashboard: React.FC<{
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                    <div className="flex flex-col items-center justify-center py-4 text-center">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Comprado</p>
-                        <p className="text-2xl font-bold text-gray-800 dark:text-white">${totalComprado.toLocaleString()}</p>
-                    </div>
-                </Card>
-                <Card>
-                    <div className="flex flex-col items-center justify-center py-4 text-center">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Pagado</p>
-                        <p className="text-2xl font-bold text-green-600">${totalPagado.toLocaleString()}</p>
-                    </div>
-                </Card>
-                <div className={`p-6 rounded-2xl border-2 shadow-xl flex flex-col items-center justify-center transition-all ${saldoPendiente > 0 ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'}`}>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className={`p-6 rounded-2xl border-2 shadow-xl flex flex-col items-center justify-center transition-all md:col-span-2 ${saldoPendiente > 0 ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'}`}>
                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${saldoPendiente > 0 ? 'text-red-600' : 'text-green-600'}`}>Saldo Pendiente (Deuda)</p>
                     <p className={`text-4xl font-black tracking-tighter ${saldoPendiente > 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>${saldoPendiente.toLocaleString()}</p>
+                </div>
+
+                {/* CARD DE RETIROS HOY/AYER (EXTERNO) */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col md:col-span-2">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Envases Retirados</h3>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-primary-600">{retiradosHoy}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-gray-400">{retiradosAyer}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
