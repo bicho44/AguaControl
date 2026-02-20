@@ -187,9 +187,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   // Filtrar clientes si es vendedor externo
   const visibleClientes = useMemo(() => {
       if (currentUser.tipo === TipoVendedor.EXTERNO) {
-          // Opción A: Mostrar vacío (obliga a crear)
-          return [];
-          // Opción B (Comentada): Mostrar solo clientes que quizás tengan un flag de "creado por mí" (no existe en DB actual)
+          // AHORA FILTRAMOS POR CREADOR (lógica nueva)
+          return clientes.filter(c => c.creadoPor === currentUser.id);
       }
       return clientes;
   }, [clientes, currentUser]);
@@ -313,6 +312,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     setIsFormOpen(true);
   }, [remitos, currentUser]);
 
+  const handleAddClienteWrapper = async (c: any) => {
+      if(!addCliente) return "";
+      return await addCliente({ ...c, creadoPor: currentUser.id }); // IMPORTANTE: Pasamos el creador
+  }
+
   useEffect(() => {
       const handleGlobalKeys = (e: KeyboardEvent) => {
           if (e.altKey && (e.key === 'n' || e.key === 'N') && !isFormOpen) {
@@ -353,7 +357,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 productos={productos} 
                 currentUser={currentUser} 
                 onSave={handleSave} 
-                onAddCliente={addCliente} 
+                onAddCliente={handleAddClienteWrapper} 
                 onClose={() => setIsFormOpen(false)} 
                 remitos={remitos} 
                 registrosPago={registrosPago} 

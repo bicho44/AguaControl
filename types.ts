@@ -127,6 +127,7 @@ export interface Cliente {
     id: string;
     nombre: string;
     estado: EstadoCliente;
+    creadoPor?: string; // ID del usuario que creó el cliente (para Vendedores Externos)
     sucursales: Sucursal[];
     cuit?: string;
     tipoFacturacion?: TipoFacturacion;

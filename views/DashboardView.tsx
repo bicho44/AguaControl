@@ -178,9 +178,9 @@ const ExternalVendorDashboard: React.FC<{
     ventas: VentaVendedor[], 
     pagos: RegistroPago[], 
     productosMap: Map<string, Producto>,
-    onOpenRemito: () => void,
+    onOpenStockPurchase: () => void, // Cambio de nombre: Antes onOpenRemito
     onOpenPago: () => void
-}> = ({ user, ventas, pagos, productosMap, onOpenRemito, onOpenPago }) => {
+}> = ({ user, ventas, pagos, productosMap, onOpenStockPurchase, onOpenPago }) => {
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id), [ventas, user.id]);
     
     const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
@@ -240,8 +240,8 @@ const ExternalVendorDashboard: React.FC<{
                     <AppButton onClick={onOpenPago} variant="success" className="shadow-lg">
                         $ Cargar Pago
                     </AppButton>
-                    <AppButton onClick={onOpenRemito} className="shadow-lg">
-                        + Nueva Venta (Remito)
+                    <AppButton onClick={onOpenStockPurchase} className="shadow-lg">
+                        + Registrar Retiro de Mercadería
                     </AppButton>
                 </div>
             </div>
@@ -304,18 +304,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // States for Modals
   const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+  // Nuevo state para la compra de stock del vendedor externo
+  const [isStockPurchaseModalOpen, setIsStockPurchaseModalOpen] = useState(false);
   
   // Data for Modals
   const [newRemitoData, setNewRemitoData] = useState<any>(null);
   const [newPagoData, setNewPagoData] = useState<any>(null);
+  const [newStockPurchaseData, setNewStockPurchaseData] = useState<any>(null);
 
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
   
-  // Handler para abrir Remito desde Dashboard
+  // FILTRADO DE CLIENTES POR TIPO DE VENDEDOR
+  const visibleClientes = useMemo(() => {
+      if (user?.tipo === TipoVendedor.EXTERNO) {
+          return clientes.filter(c => c.creadoPor === user.id);
+      }
+      return clientes;
+  }, [clientes, user]);
+
+  // Handler para abrir Remito desde Dashboard (Solo internos)
   const handleOpenRemito = useCallback(() => {
-      // Calcular último punto de venta y numero
-      const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+      const userRemitos = remitos; // Solo internos llegan acá
+      const lastRemito = [...userRemitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       const defaultPto = lastRemito?.puntoVenta || '1';
       
       setNewRemitoData({
@@ -329,7 +340,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       setIsRemitoModalOpen(true);
   }, [remitos, user]);
 
-  // Handler para abrir Pago desde Dashboard
+  // Handler para abrir Pago desde Dashboard (Todos)
   const handleOpenPago = useCallback(() => {
       setNewPagoData({
           fecha: new Date().toISOString().split('T')[0],
@@ -341,7 +352,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       setIsPagoModalOpen(true);
   }, [user]);
 
-  // Handler para Guardar Remito
+  // Handler para abrir Compra de Stock (Externos)
+  const handleOpenStockPurchase = useCallback(() => {
+      setNewStockPurchaseData({
+          fecha: new Date().toISOString().split('T')[0],
+          vendedorId: user?.id,
+          // No necesitamos clienteId porque es autocompra
+          concepto: 'Retiro de Mercadería',
+          pagos: [] // Inicialmente sin pago, genera deuda
+      });
+      setIsStockPurchaseModalOpen(true);
+  }, [user]);
+
+  // Handler para Guardar Remito (Internos)
   const handleSaveRemito = async (remito: any) => {
       if (!addRemito) return;
       try {
@@ -355,9 +378,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Handler para Guardar Pago (Vendedor Externo)
   const handleSavePago = async (data: any) => {
-      if (!addVentaVendedor) return; // Usamos addVentaVendedor con solo pagos para registrar ingreso de revendedor
+      if (!addVentaVendedor) return;
       try {
-          // Adaptamos la estructura para que sea una venta "vacía" pero con pagos
           await addVentaVendedor({
               fecha: data.fecha,
               vendedorId: user?.id,
@@ -371,13 +393,32 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   };
 
+  // Handler para Guardar Compra de Stock (Vendedor Externo)
+  const handleSaveStockPurchase = async (data: any) => {
+      if (!addVentaVendedor) return;
+      try {
+          await addVentaVendedor({
+              fecha: data.fecha,
+              vendedorId: user?.id,
+              clienteId: null, // Importante: Sin cliente final
+              movimientos: data.movimientos,
+              pagos: data.pagos
+          });
+          showNotification('Retiro de mercadería registrado.', 'success');
+          setIsStockPurchaseModalOpen(false);
+      } catch (e) {
+          showNotification('Error al registrar retiro.', 'error');
+      }
+  };
+
   // Handler wrapper para addCliente
   const handleAddClienteWrapper = async (c: any) => {
       if(!addCliente) return "";
-      return await addCliente(c);
+      return await addCliente({ ...c, creadoPor: user?.id });
   }
 
   // --- LÓGICA COMPARTIDA PARA ADMIN DASHBOARD ---
+  // ... (Lógica de gráficos se mantiene igual)
   const consumableProductNames = useMemo(() => {
     return [...new Set(
         productos
@@ -676,18 +717,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     ventas={ventasVendedor} 
                     pagos={registrosPago} 
                     productosMap={productosMap} 
-                    onOpenRemito={handleOpenRemito}
+                    onOpenStockPurchase={handleOpenStockPurchase} // AHORA: Retiro de Mercadería
                     onOpenPago={handleOpenPago}
                 />
             </div>
         )}
 
-        {/* MODAL REMITO COMPARTIDO */}
+        {/* MODAL REMITO COMPARTIDO (Solo Internos) */}
         {isRemitoModalOpen && (
             <Modal isOpen={isRemitoModalOpen} onClose={() => setIsRemitoModalOpen(false)}>
                 <RemitoForm 
                     remito={newRemitoData} 
-                    clientes={clientes} // Nota: Si es externo, ClientesView filtra esto, aquí deberíamos filtrar también o dejar que el componente lo maneje
+                    clientes={visibleClientes} // AHORA FILTRADOS POR USUARIO
                     vendedores={usuarios} 
                     productos={productos} 
                     currentUser={user} 
@@ -710,10 +751,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     onSave={handleSavePago} 
                     onAddCliente={handleAddClienteWrapper} 
                     onClose={() => setIsPagoModalOpen(false)} 
-                    clientes={clientes} 
+                    clientes={visibleClientes} 
                     vendedores={usuarios} 
                     productos={productos} 
                     ventasVendedor={ventasVendedor} 
+                />
+            </Modal>
+        )}
+
+        {/* NUEVO MODAL COMPRA STOCK (Para Externos) */}
+        {isStockPurchaseModalOpen && (
+            <Modal isOpen={isStockPurchaseModalOpen} onClose={() => setIsStockPurchaseModalOpen(false)} className="max-w-4xl">
+                <MovimientoCajaForm 
+                    type="ingreso" // Contextual: Es un "ingreso" de venta para la empresa
+                    movimiento={newStockPurchaseData} 
+                    isEdit={false} 
+                    onSave={handleSaveStockPurchase} 
+                    onAddCliente={handleAddClienteWrapper} 
+                    onClose={() => setIsStockPurchaseModalOpen(false)} 
+                    clientes={[]} // No necesita clientes
+                    vendedores={usuarios} 
+                    productos={productos} 
+                    ventasVendedor={ventasVendedor} 
+                    initialVentaMode={true} // Forzar modo venta
+                    hideClientSelector={true} // Ocultar selector de cliente (es autocompra)
                 />
             </Modal>
         )}
@@ -722,7 +783,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   if (user.rol === Rol.REPARTIDOR) return vendorDashboard;
 
-  // 3. DASHBOARD ADMINISTRADOR (Original + Mejoras)
+  // 3. DASHBOARD ADMINISTRADOR
   return (
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
       <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
@@ -745,6 +806,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* ... (Resto del Dashboard Admin sin cambios estructurales) ... */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-3">
               <Card title="Evolución Diaria del Mes Actual">

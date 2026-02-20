@@ -592,13 +592,15 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const { showNotification } = useNotification();
   const { user: currentUser } = useAuth();
   
-  // REQUISITO 2: Filtrar listado para externos
+  // REQUISITO 1: Filtrar listado para externos usando el nuevo campo creadoPor
   const filteredClientes = useMemo(() => {
+    let list = clientes;
+
     if (currentUser?.tipo === TipoVendedor.EXTERNO) {
-        return []; // Vendedores externos no ven la lista general
+        list = list.filter(c => c.creadoPor === currentUser.id);
     }
 
-    return clientes.filter(c => {
+    return list.filter(c => {
         const matchesName = c.nombre.toLowerCase().includes(filter.toLowerCase());
         const matchesStatus = statusFilter === 'todos' || c.estado === statusFilter;
         return matchesName && matchesStatus;
@@ -652,8 +654,12 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             contratosAEliminar.forEach(id => deleteContrato(id));
         }
 
-        if ('id' in c && c.id) updateCliente(c as Cliente);
-        else addCliente(c as Omit<Cliente, 'id' | 'estado'>);
+        if ('id' in c && c.id) {
+            updateCliente(c as Cliente);
+        } else {
+            // Asignar creador si es nuevo
+            addCliente({ ...c as Omit<Cliente, 'id' | 'estado'>, creadoPor: currentUser?.id });
+        }
         
         showNotification('Guardado.', 'success');
         setIsModalOpen(false);
@@ -662,7 +668,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
 
   const openNewModal = useCallback(() => {
     // Permitir a Internos crear clientes
-    if (currentUser?.rol !== Rol.ADMINISTRADOR && currentUser?.tipo !== TipoVendedor.INTERNO) return;
+    if (currentUser?.rol !== Rol.ADMINISTRADOR && currentUser?.tipo !== TipoVendedor.INTERNO && currentUser?.tipo !== TipoVendedor.EXTERNO) return;
     setEditingCliente({estado: EstadoCliente.ACTIVO, sucursales: [{id: 'main', nombre: 'Casa Central', direccion: '', diasReparto: []}], telefonos: [{tipo: TipoTelefono.CEL, numero: ''}]});
     setIsModalOpen(true);
   }, [currentUser]);
@@ -702,156 +708,157 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     <div className="space-y-6 pt-12 md:pt-0">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Clientes</h1>
-        {/* Mostrar botón de Nuevo Cliente para Admins y Vendedores Internos */}
-        {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO) && (
-            <AppButton onClick={openNewModal}>
-                + Nuevo Cliente <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
-            </AppButton>
-        )}
+        {/* Mostrar botón de Nuevo Cliente para Admins y Vendedores */}
+        <AppButton onClick={openNewModal}>
+            + Nuevo Cliente <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
+        </AppButton>
       </div>
       
       {/* Mensaje para vendedores externos */}
-      {currentUser?.tipo === TipoVendedor.EXTERNO ? (
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-center text-blue-800 dark:text-blue-200">
-              <p className="font-bold">Modo Revendedor Externo</p>
-              <p className="text-sm">Para registrar ventas, utilice la opción "Nuevo Remito" en el Dashboard creando clientes rápidos.</p>
+      {currentUser?.tipo === TipoVendedor.EXTERNO && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-center text-blue-800 dark:text-blue-200 mb-4 border border-blue-100 dark:border-blue-800">
+              <p className="font-bold text-sm">Modo Revendedor Externo</p>
+              <p className="text-xs">Solo estás viendo los clientes creados por ti. Si necesitas ver clientes de la empresa, contacta al administrador.</p>
           </div>
-      ) : (
-          <>
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-                <input type="text" placeholder="Buscar por nombre..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full md:w-1/3 p-3 bg-white dark:bg-gray-700 rounded-xl border dark:border-gray-600" />
-                <div className="flex items-center space-x-4 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
-                    {['Activo', 'Inactivo', 'todos'].map(s => (
-                        <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500'}`}>{s === 'todos' ? 'TODOS' : s.toUpperCase()}</button>
-                    ))}
-                </div>
+      )}
+
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+            <input type="text" placeholder="Buscar por nombre..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full md:w-1/3 p-3 bg-white dark:bg-gray-700 rounded-xl border dark:border-gray-600" />
+            <div className="flex items-center space-x-4 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
+                {['Activo', 'Inactivo', 'todos'].map(s => (
+                    <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500'}`}>{s === 'todos' ? 'TODOS' : s.toUpperCase()}</button>
+                ))}
             </div>
+      </div>
             
-            {/* Listado de clientes (solo visible si no es externo) */}
-            <div className="grid grid-cols-1 gap-3">
-                {filteredClientes.map(cliente => {
-                    const isExpanded = expandedClienteId === cliente.id;
-                    const deuda = deudasMap.get(cliente.id) || 0;
-                    const clienteStocks = stocksPorSucursal.get(cliente.id);
-                    const activeContracts = contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
+      {/* Listado de clientes */}
+      <div className="grid grid-cols-1 gap-3">
+            {filteredClientes.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 font-bold uppercase text-xs">No se encontraron clientes.</div>
+            ) : filteredClientes.map(cliente => {
+                const isExpanded = expandedClienteId === cliente.id;
+                const deuda = deudasMap.get(cliente.id) || 0;
+                const clienteStocks = stocksPorSucursal.get(cliente.id);
+                const activeContracts = contratos.filter(c => c.clienteId === cliente.id && c.estado === EstadoContrato.ACTIVO);
 
-                    const contractsBySucursal = activeContracts.reduce((acc, contrato) => {
-                        const key = contrato.sucursalId || 'general';
-                        if (!acc[key]) acc[key] = [];
-                        const existingGroup = acc[key].find(g => g.servicioId === contrato.servicioId);
-                        if (existingGroup) {
-                            existingGroup.cantidad++;
-                        } else {
-                            acc[key].push({
-                                servicioId: contrato.servicioId,
-                                nombre: serviciosMap.get(contrato.servicioId)?.nombre || 'Servicio',
-                                cantidad: 1
-                            });
-                        }
-                        return acc;
-                    }, {} as Record<string, { servicioId: string, nombre: string, cantidad: number }[]>);
+                const contractsBySucursal = activeContracts.reduce((acc, contrato) => {
+                    const key = contrato.sucursalId || 'general';
+                    if (!acc[key]) acc[key] = [];
+                    const existingGroup = acc[key].find(g => g.servicioId === contrato.servicioId);
+                    if (existingGroup) {
+                        existingGroup.cantidad++;
+                    } else {
+                        acc[key].push({
+                            servicioId: contrato.servicioId,
+                            nombre: serviciosMap.get(contrato.servicioId)?.nombre || 'Servicio',
+                            cantidad: 1
+                        });
+                    }
+                    return acc;
+                }, {} as Record<string, { servicioId: string, nombre: string, cantidad: number }[]>);
 
-                    const hasGeneralContracts = contractsBySucursal['general'] && contractsBySucursal['general'].length > 0;
+                const hasGeneralContracts = contractsBySucursal['general'] && contractsBySucursal['general'].length > 0;
 
-                    return (
-                    <div key={cliente.id} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 transition-all ${cliente.estado === 'Inactivo' ? 'opacity-60' : ''}`}>
-                        <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedClienteId(isExpanded ? null : cliente.id)}>
-                            <div className="flex-grow">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">{cliente.nombre}</h3>
-                                    {deuda > 0.01 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-red-100 text-red-700">DEUDA: ${deuda.toLocaleString()}</span>}
-                                    {activeContracts.length > 0 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-green-100 text-green-700">{activeContracts.length} Servicios</span>}
-                                </div>
-                                <p className="text-xs text-gray-500">{cliente.sucursales.length} Punto(s) | {cliente.tieneCuentaCorriente ? 'A Crédito' : 'Contado'}</p>
+                return (
+                <div key={cliente.id} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 transition-all ${cliente.estado === 'Inactivo' ? 'opacity-60' : ''}`}>
+                    <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedClienteId(isExpanded ? null : cliente.id)}>
+                        <div className="flex-grow">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{cliente.nombre}</h3>
+                                {deuda > 0.01 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-red-100 text-red-700">DEUDA: ${deuda.toLocaleString()}</span>}
+                                {activeContracts.length > 0 && <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-green-100 text-green-700">{activeContracts.length} Servicios</span>}
                             </div>
-                            <div className="flex items-center gap-1">
-                                {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO) && <button onClick={(e) => { e.stopPropagation(); setEditingCliente(cliente); setIsModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon /></button>}
-                                <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                            </div>
+                            <p className="text-xs text-gray-500">{cliente.sucursales.length} Punto(s) | {cliente.tieneCuentaCorriente ? 'A Crédito' : 'Contado'}</p>
                         </div>
-                        {isExpanded && (
-                            <div className="px-4 pb-4 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
-                                {/* ... (Detalle expandido del cliente se mantiene igual) ... */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-4">
-                                        <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-                                            {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
-                                            {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
-                                            {cliente.direccionFiscal && <li><span className="text-gray-400">Dir. Fiscal:</span> {cliente.direccionFiscal}</li>}
-                                            {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
-                                        </ul>
-                                        
-                                        {hasGeneralContracts && (
-                                            <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-200 dark:border-green-800">
-                                                <p className="text-[10px] font-black uppercase text-green-800 dark:text-green-300 mb-2 flex items-center gap-2"><ClipboardListIcon className="w-3 h-3"/> Contratos Generales</p>
-                                                <div className="space-y-2">
-                                                    {contractsBySucursal['general'].map((group, idx) => (
-                                                        <div key={idx} className="flex justify-between items-center border-b border-green-200 dark:border-green-800/50 pb-1 last:border-0 last:pb-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-black px-1.5 rounded">{group.cantidad}x</span>
-                                                                <span className="font-bold text-gray-700 dark:text-gray-300 text-xs">{group.nombre}</span>
-                                                            </div>
+                        <div className="flex items-center gap-1">
+                            {/* Ahora los Externos también pueden editar SUS clientes */}
+                            {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO || (currentUser?.tipo === TipoVendedor.EXTERNO && cliente.creadoPor === currentUser.id)) && 
+                                <button onClick={(e) => { e.stopPropagation(); setEditingCliente(cliente); setIsModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon /></button>
+                            }
+                            <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </div>
+                    </div>
+                    {isExpanded && (
+                        <div className="px-4 pb-4 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
+                            {/* ... (Detalle expandido del cliente se mantiene igual) ... */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+                                        {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}
+                                        {cliente.cuit && <li><span className="text-gray-400">CUIT:</span> {cliente.cuit}</li>}
+                                        {cliente.direccionFiscal && <li><span className="text-gray-400">Dir. Fiscal:</span> {cliente.direccionFiscal}</li>}
+                                        {(cliente.telefonos || []).map((tel, i) => <li key={i}><span className="text-gray-400">{tel.tipo}:</span> {tel.numero}</li>)}
+                                    </ul>
+                                    
+                                    {hasGeneralContracts && (
+                                        <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                                            <p className="text-[10px] font-black uppercase text-green-800 dark:text-green-300 mb-2 flex items-center gap-2"><ClipboardListIcon className="w-3 h-3"/> Contratos Generales</p>
+                                            <div className="space-y-2">
+                                                {contractsBySucursal['general'].map((group, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center border-b border-green-200 dark:border-green-800/50 pb-1 last:border-0 last:pb-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-black px-1.5 rounded">{group.cantidad}x</span>
+                                                            <span className="font-bold text-gray-700 dark:text-gray-300 text-xs">{group.nombre}</span>
                                                         </div>
-                                                    ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-3">
+                                    {cliente.sucursales.map((suc, i) => {
+                                        const sucStockMap = clienteStocks?.get(suc.id);
+                                        const branchContracts = contractsBySucursal[suc.id] || [];
+                                        
+                                        return (
+                                            <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <p className="font-black text-sm uppercase">{suc.nombre}</p>
+                                                        <p className="text-sm text-gray-500">{suc.direccion}</p>
+                                                    </div>
+                                                    {suc.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${suc.lat},${suc.lng}`} target="_blank" rel="noreferrer" className="text-green-500 hover:text-green-700"><MapIcon className="w-4 h-4"/></a>}
+                                                </div>
+
+                                                {branchContracts.length > 0 && (
+                                                    <div className="mb-3 py-2 border-y border-dashed border-gray-200 dark:border-gray-700">
+                                                        <p className="text-[9px] font-black text-green-600 mb-1 uppercase">Equipos en Comodato/Alquiler</p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {branchContracts.map((c, idx) => (
+                                                                <div key={idx} className="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-100 dark:border-green-800">
+                                                                    <span className="text-[10px] font-black text-green-700 dark:text-green-300">{c.cantidad}x</span>
+                                                                    <span className="text-[10px] text-gray-600 dark:text-gray-400 font-medium truncate max-w-[150px]">{c.nombre}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                                    {sucStockMap ? Array.from(sucStockMap.entries()).map(([prodId, qty]) => qty > 0 && <div key={prodId} className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-lg border dark:border-gray-700"><span className="text-[11px] font-black text-primary-600">{qty}</span><span className="text-[9px] text-gray-500 font-bold uppercase">{productosMap.get(prodId)?.nombre}</span></div>) : <p className="text-[9px] text-gray-400 italic">Sin envases.</p>}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        {cliente.sucursales.map((suc, i) => {
-                                            const sucStockMap = clienteStocks?.get(suc.id);
-                                            const branchContracts = contractsBySucursal[suc.id] || [];
-                                            
-                                            return (
-                                                <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div>
-                                                            <p className="font-black text-sm uppercase">{suc.nombre}</p>
-                                                            <p className="text-sm text-gray-500">{suc.direccion}</p>
-                                                        </div>
-                                                        {suc.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${suc.lat},${suc.lng}`} target="_blank" rel="noreferrer" className="text-green-500 hover:text-green-700"><MapIcon className="w-4 h-4"/></a>}
-                                                    </div>
-
-                                                    {branchContracts.length > 0 && (
-                                                        <div className="mb-3 py-2 border-y border-dashed border-gray-200 dark:border-gray-700">
-                                                            <p className="text-[9px] font-black text-green-600 mb-1 uppercase">Equipos en Comodato/Alquiler</p>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {branchContracts.map((c, idx) => (
-                                                                    <div key={idx} className="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-100 dark:border-green-800">
-                                                                        <span className="text-[10px] font-black text-green-700 dark:text-green-300">{c.cantidad}x</span>
-                                                                        <span className="text-[10px] text-gray-600 dark:text-gray-400 font-medium truncate max-w-[150px]">{c.nombre}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="flex flex-wrap gap-1.5 pt-1">
-                                                        {sucStockMap ? Array.from(sucStockMap.entries()).map(([prodId, qty]) => qty > 0 && <div key={prodId} className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-lg border dark:border-gray-700"><span className="text-[11px] font-black text-primary-600">{qty}</span><span className="text-[9px] text-gray-500 font-bold uppercase">{productosMap.get(prodId)?.nombre}</span></div>) : <p className="text-[9px] text-gray-400 italic">Sin envases.</p>}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
-                                {currentUser?.rol === Rol.ADMINISTRADOR && (
-                                    <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-end">
-                                        {cliente.estado === 'Activo' ? (
-                                            <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }}>Dar de Baja</AppButton>
-                                        ) : (
-                                            <AppButton variant="success" size="sm" onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); }}>Reactivar</AppButton>
-                                        )}
-                                    </div>
-                                )}
                             </div>
-                        )}
-                    </div>
-                    )
-                })}
-            </div>
-          </>
-      )}
+                            {currentUser?.rol === Rol.ADMINISTRADOR && (
+                                <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-end">
+                                    {cliente.estado === 'Activo' ? (
+                                        <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }}>Dar de Baja</AppButton>
+                                    ) : (
+                                        <AppButton variant="success" size="sm" onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); }}>Reactivar</AppButton>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                )
+            })}
+        </div>
 
       {clienteParaBaja && (
         <Modal isOpen={!!clienteParaBaja} onClose={() => setClienteParaBaja(null)}>

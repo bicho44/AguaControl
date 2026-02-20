@@ -14,13 +14,13 @@ import { HandshakeIcon } from './icons/HandshakeIcon';
 import { ClipboardListIcon } from './icons/ClipboardListIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 import { MapIcon } from './icons/MapIcon';
-import { View, Usuario, Rol, EmpresaSettings } from '../types';
+import { View, Usuario, Rol, EmpresaSettings, TipoVendedor } from '../types';
 
 interface SidebarProps {
   currentView: View;
   setCurrentView: (view: View) => void;
   isSidebarOpen: boolean;
-  onClose: () => void; // Nueva prop para cerrar desde dentro
+  onClose: () => void;
   currentUser: Usuario;
   empresaSettings: EmpresaSettings;
   appVersion: string;
@@ -31,15 +31,16 @@ interface NavItem {
   label: string;
   icon: React.ReactElement;
   roles: Rol[];
+  excludeExternal?: boolean; // Nueva propiedad para excluir a externos
 }
 
 // Grupo 1: Operativa Diaria
 const mainNavItems: NavItem[] = [
-  // AHORA DASHBOARD ES VISIBLE PARA REPARTIDOR TAMBIÉN
   { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR] },
-  { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR] },
+  // Remitos: Solo para Admins o Repartidores INTERNOS
+  { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'planillas', label: 'Control Stock', icon: <ClipboardCheckIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] }, // Nueva Vista
+  { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'cuentacorriente', label: 'Cta. Corriente', icon: <BookOpenIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'facturas', label: 'Facturas', icon: <ReceiptIcon />, roles: [Rol.ADMINISTRADOR] },
@@ -47,7 +48,8 @@ const mainNavItems: NavItem[] = [
 
 // Grupo 2: Gestión / Catálogos
 const managementNavItems: NavItem[] = [
-  { view: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR] },
+  // Clientes: Solo para Admins o Repartidores INTERNOS (Externos gestionan su propia cartera en otro lado si quieren)
+  { view: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'productos', label: 'Productos', icon: <CubeIcon />, roles: [Rol.ADMINISTRADOR] },
@@ -64,7 +66,18 @@ const systemNavItems: NavItem[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
   
-  const filterItems = (items: NavItem[]) => items.filter(item => item.roles.includes(currentUser.rol));
+  const filterItems = (items: NavItem[]) => items.filter(item => {
+      // 1. Check Rol
+      const roleMatch = item.roles.includes(currentUser.rol);
+      if (!roleMatch) return false;
+
+      // 2. Check Exclusión de Externos
+      if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) {
+          return false;
+      }
+
+      return true;
+  });
 
   const group1 = filterItems(mainNavItems);
   const group2 = filterItems(managementNavItems);
@@ -72,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
-    onClose(); // Cerrar el menú al hacer clic (importante en móvil)
+    onClose(); 
   };
 
   const renderNavList = (items: NavItem[]) => (
@@ -101,7 +114,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
     <aside className={`fixed top-0 left-0 z-50 w-64 h-screen transition-transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-2xl md:shadow-none`}>
       <div className="h-full px-3 py-4 overflow-y-auto bg-white dark:bg-gray-800 flex flex-col border-r dark:border-gray-700">
         
-        {/* Botón de cierre para móviles */}
         <button 
           onClick={onClose}
           className="md:hidden absolute top-4 right-4 p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"

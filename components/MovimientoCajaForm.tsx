@@ -19,11 +19,18 @@ interface MovimientoCajaFormProps {
   onAddCliente: (data: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   onClose: () => void;
   isEdit: boolean;
+  initialVentaMode?: boolean; // Force start in Venta mode
+  hideClientSelector?: boolean; // Hide client selector (for external vendors self-purchase)
 }
 
-const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, type, onSave, onAddCliente, onClose, isEdit, clientes, vendedores, productos, ventasVendedor }) => {
+const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ 
+    movimiento, type, onSave, onAddCliente, onClose, isEdit, 
+    clientes, vendedores, productos, ventasVendedor,
+    initialVentaMode = false,
+    hideClientSelector = false
+}) => {
   const [formData, setFormData] = useState<any>(movimiento || { pagos: [] });
-  const [isVentaMode, setIsVentaMode] = useState(false);
+  const [isVentaMode, setIsVentaMode] = useState(initialVentaMode);
   const [movimientosVenta, setMovimientosVenta] = useState<MovimientoVenta[]>([]);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [quickClientName, setQuickClientName] = useState('');
@@ -35,7 +42,6 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   useEffect(() => {
-    // Detectar si estamos editando una VentaVendedor (ya sea con pago o Cta Cte pura)
     if (isEdit) {
         if (formData?.origen?.tipo === 'venta_vendedor') {
             const ventaOriginal = ventasVendedor.find(v => v.id === formData.origen.id);
@@ -44,12 +50,13 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
                 setMovimientosVenta(ventaOriginal.movimientos || []);
             }
         } else if (formData && !formData.origen && formData.movimientos) {
-            // Caso especial: Venta pura Cta Cte que viene directo como objeto VentaVendedor
             setIsVentaMode(true);
             setMovimientosVenta(formData.movimientos || []);
         }
+    } else if (initialVentaMode) {
+        setIsVentaMode(true);
     }
-  }, [isEdit, formData, ventasVendedor]);
+  }, [isEdit, formData, ventasVendedor, initialVentaMode]);
 
   const totalVentaCalculado = useMemo(() => {
     if (!isVentaMode) return 0;
@@ -58,6 +65,7 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
         if (!prod) return sum;
         const especialCliente = selectedCliente?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio;
         const especialVendedor = selectedVendedor?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio;
+        // Prioridad: 1. Precio Manual (mov), 2. Especial Cliente, 3. Especial Vendedor, 4. Precio Reventa (si es externo), 5. Precio Lista
         const precioSugerido = especialCliente ?? especialVendedor ?? (selectedVendedor?.tipo === TipoVendedor.EXTERNO ? (prod.precioReventa ?? prod.precio) : prod.precio);
         const precioFinal = mov.precioUnitario ?? precioSugerido;
         return sum + (mov.cantidad * precioFinal);
@@ -65,6 +73,7 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
   }, [movimientosVenta, selectedVendedor, selectedCliente, isVentaMode, productosMap]);
 
   useEffect(() => {
+    // Si estamos en modo venta y es nuevo, sugerir el pago total en efectivo por defecto
     if (isVentaMode && !isEdit && (!formData.pagos || formData.pagos.length === 0 || (formData.pagos.length === 1 && formData.pagos[0].monto === 0))) {
         setFormData((prev: any) => ({ ...prev, pagos: [{ monto: totalVentaCalculado, metodo: MetodoPago.EFECTIVO }] }));
     }
@@ -133,9 +142,9 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
     <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
       <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
          <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
-            {isEdit ? 'Editar' : 'Registrar'} {type === 'ingreso' ? 'Ingreso' : 'Gasto'}
+            {isEdit ? 'Editar' : 'Registrar'} {type === 'ingreso' ? (hideClientSelector ? 'Compra' : 'Ingreso') : 'Gasto'}
          </h2>
-         {type === 'ingreso' && !isEdit && (
+         {type === 'ingreso' && !isEdit && !hideClientSelector && (
             <button type="button" onClick={() => setIsVentaMode(!isVentaMode)} className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-tighter border-2 transition-all ${isVentaMode ? 'bg-primary-600 border-primary-600 text-white shadow-lg' : 'bg-transparent border-gray-300 text-gray-400'}`}>
                 {isVentaMode ? '✓ Modo Venta de Stock' : '+ Venta de Mostrador'}
             </button>
@@ -160,7 +169,8 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
             </div>
         )}
 
-        {type === 'ingreso' && (
+        {/* Solo mostramos cliente/vendedor si NO estamos en modo auto-compra externa */}
+        {type === 'ingreso' && !hideClientSelector && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                     <div className="flex justify-between items-end mb-1">
@@ -185,22 +195,26 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
 
         {isVentaMode && (
             <fieldset className="border-2 border-primary-500 pt-4 bg-primary-50/20 dark:bg-primary-900/10 p-4 rounded-2xl shadow-inner">
-                <legend className="text-xs font-black text-primary-600 px-3 bg-white dark:bg-gray-800 rounded-full border-2 border-primary-500 flex items-center gap-2">STOCK E INVENTARIO</legend>
+                <legend className="text-xs font-black text-primary-600 px-3 bg-white dark:bg-gray-800 rounded-full border-2 border-primary-500 flex items-center gap-2">
+                    {hideClientSelector ? 'DETALLE DE LA COMPRA (Tu Stock)' : 'STOCK E INVENTARIO'}
+                </legend>
                 <div className="space-y-6 md:space-y-3 mt-2">
                     {movimientosVenta.map((mov, index) => (
-                        //... (Logic kept simple for brevity in response but full in functionality)
                         <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,100px,100px,120px,auto] gap-4 items-end bg-white dark:bg-gray-800 p-4 md:p-0 rounded-xl md:bg-transparent shadow-sm md:shadow-none border md:border-0 dark:border-gray-700">
                             <div><p className="md:hidden text-[10px] font-black text-gray-400 uppercase mb-1">Producto</p><SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleMovimientoChange(index, 'productoId', v)} /></div>
                             <div><p className="md:hidden text-[10px] font-black text-gray-400 uppercase mb-1 text-center">Cantidad</p><AppInput type="number" value={mov.cantidad} onChange={(e) => handleMovimientoChange(index, 'cantidad', e.target.value)} className="text-center font-black" /></div>
-                            <div><p className="md:hidden text-[10px] font-black text-gray-400 uppercase mb-1 text-center">Retira (Envase)</p><AppInput type="number" value={mov.recibidos || 0} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} className="text-center font-black !bg-yellow-50 dark:!bg-yellow-900/10 text-yellow-700" /></div>
-                            <div><p className="md:hidden text-[10px] font-black text-gray-400 uppercase mb-1 text-right">Precio Pactado</p><AppInput type="number" value={mov.precioUnitario || ''} onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} className="text-right font-mono" placeholder="Unit..." /></div>
+                            {/* Ocultamos Retira Envase si es auto-compra externa, se asume que se lleva el producto entero */}
+                            {!hideClientSelector ? (
+                                <div><p className="md:hidden text-[10px] font-black text-gray-400 uppercase mb-1 text-center">Retira (Envase)</p><AppInput type="number" value={mov.recibidos || 0} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} className="text-center font-black !bg-yellow-50 dark:!bg-yellow-900/10 text-yellow-700" /></div>
+                            ) : <div></div>}
+                            <div><p className="md:hidden text-[10px] font-black text-gray-400 uppercase mb-1 text-right">Precio</p><AppInput type="number" value={mov.precioUnitario || ''} onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} className="text-right font-mono" placeholder="Unit..." /></div>
                             <div className="flex justify-end"><AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} className="!p-2"><TrashIcon/></AppButton></div>
                         </div>
                     ))}
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-6">
                         <AppButton variant="secondary" onClick={addMovimiento} className="w-full md:w-auto border-dashed border-2">+ Agregar Item</AppButton>
                         <div className="text-right p-4 bg-primary-600 text-white rounded-2xl shadow-lg w-full md:w-auto min-w-[200px]">
-                            <span className="text-[10px] font-black opacity-80 uppercase block">Total Sugerido</span>
+                            <span className="text-[10px] font-black opacity-80 uppercase block">Total Calculado</span>
                             <span className="text-3xl font-black tracking-tighter">${totalVentaCalculado.toLocaleString()}</span>
                         </div>
                     </div>
@@ -209,7 +223,9 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({ movimiento, typ
         )}
 
         <fieldset className="border-t dark:border-gray-600 pt-4">
-            <legend className="text-xs font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Desglose de Pago</legend>
+            <legend className="text-xs font-black text-gray-400 uppercase tracking-widest px-2 mb-2">
+                {hideClientSelector ? '¿Cuánto pagás ahora?' : 'Desglose de Pago'}
+            </legend>
             <div className="space-y-3 mt-2">
                 {(formData.pagos || []).map((pago: PagoDetalle, index: number) => (
                     <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3">
