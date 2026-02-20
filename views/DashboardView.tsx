@@ -496,6 +496,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     monthlySalesVolumeChartData,
     currentMonthDailySalesData,
     externalVendorsPieData,
+    stockEnCalle
   } = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -618,6 +619,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
+    // NUEVO CÁLCULO: Stock en calle (envases/equipos en poder de clientes)
+    const counts: Record<string, number> = {};
+    remitos.forEach(r => {
+        r.movimientos.forEach(m => {
+            const p = productosMap.get(m.productoId);
+            // Solo contamos Retornables y Equipos como "Stock en Calle"
+            if (p && (p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.EQUIPO)) {
+                counts[p.nombre] = (counts[p.nombre] || 0) + (m.entregados - m.recibidos);
+            }
+        });
+    });
+    // Filtrar negativos o ceros y ordenar
+    const stockEnCalle = Object.entries(counts)
+        .filter(([_, val]) => val !== 0)
+        .sort((a, b) => b[1] - a[1]);
+
     return {
         dailyStats: calculateStatsForPeriod(dailyRemitos, dailyVentas),
         yesterdayStats: calculateStatsForPeriod(yesterdayRemitos, yesterdayVentas),
@@ -629,6 +646,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         monthlySalesVolumeChartData: monthlyHistoryData,
         currentMonthDailySalesData: dailyEvolutionData,
         externalVendorsPieData,
+        stockEnCalle
     }
   }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames]);
 
@@ -806,9 +824,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* ... (Resto del Dashboard Admin sin cambios estructurales) ... */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
               <Card title="Evolución Diaria del Mes Actual">
                   <div className="px-4 pb-4">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Filtro de Productos</p>
@@ -852,6 +869,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               ))}
                           </LineChart>
                       </ResponsiveContainer>
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-1">
+              <Card title="Stock en Poder de Clientes">
+                  <div className="overflow-y-auto max-h-[420px] pr-2">
+                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Activos pendientes de devolución</p>
+                      {stockEnCalle.length > 0 ? (
+                          <table className="w-full text-sm">
+                              <tbody>
+                                  {stockEnCalle.map(([name, count]) => (
+                                      <tr key={name} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{name}</td>
+                                          <td className="py-3 text-right font-black text-primary-600 dark:text-primary-400 text-base">{count.toLocaleString()}</td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                              <p className="text-xs font-bold uppercase">Sin stock pendiente</p>
+                          </div>
+                      )}
                   </div>
               </Card>
           </div>
