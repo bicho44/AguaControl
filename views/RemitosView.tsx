@@ -401,7 +401,17 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
                     <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
                         <div><p className="text-[10px] text-gray-500 uppercase font-bold">Fecha</p><p className="font-medium text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString()}</p></div>
-                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p><p className="font-bold text-sm truncate">{clientesMap.get(remito.clienteId)?.nombre || 'N/A'}</p></div>
+                        <div>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p>
+                            <p className="font-bold text-sm truncate">
+                                {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
+                                {remito.sucursalId && (
+                                    <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                                        {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
+                                    </span>
+                                )}
+                            </p>
+                        </div>
                         <div><p className="text-[10px] text-gray-500 uppercase font-bold">Número</p><p className="font-medium text-sm font-mono">{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
                         <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
                     </div>
