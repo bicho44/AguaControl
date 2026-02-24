@@ -409,7 +409,7 @@ const PlanillaDetailModal: React.FC<{
 
     const handleRecargaSave = (itemsCarga: ItemStock[], itemsDescarga: ItemStock[]) => {
         const nuevaRecarga = {
-            hora: new Date().toLocaleTimeString(),
+            hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
             items: itemsCarga,
             vaciosDescargados: itemsDescarga
         };
@@ -421,6 +421,13 @@ const PlanillaDetailModal: React.FC<{
         
         onUpdatePlanilla(updatedPlanilla);
         setIsRecargaOpen(false);
+    };
+
+    const handleDeleteRecarga = (index: number) => {
+        if (!confirm('¿Eliminar este registro de recarga?')) return;
+        const newRecargas = [...(planilla.recargas || [])];
+        newRecargas.splice(index, 1);
+        onUpdatePlanilla({ ...planilla, recargas: newRecargas });
     };
 
     // Atajos para el modal de detalle
@@ -494,6 +501,53 @@ const PlanillaDetailModal: React.FC<{
                                 <strong>Columna 'Env. Fís. (Vacíos)':</strong> Cuente y anote la cantidad total de envases <u>vacíos</u> que se bajan del camión.
                             </li>
                         </ul>
+                    </div>
+                )}
+
+                {/* LISTADO DE RECARGAS (NUEVO) */}
+                {planilla.recargas && planilla.recargas.length > 0 && (
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border dark:border-gray-700 overflow-hidden">
+                        <div className="bg-gray-100 dark:bg-gray-700/50 px-4 py-2 border-b dark:border-gray-700 flex justify-between items-center">
+                            <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm uppercase flex items-center gap-2">
+                                <CubeIcon className="w-4 h-4"/> Historial de Recargas (Paso por Fábrica)
+                            </h3>
+                        </div>
+                        <div className="divide-y dark:divide-gray-700">
+                            {planilla.recargas.map((recarga, idx) => (
+                                <div key={idx} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white dark:hover:bg-gray-800 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-xs font-mono bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300">{recarga.hora}</span>
+                                        <div className="space-y-1">
+                                            {recarga.items.length > 0 && (
+                                                <div className="text-sm">
+                                                    <span className="font-bold text-green-600">Entrada (Llenos):</span>{' '}
+                                                    <span className="text-gray-700 dark:text-gray-300">
+                                                        {recarga.items.map(i => `${i.cantidad}x ${productosMap.get(i.productoId)?.nombre}`).join(', ')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {recarga.vaciosDescargados && recarga.vaciosDescargados.length > 0 && (
+                                                <div className="text-sm">
+                                                    <span className="font-bold text-yellow-600">Salida (Vacíos):</span>{' '}
+                                                    <span className="text-gray-700 dark:text-gray-300">
+                                                        {recarga.vaciosDescargados.map(i => `${i.cantidad}x ${productosMap.get(i.productoId)?.nombre}`).join(', ')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {!isClosed && (
+                                        <button 
+                                            onClick={() => handleDeleteRecarga(idx)} 
+                                            className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-full transition-colors"
+                                            title="Eliminar registro de recarga"
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
