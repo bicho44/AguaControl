@@ -319,7 +319,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   useEffect(() => {
       const handleGlobalKeys = (e: KeyboardEvent) => {
-          if (e.altKey && (e.key === 'n' || e.key === 'N') && !isFormOpen) {
+          if (e.altKey && (e.code === 'KeyN' || e.key === 'n' || e.key === 'N') && !isFormOpen) {
               e.preventDefault();
               openNewModal();
           }

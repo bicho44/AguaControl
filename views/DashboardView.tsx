@@ -423,6 +423,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       setIsStockPurchaseModalOpen(true);
   }, [user]);
 
+  // ATAJO DE TECLADO GLOBAL PARA NUEVO REMITO (Alt+N)
+  useEffect(() => {
+      const handleGlobalKeys = (e: KeyboardEvent) => {
+          if (e.altKey && (e.code === 'KeyN' || e.key === 'n' || e.key === 'N') && !isRemitoModalOpen && !isPagoModalOpen && !isStockPurchaseModalOpen) {
+              // Permitir a Repartidores (Internos y Externos) y Administradores
+              if (user?.rol === Rol.REPARTIDOR || user?.rol === Rol.ADMINISTRADOR) {
+                  e.preventDefault();
+                  handleOpenRemito();
+              }
+          }
+      };
+      window.addEventListener('keydown', handleGlobalKeys);
+      return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isRemitoModalOpen, isPagoModalOpen, isStockPurchaseModalOpen, handleOpenRemito, user]);
+
   // Handler para Guardar Remito (Internos)
   const handleSaveRemito = async (remito: any) => {
       if (!addRemito) return;
