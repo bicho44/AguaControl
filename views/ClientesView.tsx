@@ -808,7 +808,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                 </div>
 
                                 <div className="space-y-3">
-                                    {cliente.sucursales.map((suc, i) => {
+                                    {[...cliente.sucursales].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((suc, i) => {
                                         const sucStockMap = clienteStocks?.get(suc.id);
                                         const branchContracts = contractsBySucursal[suc.id] || [];
                                         

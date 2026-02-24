@@ -34,10 +34,10 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
 
   useEffect(() => {
     if (overrideSucursales) {
-        setSucursalesCliente(overrideSucursales);
+        setSucursalesCliente([...overrideSucursales].sort((a, b) => a.nombre.localeCompare(b.nombre)));
     } else if (formData.clienteId) {
         const c = clientes.find(cli => cli.id === formData.clienteId);
-        setSucursalesCliente(c?.sucursales || []);
+        setSucursalesCliente([...(c?.sucursales || [])].sort((a, b) => a.nombre.localeCompare(b.nombre)));
     } else {
         setSucursalesCliente([]);
     }

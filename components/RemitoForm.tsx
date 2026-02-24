@@ -92,7 +92,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   useEffect(() => {
     if (formData.clienteId) {
       const cliente = clientes.find(c => c.id === formData.clienteId);
-      const sucs = cliente?.sucursales || [];
+      // Ordenar sucursales alfabéticamente
+      const sucs = [...(cliente?.sucursales || [])].sort((a, b) => a.nombre.localeCompare(b.nombre));
       setClienteSucursales(sucs);
       if (sucs.length === 1 && formData.sucursalId !== sucs[0].id) setFormData(prev => ({ ...prev, sucursalId: sucs[0].id }));
       const tieneCtaCte = cliente?.tieneCuentaCorriente || false;
@@ -111,6 +112,29 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id]);
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
+
+  // Obtener dirección actual para mostrar
+  const currentAddress = useMemo(() => {
+    if (!formData.clienteId) return null;
+    const cliente = clientes.find(c => c.id === formData.clienteId);
+    if (!cliente) return null;
+    
+    if (formData.sucursalId) {
+        const suc = cliente.sucursales.find(s => s.id === formData.sucursalId);
+        if (suc) return suc.direccion;
+    }
+    
+    if (cliente.sucursales.length === 1) {
+        return cliente.sucursales[0].direccion;
+    }
+    
+    // Si tiene múltiples sucursales y no hay ninguna seleccionada, mostramos la primera como referencia o un texto
+    if (cliente.sucursales.length > 1) {
+        return "(Seleccione sucursal para ver dirección)";
+    }
+
+    return null;
+  }, [formData.clienteId, formData.sucursalId, clientes]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -252,6 +276,11 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                   disabled={isReadOnly}
                   autoFocus={!isReadOnly}
                 />
+                {currentAddress && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1 truncate">
+                        <span className="font-bold">Dirección:</span> {currentAddress}
+                    </p>
+                )}
             </div>
             {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required /></div>}
         </div>

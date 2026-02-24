@@ -39,6 +39,12 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
 
   const selectedVendedor = useMemo(() => vendedores.find(v => v.id === formData.vendedorId), [formData.vendedorId, vendedores]);
   const selectedCliente = useMemo(() => clientes.find(c => c.id === formData.clienteId), [formData.clienteId, clientes]);
+  const clientAddress = useMemo(() => {
+      if (!selectedCliente) return null;
+      // Mostrar la dirección de la primera sucursal (Casa Central) como referencia
+      if (selectedCliente.sucursales.length > 0) return selectedCliente.sucursales[0].direccion;
+      return null;
+  }, [selectedCliente]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 
   useEffect(() => {
@@ -186,7 +192,10 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Consumidor Final..." />
+                        <div>
+                            <SearchableSelect options={clienteOptions} value={formData.clienteId || ''} onChange={(v) => handleSelectChange('clienteId', v)} placeholder="Consumidor Final..." />
+                            {clientAddress && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 px-1 truncate"><span className="font-bold">Dirección:</span> {clientAddress}</p>}
+                        </div>
                     )}
                 </div>
                 <SearchableSelect label="Vendedor / Atendido por" options={vendedorOptions} value={formData.vendedorId || ''} onChange={(v) => handleSelectChange('vendedorId', v)} placeholder="Seleccionar..." />
