@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { EmpresaSettings, Telefono, TipoTelefono, CondicionIVA } from '../types';
+import { EmpresaSettings, Telefono, TipoTelefono, CondicionIVA, CausaRecambio } from '../types';
 import { useNotification } from '../context/NotificationContext';
 import Card from '../components/Card';
 import { TrashIcon } from '../components/icons/TrashIcon';
@@ -15,6 +15,9 @@ import AppSelect from '../components/ui/AppSelect';
 interface SettingsViewProps {
   settings: EmpresaSettings;
   updateSettings: (settings: EmpresaSettings) => void;
+  causasRecambio: CausaRecambio[];
+  addCausaRecambio: (causa: Omit<CausaRecambio, 'id'>) => Promise<void>;
+  deleteCausaRecambio: (id: string) => Promise<void>;
 }
 
 const formatCuit = (value: string = '') => {
@@ -28,10 +31,11 @@ const formatCuit = (value: string = '') => {
 
 const unformatCuit = (value: string = '') => value.replace(/\D/g, '');
 
-const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, causasRecambio, addCausaRecambio, deleteCausaRecambio }) => {
   const [formData, setFormData] = useState<EmpresaSettings>(settings);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
+  const [newCausa, setNewCausa] = useState({ nombre: '', esPerdidaStock: false });
   const { showNotification } = useNotification();
 
   useEffect(() => {
@@ -92,6 +96,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
     e.preventDefault();
     updateSettings(formData);
     showNotification('Configuración guardada.', 'success');
+  };
+
+  const handleAddCausa = async () => {
+    if (!newCausa.nombre) return;
+    await addCausaRecambio(newCausa);
+    setNewCausa({ nombre: '', esPerdidaStock: false });
+    showNotification('Causa de recambio agregada.', 'success');
   };
 
   return (
@@ -233,6 +244,54 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings })
                 <div className="md:col-span-3">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Pie de Página de Factura (Términos, horarios, etc.)</label>
                     <textarea name="observacionesFactura" value={formData.observacionesFactura || ''} onChange={handleChange} rows={3} className="w-full p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-2xl outline-none focus:ring-2 focus:ring-primary-500" />
+                </div>
+            </div>
+        </Card>
+
+        <Card title="Gestión de Recambios">
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-4 items-end bg-gray-50 dark:bg-gray-900/30 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
+                    <AppInput 
+                        label="Nueva Causa (ej: Envase Roto)" 
+                        value={newCausa.nombre} 
+                        onChange={(e) => setNewCausa({...newCausa, nombre: e.target.value})} 
+                    />
+                    <div className="flex items-center gap-2 pb-3">
+                        <input 
+                            type="checkbox" 
+                            id="esPerdida"
+                            checked={newCausa.esPerdidaStock} 
+                            onChange={(e) => setNewCausa({...newCausa, esPerdidaStock: e.target.checked})}
+                            className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <label htmlFor="esPerdida" className="text-sm font-medium text-gray-700 dark:text-gray-300">¿Es Pérdida de Stock?</label>
+                    </div>
+                    <AppButton type="button" onClick={handleAddCausa} variant="primary">Agregar Causa</AppButton>
+                </div>
+
+                <div className="space-y-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Causas Configuradas</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {causasRecambio.map((causa) => (
+                            <div key={causa.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-2xl shadow-sm">
+                                <div>
+                                    <p className="font-bold text-gray-800 dark:text-white">{causa.nombre}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {causa.esPerdidaStock ? '⚠️ Descuenta stock (Pérdida)' : '✅ Recuperable (Solo líquido)'}
+                                    </p>
+                                </div>
+                                <AppButton 
+                                    variant="danger" 
+                                    size="sm" 
+                                    onClick={() => deleteCausaRecambio(causa.id)} 
+                                    className="!p-2"
+                                    type="button"
+                                >
+                                    <TrashIcon className="w-5 h-5"/>
+                                </AppButton>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </Card>

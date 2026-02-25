@@ -187,8 +187,21 @@ export interface Remito {
     numero: string;
     esAjuste?: boolean;
     movimientos: Movimiento[];
+    recambios?: Recambio[];
     pagoIds?: string[];
     facturaId?: string;
+}
+
+export interface Recambio {
+    productoId: string;
+    cantidad: number;
+    causaId: string;
+}
+
+export interface CausaRecambio {
+    id: string;
+    nombre: string;
+    esPerdidaStock: boolean; // true = se rompió (baja de stock), false = recuperable (vuelve a fábrica)
 }
 
 export interface PagoDetalle {

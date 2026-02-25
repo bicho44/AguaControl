@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor } from '../types';
+import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -28,6 +28,7 @@ interface RemitosViewProps {
   updateRemito: (remito: Remito & { pagos?: PagoDetalle[] }) => Promise<void>;
   deleteRemito: (remitoId: string) => Promise<void>;
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; 
+  causasRecambio: CausaRecambio[];
 }
 
 const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -169,7 +170,7 @@ const PaymentStatusBadge: React.FC<{ remito: any }> = ({ remito }) => {
     }
 }
 
-const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente }) => {
+const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente, causasRecambio }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRemito, setEditingRemito] = useState<any>(null);
   const [clienteFilter, setClienteFilter] = useState('');
@@ -368,6 +369,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 remitos={remitos} 
                 registrosPago={registrosPago} 
                 isReadOnly={!!editingRemito?.facturaId}
+                causasRecambio={causasRecambio}
             />
         </Card>
         <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />

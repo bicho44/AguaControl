@@ -4,7 +4,7 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
-import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente } from '../types';
+import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente, CausaRecambio } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -21,6 +21,7 @@ interface DashboardViewProps {
   clientes: Cliente[];
   ventasVendedor: VentaVendedor[];
   empresaSettings?: EmpresaSettings;
+  causasRecambio: CausaRecambio[];
   // New props for actions
   addRemito?: (remito: any) => Promise<void>;
   addPagoManual?: (pago: any) => Promise<void>;
@@ -354,7 +355,7 @@ const ExternalVendorDashboard: React.FC<{
 // ----------------------------------------------------------------------
 
 const DashboardView: React.FC<DashboardViewProps> = ({ 
-    remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings,
+    remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio,
     addRemito, addPagoManual, addVentaVendedor, addCliente
 }) => {
   const { user } = useAuth();
@@ -834,6 +835,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     onClose={() => setIsRemitoModalOpen(false)} 
                     remitos={remitos} 
                     registrosPago={registrosPago} 
+                    causasRecambio={causasRecambio}
                 />
             </Modal>
         )}

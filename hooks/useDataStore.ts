@@ -38,7 +38,9 @@ import {
   Sucursal,
   DiaSemana,
   LogEntry,
-  LogLevel
+  LogLevel,
+  CausaRecambio,
+  Recambio
 } from '../types';
 
 const cleanUndefineds = (obj: any): any => {
@@ -64,6 +66,7 @@ export const useDataStore = () => {
     const [servicios, setServicios] = useState<Servicio[]>([]);
     const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [causasRecambio, setCausasRecambio] = useState<CausaRecambio[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
         nombre: 'Distribuidora Aguas Puras',
         nombreFantasia: 'Aguas Puras'
@@ -87,6 +90,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'contratos'), (s) => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() } as Contrato)))),
             onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
+            onSnapshot(collection(db, 'causasRecambio'), (s) => setCausasRecambio(s.docs.map(d => ({ id: d.id, ...d.data() } as CausaRecambio)))),
             onSnapshot(logsQuery, (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() } as LogEntry)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {
@@ -386,6 +390,14 @@ export const useDataStore = () => {
         await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(s));
     }, []);
 
+    const addCausaRecambio = useCallback(async (causa: Omit<CausaRecambio, 'id'>) => {
+        await addDoc(collection(db, 'causasRecambio'), causa);
+    }, []);
+
+    const deleteCausaRecambio = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'causasRecambio', id));
+    }, []);
+
     const updateRutasMasivo = useCallback(async (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => {
         if (!updates.length) return;
 
@@ -450,7 +462,7 @@ export const useDataStore = () => {
     }, []);
 
     return {
-        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings, logs,
+        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings, logs, causasRecambio,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
@@ -458,6 +470,7 @@ export const useDataStore = () => {
         addServicio, updateServicio, deleteServicio, reactivarServicio,
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
         addPlanilla, updatePlanilla, updateEmpresaSettings, updateRutasMasivo,
+        addCausaRecambio, deleteCausaRecambio,
         addLog
     };
 };

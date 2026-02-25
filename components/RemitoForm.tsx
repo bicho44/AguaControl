@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
 import AppInput from './ui/AppInput';
@@ -20,10 +20,11 @@ interface RemitoFormProps {
   onClose: () => void;
   remitos: Remito[];
   registrosPago: RegistroPago[];
+  causasRecambio: CausaRecambio[];
   isReadOnly?: boolean;
 }
 
-const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, isReadOnly = false }) => {
+const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, causasRecambio, isReadOnly = false }) => {
   const [formData, setFormData] = useState<Partial<Remito> & { pagos?: PagoDetalle[] }>({});
   const [clienteSucursales, setClienteSucursales] = useState<Sucursal[]>([]);
   const [isCtaCte, setIsCtaCte] = useState(false);
@@ -159,6 +160,28 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const addMovimiento = useCallback(() => {
     setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]}));
   }, []);
+
+  const addRecambio = useCallback(() => {
+    setFormData(prev => ({
+      ...prev,
+      recambios: [...(prev.recambios || []), { productoId: '', cantidad: 0, causaId: '' }]
+    }));
+  }, []);
+
+  const removeRecambio = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      recambios: (prev.recambios || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleRecambioChange = (index: number, field: keyof Recambio, value: any) => {
+    setFormData(prev => {
+      const newRecambios = [...(prev.recambios || [])];
+      newRecambios[index] = { ...newRecambios[index], [field]: field === 'cantidad' ? parseInt(value) || 0 : value };
+      return { ...prev, recambios: newRecambios };
+    });
+  };
 
   const removeMovimiento = (index: number) => setFormData(prev => ({...prev, movimientos: prev.movimientos?.filter((_, i) => i !== index)}));
   
@@ -318,6 +341,27 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
               </div>
           ))}
           {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span></AppButton>}
+        </fieldset>
+
+        <fieldset className="border-t dark:border-gray-600 pt-4 mt-4">
+          <legend className="text-lg font-bold text-orange-600 dark:text-orange-400 px-2 mb-2 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Recambios (Sin Cargo)
+          </legend>
+          {(formData.recambios || []).map((rec, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,2fr,auto] items-end md:items-center gap-2 mb-2 bg-orange-50 dark:bg-orange-900/10 p-2 rounded-lg">
+                  <SearchableSelect options={productosOptions} value={rec.productoId} onChange={(v) => handleRecambioChange(index, 'productoId', v)} disabled={isReadOnly} />
+                  <AppInput type="number" value={rec.cantidad} onChange={(e) => handleRecambioChange(index, 'cantidad', e.target.value)} required disabled={isReadOnly} />
+                  <AppSelect 
+                    value={rec.causaId} 
+                    onChange={(e) => handleRecambioChange(index, 'causaId', e.target.value)} 
+                    options={causasRecambio.map(c => ({ value: c.id, label: c.nombre }))}
+                    disabled={isReadOnly}
+                  />
+                  <AppButton variant="danger" size="sm" onClick={() => removeRecambio(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
+              </div>
+          ))}
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addRecambio} className="w-full border-dashed border-2 border-orange-200 dark:border-orange-800 text-orange-600">+ Agregar Recambio</AppButton>}
         </fieldset>
 
         {(!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (

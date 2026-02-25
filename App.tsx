@@ -114,6 +114,7 @@ function AppContent() {
         clientes: dataStore.clientes,
         ventasVendedor: dataStore.ventasVendedor,
         empresaSettings: dataStore.empresaSettings,
+        causasRecambio: dataStore.causasRecambio,
         // Acciones para botones rápidos
         addRemito: dataStore.addRemito,
         addPagoManual: dataStore.addPagoManual,
@@ -182,6 +183,7 @@ function AppContent() {
                   deleteRemito={dataStore.deleteRemito}
                   addCliente={dataStore.addCliente}
                   currentUser={user}
+                  causasRecambio={dataStore.causasRecambio}
                 />;
       case 'clientes':
         return <ClientesView 
@@ -268,6 +270,9 @@ function AppContent() {
           return <SettingsView
                     settings={dataStore.empresaSettings}
                     updateSettings={dataStore.updateEmpresaSettings}
+                    causasRecambio={dataStore.causasRecambio}
+                    addCausaRecambio={dataStore.addCausaRecambio}
+                    deleteCausaRecambio={dataStore.deleteCausaRecambio}
                   />;
       case 'logs':
           return <SystemLogsView logs={dataStore.logs} />;
