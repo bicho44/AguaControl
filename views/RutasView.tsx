@@ -23,6 +23,7 @@ const getInitials = (name: string) => {
 
 const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMasivo, updateCliente }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [dayFilter, setDayFilter] = useState<DiaSemana | 'TODOS'>('TODOS');
   const [selectedRepartidorId, setSelectedRepartidorId] = useState<string>('');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); // IDs compuestos "clienteId_sucursalId"
   const [isSaving, setIsSaving] = useState(false);
@@ -79,10 +80,12 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
       });
 
       // Filtrado
-      const filtered = rows.filter(r => 
-          r.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          r.direccion.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const filtered = rows.filter(r => {
+          const matchesSearch = r.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                r.direccion.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesDay = dayFilter === 'TODOS' || r.dias[dayFilter] !== null;
+          return matchesSearch && matchesDay;
+      });
 
       // Ordenamiento Alfabético (Cliente A-Z, luego Sucursal A-Z)
       return filtered.sort((a, b) => {
@@ -91,7 +94,7 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
           return a.sucursalNombre.localeCompare(b.sucursalNombre);
       });
 
-  }, [clientes, repartidores, searchTerm]);
+  }, [clientes, repartidores, searchTerm, dayFilter]);
 
   // Selección automática del primer repartidor si no hay ninguno seleccionado
   React.useEffect(() => {
@@ -237,8 +240,8 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
 
       <Card>
         {/* Filtros */}
-        <div className="p-4 border-b dark:border-gray-700">
-            <div className="relative">
+        <div className="p-4 border-b dark:border-gray-700 flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
                 <AppInput 
                     placeholder="Buscar por cliente, dirección o barrio..." 
                     value={searchTerm} 
@@ -248,6 +251,23 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pt-6 pointer-events-none">
                     <SearchIcon className="h-5 w-5 text-gray-400" />
                 </div>
+            </div>
+            <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-800 p-1 rounded-xl border dark:border-gray-700 overflow-x-auto">
+                <button 
+                    onClick={() => setDayFilter('TODOS')} 
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${dayFilter === 'TODOS' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                    TODOS
+                </button>
+                {diasOrdenados.map(dia => (
+                    <button 
+                        key={dia}
+                        onClick={() => setDayFilter(dia)} 
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${dayFilter === dia ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                    >
+                        {dia.toUpperCase()}
+                    </button>
+                ))}
             </div>
         </div>
 

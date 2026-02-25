@@ -29,6 +29,7 @@ interface ClientesViewProps {
   contratos: Contrato[];
   servicios: Servicio[];
   registrosPago: RegistroPago[];
+  usuarios: Usuario[];
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'> & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   updateCliente: (cliente: Cliente & { stockInicial?: any[], contratosIniciales?: any[] }) => void;
   deleteCliente: (clienteId: string) => void;
@@ -56,10 +57,11 @@ const ClienteForm: React.FC<{
   contratos: Contrato[]; 
   clientes: Cliente[]; 
   remitos: Remito[];
+  usuarios: Usuario[];
   onSave: (data: { cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }, contratosAEliminar: string[] }) => void;
   onClose: () => void;
   addContrato?: (contrato: Omit<Contrato, 'id'>) => void;
-}> = ({ cliente, productos, servicios, contratos, clientes, remitos, onSave, onClose, addContrato }) => {
+}> = ({ cliente, productos, servicios, contratos, clientes, remitos, usuarios, onSave, onClose, addContrato }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   const [mapIndex, setMapIndex] = useState<number | null>(null);
@@ -315,6 +317,10 @@ const ClienteForm: React.FC<{
   }, [handleSubmit, addSucursal]);
 
   const activeProductOptions = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
+  const repartidoresOptions = useMemo(() => [
+      { value: '', label: 'Sin asignar' },
+      ...usuarios.filter(u => u.rol === Rol.REPARTIDOR).map(u => ({ value: u.id, label: u.nombre }))
+  ], [usuarios]);
 
   return (
     <>
@@ -419,7 +425,45 @@ const ClienteForm: React.FC<{
                                 <AppButton variant="secondary" size="sm" onClick={() => setFormData(prev => ({ ...prev, telefonos: [...(prev.telefonos || []), { tipo: TipoTelefono.CEL, numero: '' }] }))} className="w-full border-dashed border-2">+ Teléfono</AppButton>
                           </div>
 
-                          {/* ... resto del form de sucursal (dias, stock) ... */}
+                          {/* DÍAS DE REPARTO Y REPARTIDORES */}
+                          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-3 block">Días de Reparto y Repartidores Asignados</label>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                  {Object.values(DiaSemana).map((day) => {
+                                      const isSelected = (suc.diasReparto || []).includes(day);
+                                      const assignedRepartidor = suc.repartidoresPorDia?.[day] || '';
+                                      
+                                      return (
+                                          <div key={day} className={`p-3 rounded-xl border transition-all ${isSelected ? 'bg-white dark:bg-gray-800 border-primary-200 shadow-sm' : 'bg-transparent border-transparent opacity-60'}`}>
+                                              <div className="flex items-center gap-2 mb-2">
+                                                  <input 
+                                                      type="checkbox" 
+                                                      checked={isSelected} 
+                                                      onChange={() => toggleDiaReparto(index, day)}
+                                                      className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"
+                                                  />
+                                                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{day}</span>
+                                              </div>
+                                              {isSelected && (
+                                                  <AppSelect 
+                                                      value={assignedRepartidor}
+                                                      onChange={(e) => {
+                                                          const newSucs = [...(formData.sucursales || [])];
+                                                          const newRepartidores = { ...(newSucs[index].repartidoresPorDia || {}) };
+                                                          newRepartidores[day] = e.target.value || null;
+                                                          newSucs[index] = { ...newSucs[index], repartidoresPorDia: newRepartidores };
+                                                          setFormData(prev => ({ ...prev, sucursales: newSucs }));
+                                                      }}
+                                                      options={repartidoresOptions}
+                                                      className="!py-1 !text-[11px]"
+                                                  />
+                                              )}
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+
                           <div className="grid grid-cols-1 gap-6">
                               {/* STOCK INTEGRADO EN LA SUCURSAL */}
                               <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
@@ -583,6 +627,7 @@ const ClienteForm: React.FC<{
 }
 
 const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, productos, contratos, servicios, registrosPago, addCliente, updateCliente, deleteCliente, reactivarCliente, deleteContrato, addContrato, updateContrato }) => {
+  const { usuarios } = useDataStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Partial<Cliente> | null>(null);
   const [clienteParaBaja, setClienteParaBaja] = useState<Cliente | null>(null);
@@ -697,6 +742,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             contratos={contratos}
             clientes={clientes} 
             remitos={remitos} 
+            usuarios={usuarios}
             onSave={handleSave} 
             onClose={() => setIsModalOpen(false)} 
             addContrato={addContrato}

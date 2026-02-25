@@ -168,7 +168,12 @@ const InternalVendorDashboard: React.FC<{
     const visitasDelDia = useMemo(() => {
         return clientes.filter(c => {
             return c.sucursales.some(s => {
-                return s.repartidoresPorDia?.[currentDay] === user.id;
+                const assignedDriver = s.repartidoresPorDia?.[currentDay];
+                if (assignedDriver) {
+                    return assignedDriver === user.id;
+                }
+                // Fallback: si tiene el día marcado pero no tiene repartidor asignado, lo mostramos a todos los repartidores (o al menos al actual)
+                return s.diasReparto?.includes(currentDay as DiaSemana);
             });
         }).map(c => {
             const visitado = misRemitos.some(r => r.clienteId === c.id && r.fecha === todayStr);

@@ -194,6 +194,7 @@ function AppContent() {
                   contratos={dataStore.contratos}
                   servicios={dataStore.servicios}
                   registrosPago={dataStore.registrosPago}
+                  usuarios={dataStore.usuarios}
                   addCliente={dataStore.addCliente}
                   updateCliente={dataStore.updateCliente}
                   deleteCliente={dataStore.deleteCliente}
