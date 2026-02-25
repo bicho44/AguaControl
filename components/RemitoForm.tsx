@@ -328,25 +328,47 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
-        <div className="flex justify-between items-center pr-12">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter pr-12">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
-            {isAdmin && !isReadOnly && (
-                <div className="flex gap-2">
-                    <SearchableSelect 
-                        label="" 
-                        placeholder="Cambiar Vendedor" 
-                        options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
-                        value={formData.vendedorId || ''} 
-                        onChange={v => setFormData({...formData, vendedorId: v})} 
-                    />
+      <form onSubmit={handleSubmit} className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
+        <div className="flex flex-col mb-2">
+            <div className="flex justify-between items-start">
+                <div>
+                    <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
+                        {remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}
+                    </h2>
+                    {!isAdmin && (
+                        <div className="flex gap-3 text-xs text-gray-500 font-medium mt-1 bg-gray-100 dark:bg-gray-800 w-fit px-2 py-1 rounded-md">
+                            <span>📅 {formData.fecha?.split('-').reverse().join('/')}</span>
+                            <span>📄 Nº {formData.puntoVenta}-{formData.numero}</span>
+                        </div>
+                    )}
+                </div>
+                {isAdmin && !isReadOnly && (
+                    <div className="w-1/2 max-w-[160px]">
+                        <SearchableSelect 
+                            label="" 
+                            placeholder="Vendedor" 
+                            options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
+                            value={formData.vendedorId || ''} 
+                            onChange={v => setFormData({...formData, vendedorId: v})} 
+                        />
+                    </div>
+                )}
+            </div>
+            
+            {isAdmin && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                    <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                    <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
                 </div>
             )}
         </div>
-        {deudaPendiente > 0 && <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {deudaPendiente > 0 && <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold text-sm">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative">
-                <div className="flex justify-between items-end mb-1.5"><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo Cliente</button>}</div>
+                <div className="flex justify-between items-end mb-1"><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 ml-1 uppercase tracking-wider">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo</button>}</div>
                 <SearchableSelect 
                   options={clienteOptions} 
                   value={formData.clienteId || ''} 
@@ -355,7 +377,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                   autoFocus={!isReadOnly && !formData.clienteId}
                 />
                 {Object.keys(clientStock).length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="mt-1.5 flex flex-wrap gap-1">
                     {Object.entries(clientStock).map(([prodId, cant]) => {
                       const prod = productosMap.get(prodId);
                       const cantidad = cant as number;
@@ -374,50 +396,46 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     </p>
                 )}
             </div>
-            {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required /></div>}
+            {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required className="!py-1.5 !text-sm" /></div>}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <div className="flex gap-2">
-              <div className="w-1/3">
-                <AppInput label="Pto Venta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly}/>
-              </div>
-              <div className="w-2/3">
-                <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly}/>
-              </div>
-            </div>
-          </div>
-          <div className="md:col-span-1">
-            <AppInput 
-              label="Fecha" 
-              type="date" 
-              name="fecha" 
-              value={formData.fecha || ''} 
-              onChange={handleChange} 
-              required 
-              disabled={isReadOnly || !isAdmin}
-            />
-          </div>
-        </div>
-        <fieldset className="border-t dark:border-gray-600 pt-4">
-          <legend className="text-lg font-bold text-gray-800 dark:text-white px-2 mb-2">Movimientos</legend>
+
+        <fieldset className="border-t dark:border-gray-600 pt-3">
+          <legend className="text-sm font-black text-gray-800 dark:text-white px-2 mb-2 uppercase tracking-wider">Movimientos</legend>
           {(formData.movimientos || []).map((mov, index) => (
-              <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-2 mb-2">
+              <div key={index} className="flex flex-col gap-2 mb-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
                   <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
-                  <AppInput 
-                    id={index === 0 ? "primer-input-cantidad" : undefined}
-                    type="number" 
-                    value={mov.entregados} 
-                    onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
-                    required 
-                    disabled={isReadOnly} 
-                    autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
-                  />
-                  <AppInput type="number" value={mov.recibidos} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} required disabled={isReadOnly} />
-                  <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
+                  <div className="flex gap-2 items-start">
+                      <div className="flex-1">
+                          <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block ml-1">Entrega</label>
+                          <AppInput 
+                            id={index === 0 ? "primer-input-cantidad" : undefined}
+                            type="number" 
+                            value={mov.entregados} 
+                            onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
+                            required 
+                            disabled={isReadOnly} 
+                            autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
+                            className="text-center font-bold text-lg !py-1.5"
+                          />
+                      </div>
+                      <div className="flex-1">
+                          <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block ml-1">Recibe</label>
+                          <AppInput 
+                            type="number" 
+                            value={mov.recibidos} 
+                            onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
+                            required 
+                            disabled={isReadOnly} 
+                            className="text-center font-bold text-lg !py-1.5"
+                          />
+                      </div>
+                      <div className="pt-5">
+                          <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2 h-[38px] w-[38px] flex items-center justify-center" type="button"><TrashIcon/></AppButton>
+                      </div>
+                  </div>
               </div>
           ))}
-          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2">+ Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span></AppButton>}
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2 !py-1.5">+ Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span></AppButton>}
         </fieldset>
 
         <fieldset className="border-t dark:border-gray-600 pt-4 mt-4">
