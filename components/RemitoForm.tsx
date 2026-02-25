@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
 import AppInput from './ui/AppInput';
@@ -31,6 +31,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const [deudaPendiente, setDeudaPendiente] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
+  const [clientStock, setClientStock] = useState<Record<string, number>>({});
   const { showNotification } = useNotification();
 
   const isNew = !remito.id;
@@ -109,8 +110,20 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         }, 0);
         setDeudaPendiente(deuda);
       } else setDeudaPendiente(0);
-    } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); }
-  }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id]);
+
+      // Calcular Stock del Cliente
+      const stock: Record<string, number> = {};
+      remitos.filter(r => r.clienteId === formData.clienteId).forEach(r => {
+          r.movimientos.forEach(m => {
+              const prod = productosMap.get(m.productoId);
+              if (prod?.tipo === TipoProducto.RETORNABLE) {
+                  stock[m.productoId] = (stock[m.productoId] || 0) + (m.entregados - m.recibidos);
+              }
+          });
+      });
+      setClientStock(stock);
+    } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
+  }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id, productosMap]);
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 
@@ -299,6 +312,20 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                   disabled={isReadOnly}
                   autoFocus={!isReadOnly}
                 />
+                {Object.keys(clientStock).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {Object.entries(clientStock).map(([prodId, cant]) => {
+                      const prod = productosMap.get(prodId);
+                      const cantidad = cant as number;
+                      if (cantidad === 0) return null;
+                      return (
+                        <span key={prodId} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cantidad > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                          {prod?.nombre}: {cantidad}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 {currentAddress && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1 truncate">
                         <span className="font-bold">Dirección:</span> {currentAddress}

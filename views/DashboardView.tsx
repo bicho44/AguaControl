@@ -4,7 +4,7 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
-import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente, CausaRecambio } from '../types';
+import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente, CausaRecambio, PlanillaDiaria } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -22,6 +22,7 @@ interface DashboardViewProps {
   ventasVendedor: VentaVendedor[];
   empresaSettings?: EmpresaSettings;
   causasRecambio: CausaRecambio[];
+  planillas: PlanillaDiaria[];
   // New props for actions
   addRemito?: (remito: any) => Promise<void>;
   addPagoManual?: (pago: any) => Promise<void>;
@@ -76,17 +77,24 @@ const InternalVendorDashboard: React.FC<{
     user: Usuario, 
     remitos: Remito[], 
     productosMap: Map<string, Producto>,
+    planillas: PlanillaDiaria[],
+    clientes: Cliente[],
     onOpenRemito: () => void 
-}> = ({ user, remitos, productosMap, onOpenRemito }) => {
+}> = ({ user, remitos, productosMap, planillas, clientes, onOpenRemito }) => {
     // Filtrar remitos del vendedor
     const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.esAjuste), [remitos, user.id]);
     
+    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const currentDay = useMemo(() => {
+        const days = [DiaSemana.DOMINGO, DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO];
+        return days[new Date().getDay()];
+    }, []);
+
     // Cálculo de Comisiones (Mes Actual) y Entregas Hoy/Ayer
     const { entregasTotal, comisionEstimada, chartData, entregasHoy, entregasAyer } = useMemo(() => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         
-        const todayStr = now.toISOString().split('T')[0];
         const yesterday = new Date(now);
         yesterday.setDate(now.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split('T')[0];
@@ -121,8 +129,7 @@ const InternalVendorDashboard: React.FC<{
             });
         });
 
-        // Procesar Hoy y Ayer (Puede que remitosMes no tenga Ayer si cambió el mes, así que iteramos todo misRemitos para estos contadores específicos si es necesario, pero por simplicidad usaremos los del mes si coinciden, o iteramos recent)
-        // Para mayor precisión iteramos los recientes
+        // Procesar Hoy y Ayer
         misRemitos.forEach(r => {
             const rDate = r.fecha.split('T')[0];
             if (rDate === todayStr || rDate === yesterdayStr) {
@@ -140,7 +147,44 @@ const InternalVendorDashboard: React.FC<{
         const chart = Object.keys(dataPorDia).map(day => ({ name: `Día ${day}`, entregas: dataPorDia[day] }));
 
         return { entregasTotal: totalEntregado, comisionEstimada: totalComision, chartData: chart, entregasHoy: cantHoy, entregasAyer: cantAyer };
-    }, [misRemitos, productosMap, user.comisiones]);
+    }, [misRemitos, productosMap, user.comisiones, todayStr]);
+
+    // Control de Carga
+    const cargaStatus = useMemo(() => {
+        const planillaHoy = planillas.find(p => p.repartidorId === user.id && p.fecha === todayStr);
+        if (!planillaHoy) return null;
+
+        const cargaTotal: Record<string, number> = {};
+        planillaHoy.cargaInicial.forEach(item => {
+            cargaTotal[item.productoId] = (cargaTotal[item.productoId] || 0) + item.cantidad;
+        });
+        planillaHoy.recargas?.forEach(rec => {
+            rec.items.forEach(item => {
+                cargaTotal[item.productoId] = (cargaTotal[item.productoId] || 0) + item.cantidad;
+            });
+        });
+
+        const entregadoHoy: Record<string, number> = {};
+        misRemitos.filter(r => r.fecha === todayStr).forEach(r => {
+            r.movimientos.forEach(m => {
+                entregadoHoy[m.productoId] = (entregadoHoy[m.productoId] || 0) + m.entregados;
+            });
+        });
+
+        return { cargaTotal, entregadoHoy };
+    }, [user.id, planillas, todayStr, misRemitos]);
+
+    // Listado de Visitas del Día
+    const visitasDelDia = useMemo(() => {
+        return clientes.filter(c => {
+            return c.sucursales.some(s => {
+                return s.repartidoresPorDia?.[currentDay] === user.id;
+            });
+        }).map(c => {
+            const visitado = misRemitos.some(r => r.clienteId === c.id && r.fecha === todayStr);
+            return { ...c, visitado };
+        });
+    }, [user.id, clientes, currentDay, misRemitos, todayStr]);
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -152,6 +196,76 @@ const InternalVendorDashboard: React.FC<{
                     + Nuevo Remito Rápido
                 </AppButton>
             </div>
+
+            {/* CONTROL DE CARGA */}
+            {cargaStatus && (
+                <Card title="Control de Carga (Hoy)">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {Object.entries(cargaStatus.cargaTotal).map(([prodId, cargaVal]) => {
+                            const prod = productosMap.get(prodId);
+                            const carga = cargaVal as number;
+                            const entregado = cargaStatus.entregadoHoy[prodId] || 0;
+                            const disponible = carga - entregado;
+                            const porcentaje = Math.min(100, (entregado / carga) * 100);
+                            
+                            return (
+                                <div key={prodId} className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl border dark:border-gray-700">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-xs font-black text-gray-400 uppercase truncate pr-2">{prod?.nombre}</span>
+                                        <span className={`text-xs font-bold ${disponible <= 5 ? 'text-red-500' : 'text-blue-500'}`}>
+                                            {disponible} disp.
+                                        </span>
+                                    </div>
+                                    <div className="flex items-end gap-2 mb-2">
+                                        <span className="text-2xl font-black">{entregado}</span>
+                                        <span className="text-xs text-gray-400 mb-1">/ {carga}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 dark:bg-gray-600 h-1.5 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-500 ${porcentaje > 90 ? 'bg-orange-500' : 'bg-primary-600'}`} 
+                                            style={{ width: `${porcentaje}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+            )}
+
+            {/* CLIENTES A VISITAR HOY */}
+            {visitasDelDia.length > 0 && (
+                <Card title={`Ruta del Día (${currentDay})`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {visitasDelDia.map(cliente => (
+                            <div 
+                                key={cliente.id} 
+                                className={`p-4 rounded-2xl border transition-all ${
+                                    cliente.visitado 
+                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800 opacity-75' 
+                                    : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm'
+                                }`}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`font-bold truncate ${cliente.visitado ? 'text-green-700 dark:text-green-400 line-through' : 'text-gray-800 dark:text-white'}`}>
+                                            {cliente.nombre}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate">{cliente.sucursales[0]?.direccion}</p>
+                                    </div>
+                                    {cliente.visitado ? (
+                                        <span className="bg-green-500 text-white p-1 rounded-full">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] font-black text-primary-600 uppercase tracking-tighter bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded">Pendiente</span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
@@ -355,7 +469,7 @@ const ExternalVendorDashboard: React.FC<{
 // ----------------------------------------------------------------------
 
 const DashboardView: React.FC<DashboardViewProps> = ({ 
-    remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio,
+    remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio, planillas,
     addRemito, addPagoManual, addVentaVendedor, addCliente
 }) => {
   const { user } = useAuth();
@@ -804,7 +918,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       <>
         {user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.INTERNO && (
             <div className="space-y-4 pt-12 md:pt-0">
-                <InternalVendorDashboard user={user} remitos={remitos} productosMap={productosMap} onOpenRemito={handleOpenRemito} />
+                <InternalVendorDashboard 
+                    user={user} 
+                    remitos={remitos} 
+                    productosMap={productosMap} 
+                    planillas={planillas}
+                    clientes={clientes}
+                    onOpenRemito={handleOpenRemito} 
+                />
             </div>
         )}
         
