@@ -387,6 +387,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const userRemitos = remitos; // Solo internos llegan acá
       const lastRemito = [...userRemitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       const defaultPto = lastRemito?.puntoVenta || '1';
+      const defaultVendedor = lastRemito?.vendedorId || user?.id;
       
       setNewRemitoData({
           fecha: new Date().toISOString().split('T')[0],
@@ -394,7 +395,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           numero: '',
           movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }],
           pagos: [],
-          vendedorId: user?.id
+          vendedorId: defaultVendedor
       });
       setIsRemitoModalOpen(true);
   }, [remitos, user]);

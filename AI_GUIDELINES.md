@@ -38,7 +38,17 @@ Cuando el usuario pida un cambio, **ejecutar la modificación en los archivos in
 *   **Generación Local:** Todo sucede en el navegador (Client-side generation).
 *   **Robustez:** Forzar siempre la descarga del PDF (`doc.save`) antes de intentar abrir ventanas o clientes de correo. Los navegadores bloquean popups si no son respuesta directa a un click.
 
-## 4. Flujo de Trabajo con AI
+## 4. Guía para Futura Migración (PHP/Laravel)
+*Esta sección sirve de base para cuando migremos a v3.0.*
+
+*   **Modelos de Datos:** La estructura actual de `types.ts` debe mapearse 1:1 a Modelos Eloquent.
+    *   `Remito` -> `Remito` (con `RemitoDetalle` para movimientos).
+    *   `PlanillaDiaria` -> `Planilla` (con `PlanillaItem` para cargas).
+*   **Base de Datos:** SQLite para entornos locales/pequeños, MySQL para producción.
+*   **API:** Mantener la lógica de negocio en el Backend (Controllers/Services). El Frontend (React) pasará a consumir una API REST en lugar de `localStorage`.
+*   **Facturación:** Ahí sí implementaremos la librería `afip-php` para CAE real.
+
+## 5. Flujo de Trabajo con AI
 1.  **Analizar el requerimiento.**
 2.  **EJECUCIÓN INMEDIATA:** Generar código XML.
 3.  Si el cambio es visualmente complejo, explicar brevemente *después* del código.

@@ -299,6 +299,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const openNewModal = useCallback(() => {
     const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
     const defaultPto = lastRemito?.puntoVenta || '1';
+    const defaultVendedor = lastRemito?.vendedorId || currentUser.id;
 
     setEditingRemito({ 
       fecha: new Date().toISOString().split('T')[0], 
@@ -306,7 +307,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       numero: '', 
       movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
       pagos: [], 
-      vendedorId: currentUser.id 
+      vendedorId: defaultVendedor 
     });
     setFormInstanceId(prev => prev + 1);
     setIsFormOpen(true);
