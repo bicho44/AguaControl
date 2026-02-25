@@ -79,7 +79,7 @@ const InternalVendorDashboard: React.FC<{
     productosMap: Map<string, Producto>,
     planillas: PlanillaDiaria[],
     clientes: Cliente[],
-    onOpenRemito: () => void 
+    onOpenRemito: (clienteId?: string) => void 
 }> = ({ user, remitos, productosMap, planillas, clientes, onOpenRemito }) => {
     // Filtrar remitos del vendedor
     const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.esAjuste), [remitos, user.id]);
@@ -90,8 +90,8 @@ const InternalVendorDashboard: React.FC<{
         return days[new Date().getDay()];
     }, []);
 
-    // Cálculo de Comisiones (Mes Actual) y Entregas Hoy/Ayer
-    const { entregasTotal, comisionEstimada, chartData, entregasHoy, entregasAyer } = useMemo(() => {
+    // Cálculo de Entregas Hoy/Ayer
+    const { entregasTotal, chartData, entregasHoy, entregasAyer } = useMemo(() => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         
@@ -99,18 +99,12 @@ const InternalVendorDashboard: React.FC<{
         yesterday.setDate(now.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-        // Fix: Use getTime() for numeric comparison to avoid TS errors
         const remitosMes = misRemitos.filter(r => new Date(r.fecha).getTime() >= startOfMonth.getTime());
         
         let totalEntregado = 0;
-        let totalComision = 0;
         let cantHoy = 0;
         let cantAyer = 0;
         const dataPorDia: Record<string, number> = {};
-
-        // Mapa rápido de comisiones por producto
-        const comisionesMap = new Map<string, number>();
-        user.comisiones?.forEach(c => comisionesMap.set(c.productoId, c.monto));
 
         // Procesar Histórico Mes
         remitosMes.forEach(r => {
@@ -119,12 +113,9 @@ const InternalVendorDashboard: React.FC<{
 
             r.movimientos.forEach(m => {
                 const prod = productosMap.get(m.productoId);
-                const comisionRate = comisionesMap.get(m.productoId) || 0;
-                
                 if (prod && prod.tipo === TipoProducto.RETORNABLE) {
                     totalEntregado += m.entregados;
                     dataPorDia[day] += m.entregados;
-                    totalComision += m.entregados * comisionRate;
                 }
             });
         });
@@ -143,11 +134,10 @@ const InternalVendorDashboard: React.FC<{
             }
         });
         
-        // Formatear para gráfico
         const chart = Object.keys(dataPorDia).map(day => ({ name: `Día ${day}`, entregas: dataPorDia[day] }));
 
-        return { entregasTotal: totalEntregado, comisionEstimada: totalComision, chartData: chart, entregasHoy: cantHoy, entregasAyer: cantAyer };
-    }, [misRemitos, productosMap, user.comisiones, todayStr]);
+        return { entregasTotal: totalEntregado, chartData: chart, entregasHoy: cantHoy, entregasAyer: cantAyer };
+    }, [misRemitos, productosMap, todayStr]);
 
     // Control de Carga
     const cargaStatus = useMemo(() => {
@@ -192,39 +182,66 @@ const InternalVendorDashboard: React.FC<{
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
                     Rendimiento: <span className="text-primary-600">{user.nombre}</span>
                 </h2>
-                <AppButton onClick={onOpenRemito} className="shadow-lg transform active:scale-95">
+                <AppButton onClick={() => onOpenRemito()} className="shadow-lg transform active:scale-95">
                     + Nuevo Remito Rápido
                 </AppButton>
             </div>
 
-            {/* CONTROL DE CARGA */}
+            {/* CLIENTES A VISITAR HOY */}
+            {visitasDelDia.length > 0 && (
+                <Card title={`Ruta del Día (${currentDay})`} compact>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                        {visitasDelDia.map(cliente => (
+                            <button 
+                                key={cliente.id} 
+                                onClick={() => !cliente.visitado && onOpenRemito(cliente.id)}
+                                className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between gap-2 ${
+                                    cliente.visitado 
+                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800 opacity-60 cursor-default' 
+                                    : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:border-primary-300 active:scale-[0.98]'
+                                }`}
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <p className={`font-bold text-xs truncate ${cliente.visitado ? 'text-green-700 dark:text-green-400 line-through' : 'text-gray-800 dark:text-white'}`}>
+                                        {cliente.nombre}
+                                    </p>
+                                    <p className="text-[9px] text-gray-500 truncate">{cliente.sucursales[0]?.direccion}</p>
+                                </div>
+                                {cliente.visitado ? (
+                                    <span className="bg-green-500 text-white p-0.5 rounded-full flex-shrink-0">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                ) : (
+                                    <span className="text-[8px] font-black text-primary-600 uppercase tracking-tighter bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded flex-shrink-0">Visitar</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </Card>
+            )}
+
+            {/* CONTROL DE CARGA COMPACTO (DEBAJO DE RUTA) */}
             {cargaStatus && (
-                <Card title="Control de Carga (Hoy)">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card title="Control de Carga (Hoy)" compact>
+                    <div className="flex flex-wrap gap-2">
                         {Object.entries(cargaStatus.cargaTotal).map(([prodId, cargaVal]) => {
                             const prod = productosMap.get(prodId);
                             const carga = cargaVal as number;
                             const entregado = cargaStatus.entregadoHoy[prodId] || 0;
                             const disponible = carga - entregado;
-                            const porcentaje = Math.min(100, (entregado / carga) * 100);
                             
                             return (
-                                <div key={prodId} className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl border dark:border-gray-700">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-xs font-black text-gray-400 uppercase truncate pr-2">{prod?.nombre}</span>
-                                        <span className={`text-xs font-bold ${disponible <= 5 ? 'text-red-500' : 'text-blue-500'}`}>
-                                            {disponible} disp.
-                                        </span>
+                                <div key={prodId} className="bg-gray-50 dark:bg-gray-700/30 px-3 py-1.5 rounded-xl border dark:border-gray-700 flex items-center gap-2">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-gray-400 uppercase truncate max-w-[70px] leading-tight">{prod?.nombre}</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-sm font-black leading-none">{entregado}</span>
+                                            <span className="text-[9px] text-gray-400">/ {carga}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-end gap-2 mb-2">
-                                        <span className="text-2xl font-black">{entregado}</span>
-                                        <span className="text-xs text-gray-400 mb-1">/ {carga}</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 dark:bg-gray-600 h-1.5 rounded-full overflow-hidden">
-                                        <div 
-                                            className={`h-full transition-all duration-500 ${porcentaje > 90 ? 'bg-orange-500' : 'bg-primary-600'}`} 
-                                            style={{ width: `${porcentaje}%` }}
-                                        />
+                                    <div className={`flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg border ${disponible <= 5 ? 'bg-red-50 border-red-100 text-red-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                                        <span className="text-[8px] font-black uppercase leading-none">Disp.</span>
+                                        <span className="text-xs font-black leading-none">{disponible}</span>
                                     </div>
                                 </div>
                             );
@@ -232,50 +249,8 @@ const InternalVendorDashboard: React.FC<{
                     </div>
                 </Card>
             )}
-
-            {/* CLIENTES A VISITAR HOY */}
-            {visitasDelDia.length > 0 && (
-                <Card title={`Ruta del Día (${currentDay})`}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {visitasDelDia.map(cliente => (
-                            <div 
-                                key={cliente.id} 
-                                className={`p-4 rounded-2xl border transition-all ${
-                                    cliente.visitado 
-                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800 opacity-75' 
-                                    : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm'
-                                }`}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`font-bold truncate ${cliente.visitado ? 'text-green-700 dark:text-green-400 line-through' : 'text-gray-800 dark:text-white'}`}>
-                                            {cliente.nombre}
-                                        </p>
-                                        <p className="text-xs text-gray-500 truncate">{cliente.sucursales[0]?.direccion}</p>
-                                    </div>
-                                    {cliente.visitado ? (
-                                        <span className="bg-green-500 text-white p-1 rounded-full">
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                        </span>
-                                    ) : (
-                                        <span className="text-[10px] font-black text-primary-600 uppercase tracking-tighter bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded">Pendiente</span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
-            )}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                    <div className="flex flex-col items-center justify-center py-6 text-center">
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Comisión Estimada</p>
-                        <p className="text-5xl font-black text-green-600">${comisionEstimada.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 mt-2">Mes Actual</p>
-                    </div>
-                </Card>
-                
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* CARD DE ENTREGAS HOY/AYER */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col">
                     <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -499,7 +474,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [clientes, user]);
 
   // Handler para abrir Remito desde Dashboard (Solo internos)
-  const handleOpenRemito = useCallback(() => {
+  const handleOpenRemito = useCallback((clienteId?: string) => {
       const userRemitos = remitos; // Solo internos llegan acá
       const lastRemito = [...userRemitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       const defaultPto = lastRemito?.puntoVenta || '1';
@@ -508,6 +483,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           fecha: new Date().toISOString().split('T')[0],
           puntoVenta: defaultPto,
           numero: '',
+          clienteId: clienteId || '',
           movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }],
           pagos: [],
           vendedorId: stickyVendedorId || user?.id
@@ -690,7 +666,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     monthlySalesVolumeChartData,
     currentMonthDailySalesData,
     externalVendorsPieData,
-    stockEnCalle
+    stockEnCalle,
+    vendedoresComisiones
   } = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -724,6 +701,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const lastMonthVentas = ventasVendedor.filter(v => {
         const d = parseLocalDate(v.fecha);
         return d >= startOfLastMonth && d <= endOfLastMonth;
+    });
+
+    // Comisiones de Vendedores Internos (Mes Actual)
+    const comisiones: { nombre: string, monto: number }[] = [];
+    usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO).forEach(vendedor => {
+        let totalComision = 0;
+        const comisionesMap = new Map<string, number>();
+        vendedor.comisiones?.forEach(c => comisionesMap.set(c.productoId, c.monto));
+
+        monthlyRemitos.filter(r => r.vendedorId === vendedor.id).forEach(r => {
+            r.movimientos.forEach(m => {
+                const comisionRate = comisionesMap.get(m.productoId) || 0;
+                totalComision += m.entregados * comisionRate;
+            });
+        });
+
+        if (totalComision > 0) {
+            comisiones.push({ nombre: vendedor.nombre, monto: totalComision });
+        }
     });
 
     let sEfectivo = 0; let sOtros = 0;
@@ -840,9 +836,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         monthlySalesVolumeChartData: monthlyHistoryData,
         currentMonthDailySalesData: dailyEvolutionData,
         externalVendorsPieData,
-        stockEnCalle
+        stockEnCalle,
+        vendedoresComisiones: comisiones
     }
-  }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames]);
+  }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames, usuarios]);
 
   const [mapMarkers, setMapMarkers] = useState<{ lat: number, lng: number, title: string }[]>([]);
   const [todayName, setTodayName] = useState<string>('');
@@ -1112,6 +1109,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               {consumableProductNames.map(name => visibleProducts.includes(name) && <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />)}
                           </LineChart>
                       </ResponsiveContainer>
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-1">
+              <Card title="Comisiones Vendedores">
+                  <div className="overflow-y-auto max-h-[420px] pr-2">
+                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Mes Actual (Internos)</p>
+                      {vendedoresComisiones.length > 0 ? (
+                          <table className="w-full text-sm">
+                              <tbody>
+                                  {vendedoresComisiones.map(v => (
+                                      <tr key={v.nombre} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{v.nombre}</td>
+                                          <td className="py-3 text-right font-black text-green-600 dark:text-green-400 text-base">${v.monto.toLocaleString()}</td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                              <p className="text-xs font-bold uppercase">Sin comisiones este mes</p>
+                          </div>
+                      )}
                   </div>
               </Card>
           </div>

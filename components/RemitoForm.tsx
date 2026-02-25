@@ -122,6 +122,17 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           });
       });
       setClientStock(stock);
+
+      // Pre-seleccionar productos si hay stock (Solo para remitos nuevos)
+      if (isNew && formData.movimientos?.length === 1 && formData.movimientos[0].productoId === '') {
+          const prodsWithStock = Object.entries(stock)
+              .filter(([_, cant]) => (cant as number) !== 0)
+              .map(([prodId, _]) => ({ productoId: prodId, entregados: 0, recibidos: 0 }));
+          
+          if (prodsWithStock.length > 0) {
+              setFormData(prev => ({ ...prev, movimientos: prodsWithStock }));
+          }
+      }
     } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
   }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id, productosMap]);
 
