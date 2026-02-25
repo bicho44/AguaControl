@@ -25,7 +25,10 @@ interface RemitoFormProps {
 }
 
 const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, causasRecambio, isReadOnly = false }) => {
-  const [formData, setFormData] = useState<Partial<Remito> & { pagos?: PagoDetalle[] }>({});
+  const [formData, setFormData] = useState<Partial<Remito> & { pagos?: PagoDetalle[] }>(() => {
+      // Inicializar con los datos del remito para evitar que clienteId sea undefined en el primer render
+      return { ...remito, pagos: remito.pagos || [] };
+  });
   const [clienteSucursales, setClienteSucursales] = useState<Sucursal[]>([]);
   const [isCtaCte, setIsCtaCte] = useState(false);
   const [deudaPendiente, setDeudaPendiente] = useState(0);
@@ -141,7 +144,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   // Focus on the first quantity input when opening a pre-filled remito
   useEffect(() => {
     if (remito.clienteId && !isReadOnly) {
-      const timer = setTimeout(() => {
+      let attempts = 0;
+      const interval = setInterval(() => {
         const input = document.getElementById('primer-input-cantidad');
         if (input) {
           input.focus();
@@ -149,9 +153,19 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           if (input instanceof HTMLInputElement) {
             input.select();
           }
+          attempts++;
+          // Try a few times to ensure it sticks after any re-renders caused by stock calculation
+          if (attempts > 3) {
+            clearInterval(interval);
+          }
+        } else if (attempts > 15) {
+          // Stop trying after 1.5 seconds if element never appears
+          clearInterval(interval);
+        } else {
+          attempts++;
         }
-      }, 300); // Wait for modal animation and state updates
-      return () => clearTimeout(timer);
+      }, 100);
+      return () => clearInterval(interval);
     }
   }, [remito.clienteId, isReadOnly]);
 
