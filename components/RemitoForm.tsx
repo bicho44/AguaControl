@@ -321,7 +321,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                   value={formData.clienteId || ''} 
                   onChange={(v) => handleSelectChange('clienteId', v)} 
                   disabled={isReadOnly}
-                  autoFocus={!isReadOnly}
+                  autoFocus={!isReadOnly && !formData.clienteId}
                 />
                 {Object.keys(clientStock).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -373,7 +373,14 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           {(formData.movimientos || []).map((mov, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-2 mb-2">
                   <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
-                  <AppInput type="number" value={mov.entregados} onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} required disabled={isReadOnly} />
+                  <AppInput 
+                    type="number" 
+                    value={mov.entregados} 
+                    onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
+                    required 
+                    disabled={isReadOnly} 
+                    autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
+                  />
                   <AppInput type="number" value={mov.recibidos} onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} required disabled={isReadOnly} />
                   <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
               </div>
