@@ -370,6 +370,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [newRemitoData, setNewRemitoData] = useState<any>(null);
   const [newPagoData, setNewPagoData] = useState<any>(null);
   const [newStockPurchaseData, setNewStockPurchaseData] = useState<any>(null);
+  const [stickyVendedorId, setStickyVendedorId] = useState<string>(user?.id || '');
 
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
@@ -387,7 +388,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const userRemitos = remitos; // Solo internos llegan acá
       const lastRemito = [...userRemitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       const defaultPto = lastRemito?.puntoVenta || '1';
-      const defaultVendedor = lastRemito?.vendedorId || user?.id;
       
       setNewRemitoData({
           fecha: new Date().toISOString().split('T')[0],
@@ -395,10 +395,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           numero: '',
           movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }],
           pagos: [],
-          vendedorId: defaultVendedor
+          vendedorId: stickyVendedorId || user?.id
       });
       setIsRemitoModalOpen(true);
-  }, [remitos, user]);
+  }, [remitos, user, stickyVendedorId]);
 
   // Handler para abrir Pago desde Dashboard (Todos)
   const handleOpenPago = useCallback(() => {
@@ -443,6 +443,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const handleSaveRemito = async (remito: any) => {
       if (!addRemito) return;
       try {
+          // Guardar el vendedor seleccionado para la próxima carga
+          if (remito.vendedorId) {
+              setStickyVendedorId(remito.vendedorId);
+          }
           await addRemito(remito);
           showNotification('Remito creado exitosamente', 'success');
           setIsRemitoModalOpen(false);

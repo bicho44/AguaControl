@@ -180,6 +180,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [remitoParaBorrar, setRemitoParaBorrar] = useState<Remito | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showReassignModal, setShowReassignModal] = useState(false);
+  const [stickyVendedorId, setStickyVendedorId] = useState<string>(currentUser.id);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -256,6 +257,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const handleSave = async (r: any) => {
     try {
+      // Guardamos el vendedor seleccionado para la próxima carga
+      if (r.vendedorId) {
+          setStickyVendedorId(r.vendedorId);
+      }
+
       if (r.id) {
           await updateRemito(r);
           showNotification('Actualizado.', 'success');
@@ -272,7 +278,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 numero: nextNum.toString(), 
                 movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
                 pagos: [], 
-                vendedorId: currentUser.id 
+                vendedorId: r.vendedorId || stickyVendedorId 
               });
               setFormInstanceId(prev => prev + 1);
           } else {
@@ -299,7 +305,6 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const openNewModal = useCallback(() => {
     const lastRemito = [...remitos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
     const defaultPto = lastRemito?.puntoVenta || '1';
-    const defaultVendedor = lastRemito?.vendedorId || currentUser.id;
 
     setEditingRemito({ 
       fecha: new Date().toISOString().split('T')[0], 
@@ -307,11 +312,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       numero: '', 
       movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
       pagos: [], 
-      vendedorId: defaultVendedor 
+      vendedorId: stickyVendedorId 
     });
     setFormInstanceId(prev => prev + 1);
     setIsFormOpen(true);
-  }, [remitos, currentUser]);
+  }, [remitos, stickyVendedorId]);
 
   const handleAddClienteWrapper = async (c: any) => {
       if(!addCliente) return "";
