@@ -138,6 +138,23 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 
+  // Focus on the first quantity input when opening a pre-filled remito
+  useEffect(() => {
+    if (remito.clienteId && !isReadOnly) {
+      const timer = setTimeout(() => {
+        const input = document.getElementById('primer-input-cantidad');
+        if (input) {
+          input.focus();
+          // Select the text inside the input for easier overwriting
+          if (input instanceof HTMLInputElement) {
+            input.select();
+          }
+        }
+      }, 300); // Wait for modal animation and state updates
+      return () => clearTimeout(timer);
+    }
+  }, [remito.clienteId, isReadOnly]);
+
   // Obtener dirección actual para mostrar
   const currentAddress = useMemo(() => {
     if (!formData.clienteId) return null;
@@ -374,6 +391,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
               <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end md:items-center gap-2 mb-2">
                   <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
                   <AppInput 
+                    id={index === 0 ? "primer-input-cantidad" : undefined}
                     type="number" 
                     value={mov.entregados} 
                     onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
