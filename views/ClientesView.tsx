@@ -319,7 +319,7 @@ const ClienteForm: React.FC<{
   return (
     <>
     <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-      <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Cliente</h2>
+      <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Ficha de Cliente</h2>
       
       <div className="space-y-6">
           <Card title="Información Comercial y Fiscal">
@@ -864,7 +864,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
         <Modal isOpen={!!clienteParaBaja} onClose={() => setClienteParaBaja(null)}>
             <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
-                <h2 className="text-2xl font-black text-gray-800 dark:text-white">¿Inactivar Cliente?</h2>
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white pr-12">¿Inactivar Cliente?</h2>
                 <div className="flex justify-center gap-3">
                     <AppButton variant="secondary" onClick={() => setClienteParaBaja(null)}>Cancelar</AppButton>
                     <AppButton variant="danger" onClick={() => {deleteCliente(clienteParaBaja.id); setClienteParaBaja(null); showNotification('Inactivado.', 'success');}}>Confirmar Baja</AppButton>

@@ -51,7 +51,7 @@ const PagoFacturaForm: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Registrar Pago para Factura {factura.numero}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Registrar Pago para Factura {factura.numero}</h2>
                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     <span>Total Factura: <strong>${factura.monto.toLocaleString('es-AR')}</strong></span>
                     <span className="mx-2">|</span>

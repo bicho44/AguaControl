@@ -102,7 +102,7 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{formData.id ? 'Editar' : 'Nuevo'} Contrato</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">{formData.id ? 'Editar' : 'Nuevo'} Contrato</h2>
       
        <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Servicio</label>

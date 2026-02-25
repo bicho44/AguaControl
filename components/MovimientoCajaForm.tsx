@@ -146,8 +146,8 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
 
   return (
     <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
-      <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2">
-         <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
+      <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2 pr-12">
+         <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">
             {isEdit ? 'Editar' : 'Registrar'} {type === 'ingreso' ? (hideClientSelector ? 'Compra' : 'Ingreso') : 'Gasto'}
          </h2>
          {type === 'ingreso' && !isEdit && !hideClientSelector && (

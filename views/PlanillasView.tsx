@@ -78,7 +78,7 @@ const PlanillaForm: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Abrir Nueva Planilla de Carga</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Abrir Nueva Planilla de Carga</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -203,7 +203,7 @@ const RecargaForm: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Paso por Fábrica (Recarga)</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Paso por Fábrica (Recarga)</h2>
             <p className="text-sm text-gray-500">Registre los productos que se cargan al camión y los envases vacíos que se bajan.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -455,9 +455,9 @@ const PlanillaDetailModal: React.FC<{
     return (
         <Modal isOpen={true} onClose={onClose} className="max-w-6xl">
             <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
-                <div className="flex justify-between items-start border-b dark:border-gray-700 pb-4">
+                <div className="flex justify-between items-start border-b dark:border-gray-700 pb-4 pr-12">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">
                             {isClosed ? 'Auditoría de Cierre' : 'Cierre y Rendición de Stock'}
                         </h2>
                         <p className="text-gray-500 dark:text-gray-400 mt-1">
@@ -656,7 +656,7 @@ const PlanillaDetailModal: React.FC<{
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">¿Cerrar Planilla Definitivamente?</h3>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 pr-12">¿Cerrar Planilla Definitivamente?</h3>
                         <p className="text-gray-500 dark:text-gray-300 text-sm mb-6">Esta acción guardará los stocks físicos y calculará las diferencias finales.</p>
                         <div className="flex justify-center gap-3">
                             <AppButton variant="secondary" onClick={() => setIsCloseConfirmOpen(false)}>Volver</AppButton>

@@ -49,7 +49,7 @@ const ProductoForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Ficha de Producto</h2>
+      <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Ficha de Producto</h2>
       <div className="space-y-4">
         <AppInput label="Nombre del Producto" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
         <div className="grid grid-cols-2 gap-4">

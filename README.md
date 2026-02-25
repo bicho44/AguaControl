@@ -11,7 +11,12 @@ El sistema permite administrar clientes, rutas de reparto, stock móvil (camione
 
 ## 📜 Historial de Versiones (Version Log)
 
-### v2.5 - Consolidación y UX (Actual)
+### v2.6 - Pulido Visual y Estabilidad (Actual)
+*   **UX de Modales:** Ajuste de seguridad (`pr-12`) en todos los encabezados de modales para evitar solapamientos con el botón de cierre.
+*   **Consistencia Visual:** Revisión de márgenes y paddings en formularios críticos (Caja, Remitos, Clientes, Planillas).
+*   **QA & Estabilidad:** Implementación de script de validación de tipos (`lint`) y limpieza de código para asegurar un build libre de errores.
+
+### v2.5 - Consolidación y UX
 *   **Facturación Avanzada:** Generación de PDF en formato A5 Doble (Impresión) y A4 (Digital).
 *   **Envío de Emails:** Integración con cliente de correo local (`mailto`) adjuntando PDF. Plantillas personalizables con variables dinámicas.
 *   **Detalle de Remitos:** Desglose ítem por ítem en los correos de facturación.

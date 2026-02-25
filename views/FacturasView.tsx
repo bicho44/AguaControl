@@ -67,7 +67,7 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">Cobro de Factura {factura.numero}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Cobro de Factura {factura.numero}</h2>
                 <div className="text-xs text-gray-500 mt-1 uppercase font-black">
                     Saldo Restante: <span className="text-red-600">${montoRestante.toLocaleString('es-AR')}</span>
                 </div>

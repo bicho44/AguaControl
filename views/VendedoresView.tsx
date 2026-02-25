@@ -71,7 +71,7 @@ const UsuarioForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-      <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
+      <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">{usuario.id ? 'Editar' : 'Nuevo'} Usuario</h2>
       <div className="space-y-4">
           <AppInput label="Nombre Completo" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
           <AppInput label="Correo Electrónico" type="email" name="email" value={formData.email || ''} onChange={handleChange} required />

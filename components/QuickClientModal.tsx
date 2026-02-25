@@ -65,7 +65,7 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
             <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Nuevo Cliente Rápido</h3>
+                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Nuevo Cliente Rápido</h3>
                 <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} required />
                 <div className="relative">
                     <AppInput label="Dirección de Entrega" value={direccion} onChange={e => setDireccion(e.target.value)} />

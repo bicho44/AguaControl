@@ -422,7 +422,7 @@ const CajaView: React.FC<CajaViewProps> = ({
         <Modal isOpen={!!movimientoParaBorrar} onClose={() => setMovimientoParaBorrar(null)}>
             <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
-                <h2 className="text-2xl font-black text-gray-800 dark:text-white">¿Borrar de Caja?</h2>
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white pr-12">¿Borrar de Caja?</h2>
                 <p className="text-gray-500">Esta acción es irreversible.</p>
                 <div className="flex justify-center gap-3">
                     <AppButton variant="secondary" onClick={() => setMovimientoParaBorrar(null)}>Cancelar</AppButton>

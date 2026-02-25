@@ -109,9 +109,8 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
     return (
         <Modal isOpen={true} onClose={onClose}>
             <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white">{title}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">✕</button>
+                <div className="flex justify-between items-center pr-12">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white pr-12">{title}</h3>
                 </div>
 
                 {/* Buscador */}

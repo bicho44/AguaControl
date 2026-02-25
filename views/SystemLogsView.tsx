@@ -111,8 +111,8 @@ const SystemLogsView: React.FC<SystemLogsViewProps> = ({ logs }) => {
             {selectedLog && (
                 <Modal isOpen={true} onClose={() => setSelectedLog(null)} className="max-w-4xl">
                     <div className="space-y-4">
-                        <div className="flex justify-between items-start border-b dark:border-gray-700 pb-4">
-                            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalle del Log</h2>
+                        <div className="flex justify-between items-start border-b dark:border-gray-700 pb-4 pr-12">
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Detalle del Log</h2>
                             <span className={`px-3 py-1 rounded text-sm font-bold uppercase ${
                                 selectedLog.level === LogLevel.ERROR ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                             }`}>

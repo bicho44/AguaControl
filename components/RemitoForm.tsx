@@ -251,8 +251,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
-        <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
+        <div className="flex justify-between items-center pr-12">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter pr-12">{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</h2>
             {isAdmin && !isReadOnly && (
                 <div className="flex gap-2">
                     <SearchableSelect 

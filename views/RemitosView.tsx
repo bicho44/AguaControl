@@ -106,7 +106,7 @@ const ReassignModal: React.FC<{
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
             <div className="space-y-4">
-                <h2 className="text-xl font-black uppercase text-primary-600">Herramienta de Corrección Masiva</h2>
+                <h2 className="text-xl font-black uppercase text-primary-600 pr-12">Herramienta de Corrección Masiva</h2>
                 <p className="text-xs text-gray-500">Reasigna remitos de un vendedor a otro en un rango de fechas.</p>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -447,7 +447,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
             <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
-                <h2 className="text-2xl font-black text-gray-800 dark:text-white">¿Borrar Remito?</h2>
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white pr-12">¿Borrar Remito?</h2>
                 <p className="text-gray-500">
                     Se eliminará el remito <strong>{remitoParaBorrar.puntoVenta}-{remitoParaBorrar.numero}</strong>.
                     <br/>Esta acción revertirá el stock y saldo del cliente.

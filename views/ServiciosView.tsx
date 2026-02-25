@@ -62,7 +62,7 @@ const ServicioForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{servicio.id ? 'Editar' : 'Nuevo'} Servicio</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">{servicio.id ? 'Editar' : 'Nuevo'} Servicio</h2>
       
       <div>
         <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Servicio</label>
@@ -275,7 +275,7 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                     </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-4">Confirmar Baja de Servicio</h2>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-4 pr-12">Confirmar Baja de Servicio</h2>
                 <p className="text-gray-600 dark:text-gray-300 my-4">
                     ¿Está seguro de que desea dar de baja el servicio <strong>"{servicioParaBaja.nombre}"</strong>?
                     <br />

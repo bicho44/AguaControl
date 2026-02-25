@@ -143,7 +143,7 @@ const InternalVendorDashboard: React.FC<{
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center pr-12">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
                     Rendimiento: <span className="text-primary-600">{user.nombre}</span>
                 </h2>
@@ -286,7 +286,7 @@ const ExternalVendorDashboard: React.FC<{
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center flex-wrap gap-2">
+            <div className="flex justify-between items-center flex-wrap gap-2 pr-12">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
                     Cuenta Corriente: <span className="text-primary-600">{user.nombre}</span>
                 </h2>
