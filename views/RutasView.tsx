@@ -81,17 +81,17 @@ const RutasView: React.FC<RutasViewProps> = ({ clientes, usuarios, updateRutasMa
 
       // Filtrado
       const filtered = rows.filter(r => {
-          const matchesSearch = r.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                r.direccion.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesSearch = (r.clienteNombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                (r.direccion || '').toLowerCase().includes(searchTerm.toLowerCase());
           const matchesDay = dayFilter === 'TODOS' || r.dias[dayFilter] !== null;
           return matchesSearch && matchesDay;
       });
 
       // Ordenamiento Alfabético (Cliente A-Z, luego Sucursal A-Z)
       return filtered.sort((a, b) => {
-          const nameCompare = a.clienteNombre.localeCompare(b.clienteNombre);
+          const nameCompare = (a.clienteNombre || '').localeCompare(b.clienteNombre || '');
           if (nameCompare !== 0) return nameCompare;
-          return a.sucursalNombre.localeCompare(b.sucursalNombre);
+          return (a.sucursalNombre || '').localeCompare(b.sucursalNombre || '');
       });
 
   }, [clientes, repartidores, searchTerm, dayFilter]);

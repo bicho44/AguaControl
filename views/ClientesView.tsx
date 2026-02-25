@@ -646,10 +646,10 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     }
 
     return list.filter(c => {
-        const matchesName = c.nombre.toLowerCase().includes(filter.toLowerCase());
+        const matchesName = (c.nombre || '').toLowerCase().includes(filter.toLowerCase());
         const matchesStatus = statusFilter === 'todos' || c.estado === statusFilter;
         return matchesName && matchesStatus;
-    }).sort((a,b) => a.nombre.localeCompare(b.nombre));
+    }).sort((a,b) => (a.nombre || '').localeCompare(b.nombre || ''));
   }, [clientes, filter, statusFilter, currentUser]);
 
   // ... (Resto de hooks useMemo de la vista Clientes se mantienen)

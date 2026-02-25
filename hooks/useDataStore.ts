@@ -44,13 +44,20 @@ import {
 } from '../types';
 
 const cleanUndefineds = (obj: any): any => {
-    const newObj: any = {};
-    Object.keys(obj).forEach(key => {
-        if (obj[key] !== undefined && obj[key] !== null) {
-            newObj[key] = obj[key];
-        }
-    });
-    return newObj;
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(item => cleanUndefineds(item)).filter(item => item !== undefined);
+    }
+    if (typeof obj === 'object') {
+        const newObj: any = {};
+        Object.keys(obj).forEach(key => {
+            if (obj[key] !== undefined && obj[key] !== null) {
+                newObj[key] = cleanUndefineds(obj[key]);
+            }
+        });
+        return newObj;
+    }
+    return obj;
 };
 
 export const useDataStore = () => {
