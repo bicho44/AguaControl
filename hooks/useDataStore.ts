@@ -346,8 +346,44 @@ export const useDataStore = () => {
 
     const updateServicio = useCallback(async (s: any) => {
         const { id, ...data } = s;
+        const oldServicio = servicios.find(serv => serv.id === id);
+        
         await updateDoc(doc(db, 'servicios', id), cleanUndefineds(data));
-    }, []);
+
+        // Propagar cambios en valores (monto y consumo) a los contratos que no tengan valores personalizados
+        if (oldServicio) {
+            const batch = writeBatch(db);
+            const affectedContratos = contratos.filter(c => c.servicioId === id);
+            
+            let hasChanges = false;
+            affectedContratos.forEach(c => {
+                const updates: any = {};
+
+                // Propagar montoMensual si el contrato tenía el valor estándar anterior
+                if (data.montoMensual !== undefined && data.montoMensual !== oldServicio.montoMensual) {
+                    if (c.montoMensual === oldServicio.montoMensual) {
+                        updates.montoMensual = data.montoMensual;
+                    }
+                }
+
+                // Propagar consumoIncluido si el contrato tenía el valor estándar anterior
+                if (data.consumoIncluido !== undefined && data.consumoIncluido !== oldServicio.consumoIncluido) {
+                    if (c.consumoIncluido === oldServicio.consumoIncluido) {
+                        updates.consumoIncluido = data.consumoIncluido;
+                    }
+                }
+
+                if (Object.keys(updates).length > 0) {
+                    batch.update(doc(db, 'contratos', c.id), updates);
+                    hasChanges = true;
+                }
+            });
+            
+            if (hasChanges) {
+                await batch.commit();
+            }
+        }
+    }, [servicios, contratos]);
 
     const deleteServicio = useCallback(async (id: string) => {
         await updateDoc(doc(db, 'servicios', id), { estado: EstadoServicio.INACTIVO });
