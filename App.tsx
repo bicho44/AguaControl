@@ -7,7 +7,7 @@ import ClientesView from './views/ClientesView';
 import UsuariosView from './views/UsuariosView';
 import ProductosView from './views/ProductosView';
 import ServiciosView from './views/ServiciosView';
-import CuentaCorrienteView from './views/FacturasView';
+import FacturacionView from './views/FacturacionView';
 import FacturasListView from './views/FacturasListView';
 import ImportarView from './views/ImportarView';
 import CajaView from './views/CajaView';
@@ -152,12 +152,14 @@ function AppContent() {
                   updateVentaVendedor={dataStore.updateVentaVendedor}
                 />;
       case 'cuentacorriente':
-        return <CuentaCorrienteView
+        return <FacturacionView
                   clientes={dataStore.clientes}
                   remitos={dataStore.remitos}
                   facturas={dataStore.facturas}
                   registrosPago={dataStore.registrosPago}
                   productos={dataStore.productos}
+                  contratos={dataStore.contratos}
+                  servicios={dataStore.servicios}
                   addFactura={dataStore.addFactura}
                   addPagoToFactura={dataStore.addPagoToFactura}
                 />;

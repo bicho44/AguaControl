@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Cliente, Remito, Factura, Producto, RegistroPago, EstadoFactura, MetodoPago, PagoDetalle } from '../types';
+import { Cliente, Remito, Factura, Producto, RegistroPago, EstadoFactura, MetodoPago, PagoDetalle, Contrato, Servicio } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { ReceiptIcon } from '../components/icons/ReceiptIcon';
@@ -12,12 +12,15 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import { getLocalDateString } from '../utils/dateUtils';
+import LiquidacionAbonosView from './LiquidacionAbonosView';
 
-interface CuentaCorrienteViewProps {
+interface FacturacionViewProps {
   clientes: Cliente[];
   remitos: Remito[];
   facturas: Factura[];
   productos: Producto[];
+  contratos: Contrato[];
+  servicios: Servicio[];
   registrosPago: RegistroPago[];
   addFactura: (factura: Omit<Factura, 'id' | 'pagoIds' | 'estado' | 'numero'>) => void;
   addPagoToFactura: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => void;
@@ -97,7 +100,8 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
     );
 };
 
-const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, remitos, facturas, productos, registrosPago, addFactura, addPagoToFactura }) => {
+const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, facturas, productos, contratos, servicios, registrosPago, addFactura, addPagoToFactura }) => {
+  const [activeTab, setActiveTab] = useState<'cuentacorriente' | 'liquidacion'>('cuentacorriente');
   const [selectedClienteId, setSelectedClienteId] = useState<string>('');
   const [selectedRemitos, setSelectedRemitos] = useState<Set<string>>(new Set());
   const [pagandoFacturaInfo, setPagandoFacturaInfo] = useState<{ factura: Factura; montoRestante: number } | null>(null);
@@ -160,8 +164,26 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter italic">Cuentas Corrientes</h1>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter italic">Facturación</h1>
+        <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl w-fit">
+            <button 
+                onClick={() => setActiveTab('cuentacorriente')}
+                className={`px-4 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'cuentacorriente' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Cuentas Corrientes
+            </button>
+            <button 
+                onClick={() => setActiveTab('liquidacion')}
+                className={`px-4 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'liquidacion' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Liquidación Abonos
+            </button>
+        </div>
+      </div>
+
+      {activeTab === 'cuentacorriente' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
             <Card>
                 <div className="p-4 border-b dark:border-gray-700 space-y-3">
@@ -219,9 +241,20 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
             ) : <div className="h-96 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-400 uppercase font-black text-xs tracking-widest">Seleccione un cliente para ver su estado</div>}
         </div>
       </div>
+      ) : (
+        <LiquidacionAbonosView 
+            clientes={clientes}
+            remitos={remitos}
+            facturas={facturas}
+            productos={productos}
+            contratos={contratos}
+            servicios={servicios}
+            addFactura={addFactura as any}
+        />
+      )}
       {pagandoFacturaInfo && <Modal isOpen={true} onClose={() => setPagandoFacturaInfo(null)}><PagoFacturaForm factura={pagandoFacturaInfo.factura} montoRestante={pagandoFacturaInfo.montoRestante} onSave={(fid, fec, pgs) => { addPagoToFactura(fid, fec, pgs); setPagandoFacturaInfo(null); showNotification('Cobro registrado.', 'success'); }} onClose={() => setPagandoFacturaInfo(null)}/></Modal>}
     </div>
   );
 };
 
-export default CuentaCorrienteView;
+export default FacturacionView;
