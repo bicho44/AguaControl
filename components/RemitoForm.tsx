@@ -114,9 +114,14 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         setDeudaPendiente(deuda);
       } else setDeudaPendiente(0);
 
-      // Calcular Stock del Cliente
+      // Calcular Stock del Cliente (Filtrar por sucursal si existe)
       const stock: Record<string, number> = {};
-      remitos.filter(r => r.clienteId === formData.clienteId).forEach(r => {
+      remitos.filter(r => {
+          if (r.clienteId !== formData.clienteId) return false;
+          if (!formData.sucursalId) return true; // Si no hay sucursal seleccionada, mostrar total
+          const rSucId = r.sucursalId || 'main'; // Tratar remitos sin sucursal como 'main'
+          return rSucId === formData.sucursalId;
+      }).forEach(r => {
           r.movimientos.forEach(m => {
               const prod = productosMap.get(m.productoId);
               if (prod?.tipo === TipoProducto.RETORNABLE) {
@@ -137,7 +142,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           }
       }
     } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
-  }, [formData.clienteId, clientes, remitos, getRemitoTotal, pagosMap, formData.id, productosMap]);
+  }, [formData.clienteId, formData.sucursalId, clientes, remitos, getRemitoTotal, pagosMap, formData.id, productosMap, isNew]);
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 
