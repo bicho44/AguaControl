@@ -8,6 +8,7 @@ import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuari
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { getLocalDateString } from '../utils/dateUtils';
 // Importamos formularios
 import RemitoForm from '../components/RemitoForm';
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
@@ -84,7 +85,7 @@ const InternalVendorDashboard: React.FC<{
     // Filtrar remitos del vendedor
     const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.esAjuste), [remitos, user.id]);
     
-    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const todayStr = useMemo(() => getLocalDateString(), []);
     const currentDay = useMemo(() => {
         const days = [DiaSemana.DOMINGO, DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO];
         return days[new Date().getDay()];
@@ -97,7 +98,7 @@ const InternalVendorDashboard: React.FC<{
         
         const yesterday = new Date(now);
         yesterday.setDate(now.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = getLocalDateString(yesterday);
 
         const remitosMes = misRemitos.filter(r => new Date(r.fecha).getTime() >= startOfMonth.getTime());
         
@@ -321,10 +322,10 @@ const ExternalVendorDashboard: React.FC<{
     const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
         let comprado = 0;
         const historialCombinado: any[] = [];
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = getLocalDateString(yesterday);
 
         let hoy = 0;
         let ayer = 0;
@@ -485,7 +486,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const defaultPto = lastRemito?.puntoVenta || '1';
       
       setNewRemitoData({
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getLocalDateString(),
           puntoVenta: defaultPto,
           numero: '',
           clienteId: clienteId || '',
@@ -499,7 +500,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // Handler para abrir Pago desde Dashboard (Todos)
   const handleOpenPago = useCallback(() => {
       setNewPagoData({
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getLocalDateString(),
           vendedorId: user?.id,
           clienteId: null,
           concepto: 'Pago a Cuenta',
@@ -511,7 +512,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // Handler para abrir Compra de Stock (Externos)
   const handleOpenStockPurchase = useCallback(() => {
       setNewStockPurchaseData({
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getLocalDateString(),
           vendedorId: user?.id,
           // No necesitamos clienteId porque es autocompra
           concepto: 'Retiro de Mercadería',

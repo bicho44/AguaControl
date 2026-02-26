@@ -9,6 +9,7 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { CubeIcon } from '../components/icons/CubeIcon';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
 import AppButton from '../components/ui/AppButton';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface PlanillasViewProps {
   planillas: PlanillaDiaria[];
@@ -27,7 +28,7 @@ const PlanillaForm: React.FC<{
     onClose: () => void;
 }> = ({ usuarios, productos, onSave, onClose }) => {
     const [repartidorId, setRepartidorId] = useState('');
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
     const [cargaInicial, setCargaInicial] = useState<ItemStock[]>([]);
 
     const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO), [usuarios]);
@@ -671,7 +672,7 @@ const PlanillaDetailModal: React.FC<{
 
 const PlanillasView: React.FC<PlanillasViewProps> = ({ planillas, usuarios, productos, remitos, addPlanilla, updatePlanilla }) => {
   const { showNotification } = useNotification();
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterDate, setFilterDate] = useState(getLocalDateString());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingPlanilla, setViewingPlanilla] = useState<PlanillaDiaria | null>(null);
 

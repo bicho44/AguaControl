@@ -8,6 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface FacturasListViewProps {
   facturas: Factura[];
@@ -28,7 +29,7 @@ const PagoFacturaForm: React.FC<{
 }> = ({ factura, montoRestante, onSave, onClose }) => {
     const montoInicial = Math.round(montoRestante * 100) / 100;
     const [pagos, setPagos] = useState<PagoDetalle[]>([{ monto: montoInicial, metodo: MetodoPago.EFECTIVO }]);
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
 
     const handlePagoChange = (index: number, field: keyof PagoDetalle, value: string | MetodoPago) => {
         const newPagos = [...pagos];

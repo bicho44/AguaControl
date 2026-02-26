@@ -11,6 +11,7 @@ import { SearchIcon } from '../components/icons/SearchIcon';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface CuentaCorrienteViewProps {
   clientes: Cliente[];
@@ -32,7 +33,7 @@ interface PagoFacturaFormProps {
 const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestante, onSave, onClose }) => {
     const montoInicial = Math.round(montoRestante * 100) / 100;
     const [pagos, setPagos] = useState<PagoDetalle[]>([{ monto: montoInicial, metodo: MetodoPago.EFECTIVO }]);
-    const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [fecha, setFecha] = useState(getLocalDateString());
 
     const handlePagoChange = (index: number, field: keyof PagoDetalle, value: string | MetodoPago) => {
         const newPagos = [...pagos];
@@ -152,7 +153,7 @@ const CuentaCorrienteView: React.FC<CuentaCorrienteViewProps> = ({ clientes, rem
     if (selectedRemitos.size === 0) return;
     const rems = clienteData?.remitosPendientes.filter(r => selectedRemitos.has(r.id)) || [];
     const mt = rems.reduce((sum, r) => sum + getRemitoTotal(r), 0);
-    addFactura({ fecha: new Date().toISOString().split('T')[0], clienteId: selectedClienteId, remitosIds: Array.from(selectedRemitos), monto: mt });
+    addFactura({ fecha: getLocalDateString(), clienteId: selectedClienteId, remitosIds: Array.from(selectedRemitos), monto: mt });
     setSelectedRemitos(new Set());
     showNotification('Factura generada.', 'success');
   };

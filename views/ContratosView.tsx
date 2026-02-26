@@ -9,6 +9,7 @@ import { useNotification } from '../context/NotificationContext';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import AppButton from '../components/ui/AppButton';
 import ContratoForm from '../components/ContratoForm';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface ContratosViewProps {
   contratos: Contrato[];
@@ -75,7 +76,7 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
 
   const openNewModal = useCallback(() => {
     setEditingContrato({
-      fechaInicio: new Date().toISOString().split('T')[0],
+      fechaInicio: getLocalDateString(),
       estado: EstadoContrato.ACTIVO,
     });
     setIsModalOpen(true);

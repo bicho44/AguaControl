@@ -60,6 +60,8 @@ const cleanUndefineds = (obj: any): any => {
     return obj;
 };
 
+import { getLocalDateString } from '../utils/dateUtils';
+
 export const useDataStore = () => {
     const [remitos, setRemitos] = useState<Remito[]>([]);
     const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -144,7 +146,7 @@ export const useDataStore = () => {
     const processInitialData = async (clienteId: string, stockInicial?: any[], contratosIniciales?: any[], adminId?: string) => {
         // 1. Procesar Stock Inicial (Crear Remitos de Ajuste)
         if (stockInicial && stockInicial.length > 0) {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getLocalDateString();
             // Agrupar por sucursal para no crear mil remitos
             const stockPorSucursal: Record<string, any[]> = {};
             

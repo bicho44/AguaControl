@@ -13,6 +13,7 @@ import AppSelect from '../components/ui/AppSelect';
 import AppInput from '../components/ui/AppInput'; // Requerido para ReassignModal
 import { CogIcon } from '../components/icons/CogIcon';
 import RemitoForm from '../components/RemitoForm';
+import { getLocalDateString } from '../utils/dateUtils';
 
 type PaymentStatus = 'facturado' | 'pagado' | 'pagado_parcial' | 'pendiente' | 'gratis' | 'ajuste';
 type PaymentStatusFilter = 'todos' | 'pendiente' | 'pagado' | 'facturado' | 'ajuste';
@@ -308,7 +309,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     const defaultPto = lastRemito?.puntoVenta || '1';
 
     setEditingRemito({ 
-      fecha: new Date().toISOString().split('T')[0], 
+      fecha: getLocalDateString(), 
       puntoVenta: defaultPto, 
       numero: '', 
       movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 

@@ -21,6 +21,7 @@ import AppSelect from '../components/ui/AppSelect';
 import ContratoForm from '../components/ContratoForm';
 import { fetchDatosPadron } from '../services/afip'; 
 import { useDataStore } from '../hooks/useDataStore'; 
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -611,7 +612,7 @@ const ClienteForm: React.FC<{
     {isContratoModalOpen && (
         <Modal isOpen={isContratoModalOpen} onClose={() => setIsContratoModalOpen(false)}>
             <ContratoForm
-                contrato={{ fechaInicio: new Date().toISOString().split('T')[0] }}
+                contrato={{ fechaInicio: getLocalDateString() }}
                 clientes={clientes}
                 productos={productos}
                 servicios={servicios}

@@ -10,6 +10,7 @@ import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface CajaViewProps {
   registrosPago: RegistroPago[];
@@ -109,12 +110,12 @@ const CajaView: React.FC<CajaViewProps> = ({
   };
 
   const openIngresoModal = useCallback(() => {
-    setModalConfig({type: 'ingreso', isEdit: false, data: {fecha: new Date().toISOString().split('T')[0], pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
+    setModalConfig({type: 'ingreso', isEdit: false, data: {fecha: getLocalDateString(), pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
     setIsModalOpen(true);
   }, []);
 
   const openGastoModal = useCallback(() => {
-    setModalConfig({type: 'gasto', isEdit: false, data: {fecha: new Date().toISOString().split('T')[0], pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
+    setModalConfig({type: 'gasto', isEdit: false, data: {fecha: getLocalDateString(), pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
     setIsModalOpen(true);
   }, []);
 
@@ -128,7 +129,7 @@ const CajaView: React.FC<CajaViewProps> = ({
   }, [isModalOpen, openIngresoModal, openGastoModal]);
 
   // Balance Diario
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalDateString(), []);
   const dailyBalances = useMemo(() => {
       const dailyPagos = registrosPago.filter(p => p.fecha === todayStr);
       const dailyGastos = gastos.filter(g => g.fecha === todayStr);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Contrato, Cliente, Producto, Servicio, Sucursal, TipoServicio, TipoProducto, EstadoContrato, EstadoServicio, EstadoProducto } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface ContratoFormProps {
   contrato?: Partial<Contrato>;
@@ -25,7 +26,7 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
   overrideSucursales
 }) => {
   const [formData, setFormData] = useState<Partial<Contrato>>({
-      fechaInicio: new Date().toISOString().split('T')[0],
+      fechaInicio: getLocalDateString(),
       estado: EstadoContrato.ACTIVO,
       ...contrato
   });

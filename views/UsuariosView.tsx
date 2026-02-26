@@ -11,6 +11,7 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import SearchableSelect from '../components/SearchableSelect';
+import { getLocalDateString } from '../utils/dateUtils';
 
 interface UsuariosViewProps {
   usuarios: Usuario[];
@@ -187,7 +188,7 @@ const VendorAccountModal: React.FC<{
 
     const handleSavePayment = () => {
         onAddPayment({
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: getLocalDateString(),
             vendedorId: user.id,
             clienteId: null, // Es un pago del vendedor, no de un cliente
             concepto: paymentData.concepto || 'Pago a Cuenta',
