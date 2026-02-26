@@ -332,15 +332,14 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         <div className="flex flex-col mb-2">
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
-                        {remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}
+                    <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter flex items-center gap-2 flex-wrap">
+                        <span>{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</span>
+                        {!isAdmin && formData.fecha && (
+                            <span className="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md normal-case tracking-normal">
+                                {formData.fecha.split('-').reverse().join('/')}
+                            </span>
+                        )}
                     </h2>
-                    {!isAdmin && (
-                        <div className="flex gap-3 text-xs text-gray-500 font-medium mt-1 bg-gray-100 dark:bg-gray-800 w-fit px-2 py-1 rounded-md">
-                            <span>📅 {formData.fecha?.split('-').reverse().join('/')}</span>
-                            <span>📄 Nº {formData.puntoVenta}-{formData.numero}</span>
-                        </div>
-                    )}
                 </div>
                 {isAdmin && !isReadOnly && (
                     <div className="w-1/2 max-w-[160px]">
