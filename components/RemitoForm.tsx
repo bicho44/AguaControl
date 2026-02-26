@@ -104,14 +104,13 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
       const tieneCtaCte = cliente?.tieneCuentaCorriente || false;
       setIsCtaCte(tieneCtaCte);
       if (!tieneCtaCte) {
-        const remitosDelCliente = remitos.filter(r => r.clienteId === formData.clienteId && r.id !== formData.id);
-        const deuda = remitosDelCliente.reduce((totalDeuda, r) => {
-            const totalRemito = getRemitoTotal(r);
-            const pagosDelRemito = pagosMap.get(r.id) || [];
-            const totalPagado = pagosDelRemito.reduce((sum, p) => sum + p.monto, 0);
-            return (totalRemito > totalPagado) ? totalDeuda + (totalRemito - totalPagado) : totalDeuda;
-        }, 0);
-        setDeudaPendiente(deuda);
+        const remitosDelCliente = remitos.filter(r => r.clienteId === formData.clienteId && r.id !== formData.id && !r.esAjuste);
+        const pagosDelCliente = registrosPago.filter(p => p.clienteId === formData.clienteId && p.origen.id !== formData.id);
+        
+        const totalRemitos = remitosDelCliente.reduce((sum, r) => sum + getRemitoTotal(r), 0);
+        const totalPagos = pagosDelCliente.reduce((sum, p) => sum + p.monto, 0);
+        
+        setDeudaPendiente(Math.max(0, totalRemitos - totalPagos));
       } else setDeudaPendiente(0);
 
       // Calcular Stock del Cliente (Filtrar por sucursal si existe)
@@ -142,7 +141,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           }
       }
     } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
-  }, [formData.clienteId, formData.sucursalId, clientes, remitos, getRemitoTotal, pagosMap, formData.id, productosMap, isNew]);
+  }, [formData.clienteId, formData.sucursalId, clientes, remitos, getRemitoTotal, registrosPago, formData.id, productosMap, isNew]);
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 

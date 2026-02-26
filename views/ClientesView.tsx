@@ -658,22 +658,25 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const serviciosMap = useMemo(() => new Map(servicios.map(s => [s.id, s])), [servicios]);
   const deudasMap = useMemo(() => {
     const deudas = new Map<string, number>();
-    const pagosMap = new Map<string, number>();
-    registrosPago.forEach(p => pagosMap.set(p.origen.id, (pagosMap.get(p.origen.id) || 0) + p.monto));
+    
     clientes.forEach(cliente => {
-        let dt = 0;
         const rems = remitos.filter(r => r.clienteId === cliente.id && !r.esAjuste);
+        const pagos = registrosPago.filter(p => p.clienteId === cliente.id);
+        
         const peMap = new Map<string, number>(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio] as [string, number]) || []);
-        rems.forEach(r => {
-            const tr = r.movimientos.reduce((s, m) => {
+        
+        const totalRemitos = rems.reduce((sum, r) => {
+            return sum + r.movimientos.reduce((s, m) => {
                 const prod = productosMap.get(m.productoId);
                 if (!prod) return s;
                 return s + (m.entregados * (peMap.get(m.productoId) ?? prod.precio));
             }, 0);
-            const pagado = pagosMap.get(r.id) || 0;
-            if (tr > pagado) dt += (tr - pagado);
-        });
-        if (dt > 0.01) deudas.set(cliente.id, dt);
+        }, 0);
+        
+        const totalPagos = pagos.reduce((sum, p) => sum + p.monto, 0);
+        const saldo = totalRemitos - totalPagos;
+        
+        if (saldo > 0.01) deudas.set(cliente.id, saldo);
     });
     return deudas;
   }, [clientes, remitos, registrosPago, productosMap]);
