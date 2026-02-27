@@ -144,8 +144,10 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
   
   const clienteData = useMemo(() => {
     if (!selectedClienteId) return null;
-    const rems = remitos.filter(r => r.clienteId === selectedClienteId && !r.facturaId && !r.esAjuste);
-    const facts = facturas.filter(f => f.clienteId === selectedClienteId).sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    const rems = remitos
+      .filter(r => r.clienteId === selectedClienteId && !r.facturaId && !r.esAjuste)
+      .sort((a,b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime());
+    const facts = facturas.filter(f => f.clienteId === selectedClienteId).sort((a,b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime());
     const totalDeuda = facts.filter(f => f.estado !== EstadoFactura.PAGADO && f.estado !== EstadoFactura.ANULADO).reduce((sum, f) => {
         const pagado = (f.pagoIds || []).reduce((ps, id) => ps + (registrosPago.find(p => p.id === id)?.monto || 0), 0);
         return sum + (f.monto - pagado);
