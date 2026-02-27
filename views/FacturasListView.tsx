@@ -175,7 +175,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
 
           // Generar lista DETALLADA de remitos para el cuerpo del mail
           const remitosListText = remitosFactura.map(r => {
-              const header = `- Remito N° ${r.puntoVenta}-${r.numero} (${new Date(r.fecha + 'T00:00:00').toLocaleDateString()}):`;
+              const header = `- Remito N° ${r.puntoVenta}-${r.numero} (${new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-AR')}):`;
               const items = r.movimientos
                   .filter(m => m.entregados > 0)
                   .map(m => {
@@ -190,7 +190,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
               '{{cliente}}': cliente.nombre,
               '{{numero}}': factura.numero,
               '{{monto}}': factura.monto.toLocaleString('es-AR'),
-              '{{fecha}}': new Date(factura.fecha + 'T00:00:00').toLocaleDateString(),
+              '{{fecha}}': new Date(factura.fecha + 'T00:00:00').toLocaleDateString('es-AR'),
               '{{empresa}}': empresaSettings.nombreFantasia || empresaSettings.nombre,
               '{{remitos}}': remitosListText
           };
@@ -291,7 +291,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
                             <div className="flex-grow grid grid-cols-2 sm:grid-cols-5 gap-4 items-center">
                                 <div>
                                     <p className="text-xs text-gray-500">Fecha</p>
-                                    <p className="font-medium text-gray-900 dark:text-white">{new Date(factura.fecha + 'T00:00:00').toLocaleDateString()}</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{new Date(factura.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500">Número</p>
@@ -364,7 +364,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
                                                     const pago = registrosPago.find(p => p.id === pagoId);
                                                     return (
                                                         <li key={pagoId} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                                            <span>{pago?.metodo} ({new Date(pago?.fecha + 'T00:00:00').toLocaleDateString()})</span>
+                                                            <span>{pago?.metodo} ({new Date(pago?.fecha + 'T00:00:00').toLocaleDateString('es-AR')})</span>
                                                             <span className="font-semibold">${pago?.monto.toLocaleString('es-AR')}</span>
                                                         </li>
                                                     )

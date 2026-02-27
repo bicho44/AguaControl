@@ -573,7 +573,7 @@ const ClienteForm: React.FC<{
                                           <p className="font-bold text-sm text-gray-800 dark:text-white">
                                               {serviciosMap.get(c.servicioId)?.nombre || 'Servicio Personalizado'}
                                           </p>
-                                          <p className="text-xs text-gray-500">Inicio: {new Date(c.fechaInicio).toLocaleDateString()} • ${c.montoMensual?.toLocaleString() || 0}/mes</p>
+                                          <p className="text-xs text-gray-500">Inicio: {new Date(c.fechaInicio).toLocaleDateString('es-AR')} • ${c.montoMensual?.toLocaleString() || 0}/mes</p>
                                       </div>
                                       <div className="flex items-center gap-3">
                                           <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>

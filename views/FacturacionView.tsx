@@ -226,15 +226,56 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                     <Card title="Remitos Pendientes de Facturación">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
-                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700 dark:text-gray-400"><tr><th className="p-3 w-12 text-center">Sel.</th><th className="p-3">Fecha</th><th className="p-3">Número</th><th className="p-3 text-right">Monto</th></tr></thead>
-                                <tbody>{clienteData.remitosPendientes.map(r => (<tr key={r.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"><td className="p-3 text-center"><input type="checkbox" checked={selectedRemitos.has(r.id)} onChange={() => { const ns = new Set(selectedRemitos); if(ns.has(r.id)) ns.delete(r.id); else ns.add(r.id); setSelectedRemitos(ns); }} className="w-5 h-5 rounded" /></td><td className="p-3">{new Date(r.fecha + 'T00:00:00').toLocaleDateString()}</td><td className="p-3 font-mono">{r.puntoVenta}-{r.numero}</td><td className="p-3 text-right font-black text-primary-600 dark:text-primary-400">${getRemitoTotal(r).toLocaleString()}</td></tr>))}</tbody>
+                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                    <tr>
+                                        <th className="p-3 w-12 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-5 h-5 rounded cursor-pointer"
+                                                checked={clienteData.remitosPendientes.length > 0 && selectedRemitos.size === clienteData.remitosPendientes.length}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedRemitos(new Set(clienteData.remitosPendientes.map(r => r.id)));
+                                                    } else {
+                                                        setSelectedRemitos(new Set());
+                                                    }
+                                                }}
+                                            />
+                                        </th>
+                                        <th className="p-3">Fecha</th>
+                                        <th className="p-3">Número</th>
+                                        <th className="p-3 text-right">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {clienteData.remitosPendientes.map(r => (
+                                        <tr key={r.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                            <td className="p-3 text-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedRemitos.has(r.id)} 
+                                                    onChange={() => { 
+                                                        const ns = new Set(selectedRemitos); 
+                                                        if(ns.has(r.id)) ns.delete(r.id); 
+                                                        else ns.add(r.id); 
+                                                        setSelectedRemitos(ns); 
+                                                    }} 
+                                                    className="w-5 h-5 rounded cursor-pointer" 
+                                                />
+                                            </td>
+                                            <td className="p-3">{new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
+                                            <td className="p-3 font-mono">{r.puntoVenta}-{r.numero}</td>
+                                            <td className="p-3 text-right font-black text-primary-600 dark:text-primary-400">${getRemitoTotal(r).toLocaleString('es-AR')}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
                             </table>
                         </div>
                     </Card>
                     <Card title="Facturas Emitidas">
                         <div className="space-y-3">{clienteData.facturasCliente.map(f => {
                             const pagado = (f.pagoIds || []).reduce((s, id) => s + (registrosPago.find(p => p.id === id)?.monto || 0), 0);
-                            return (<div key={f.id} className="p-4 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 flex justify-between items-center shadow-sm"><div><p className="font-black uppercase tracking-tighter">{f.numero}</p><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(f.fecha + 'T00:00:00').toLocaleDateString()} | Saldo: ${(f.monto - pagado).toLocaleString()}</p></div><AppButton size="sm" onClick={() => setPagandoFacturaInfo({ factura: f, montoRestante: f.monto - pagado })} disabled={f.estado === EstadoFactura.PAGADO}>Pagar</AppButton></div>);
+                            return (<div key={f.id} className="p-4 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 flex justify-between items-center shadow-sm"><div><p className="font-black uppercase tracking-tighter">{f.numero}</p><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-AR')} | Saldo: ${(f.monto - pagado).toLocaleString('es-AR')}</p></div><AppButton size="sm" onClick={() => setPagandoFacturaInfo({ factura: f, montoRestante: f.monto - pagado })} disabled={f.estado === EstadoFactura.PAGADO}>Pagar</AppButton></div>);
                         })}</div>
                     </Card>
                 </div>

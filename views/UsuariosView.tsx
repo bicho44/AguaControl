@@ -258,7 +258,7 @@ const VendorAccountModal: React.FC<{
                         <tbody>
                             {historial.map((h, i) => (
                                 <tr key={i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                    <td className="px-4 py-3 font-mono text-xs">{new Date(h.fecha + 'T00:00:00').toLocaleDateString()}</td>
+                                    <td className="px-4 py-3 font-mono text-xs">{new Date(h.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
                                     <td className="px-4 py-3 font-bold">{h.concepto}</td>
                                     <td className="px-4 py-3 text-gray-500 text-xs">{h.detalle}</td>
                                     <td className={`px-4 py-3 text-right font-bold ${h.monto < 0 ? 'text-red-500' : 'text-green-500'}`}>

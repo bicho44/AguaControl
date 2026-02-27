@@ -165,7 +165,7 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{servicio?.nombre || 'N/A'}</td>
                                             <td className="px-4 py-3">{sucursal?.nombre || 'Casa Central'}</td>
                                             <td className="px-4 py-3">{productosMap.get(contrato.productoId || '')?.nombre || '-'}</td>
-                                            <td className="px-4 py-3">{new Date(contrato.fechaInicio + 'T00:00:00').toLocaleDateString()}</td>
+                                            <td className="px-4 py-3">{new Date(contrato.fechaInicio + 'T00:00:00').toLocaleDateString('es-AR')}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${contrato.estado === EstadoContrato.ACTIVO ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'}`}>
                                                     {contrato.estado}

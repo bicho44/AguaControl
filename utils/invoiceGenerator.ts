@@ -56,7 +56,7 @@ export const generateInvoicePDF = async (
                 doc.text(`N° ${factura.numero}`, boxX + 22.5, 24, { align: 'center' });
                 doc.setFontSize(8);
                 doc.setFont("helvetica", "normal");
-                doc.text(`Fecha: ${new Date(factura.fecha + 'T00:00:00').toLocaleDateString()}`, boxX + 22.5, 30, { align: 'center' });
+                doc.text(`Fecha: ${new Date(factura.fecha + 'T00:00:00').toLocaleDateString('es-AR')}`, boxX + 22.5, 30, { align: 'center' });
                 
                 if (mode === 'print') {
                     doc.setFontSize(6);

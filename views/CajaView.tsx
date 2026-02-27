@@ -305,7 +305,7 @@ const CajaView: React.FC<CajaViewProps> = ({
         </div>
       </div>
       
-      {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString()})`, true)}
+      {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString('es-AR')})`, true)}
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
@@ -345,7 +345,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                             return (
                                 <React.Fragment key={mov.id}>
                                     <tr className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : mov.id)}>
-                                        <td className="px-4 py-4">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString()}</td>
+                                        <td className="px-4 py-4">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
                                         <td className="px-4 py-4">
                                         <div className="flex flex-col">
                                             <span className="font-bold text-gray-900 dark:text-white text-sm">{mov.concepto}</span>

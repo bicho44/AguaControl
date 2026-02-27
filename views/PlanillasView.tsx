@@ -465,7 +465,7 @@ const PlanillaDetailModal: React.FC<{
                             Repartidor: <span className="font-semibold text-gray-800 dark:text-gray-200">{usuariosMap.get(planilla.repartidorId)?.nombre}</span>
                         </p>
                         <p className="text-gray-500 dark:text-gray-400 text-sm">
-                            Fecha: {new Date(planilla.fecha + 'T00:00:00').toLocaleDateString()}
+                            Fecha: {new Date(planilla.fecha + 'T00:00:00').toLocaleDateString('es-AR')}
                         </p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-2">
