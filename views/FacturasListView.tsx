@@ -241,7 +241,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
 
       return true;
     }).sort((a, b) => {
-        const dateComparison = new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+        const dateComparison = new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime();
         if (dateComparison !== 0) return dateComparison;
         return parseInt(b.numero.split('-')[2]) - parseInt(a.numero.split('-')[2]);
     });

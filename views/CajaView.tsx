@@ -270,7 +270,7 @@ const CajaView: React.FC<CajaViewProps> = ({
         }
     });
 
-    return allMovements.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime() || b.id.localeCompare(a.id));
+    return allMovements.sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime() || b.id.localeCompare(a.id));
   }, [gastos, registrosPago, remitosMap, ventasVendedor, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap]);
 
   const displayedMovements = useMemo(() => combinedMovements.slice(0, itemsLimit), [combinedMovements, itemsLimit]);

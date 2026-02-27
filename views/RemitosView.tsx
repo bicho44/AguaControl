@@ -176,6 +176,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [editingRemito, setEditingRemito] = useState<any>(null);
   const [clienteFilter, setClienteFilter] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
+  const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const [formInstanceId, setFormInstanceId] = useState(0);
@@ -243,10 +244,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         if (currentUser.rol === Rol.REPARTIDOR && r.vendedorId !== currentUser.id) return false;
         if (clienteFilter && r.clienteId !== clienteFilter) return false;
         if (paymentStatusFilter !== 'todos' && r.paymentStatus !== paymentStatusFilter) return false;
+        
+        const remitoDate = new Date(r.fecha + 'T00:00:00');
+        const fromDate = dateFilter.from ? new Date(dateFilter.from + 'T00:00:00') : null;
+        const toDate = dateFilter.to ? new Date(dateFilter.to + 'T00:00:00') : null;
+
+        if (fromDate && remitoDate < fromDate) return false;
+        if (toDate && remitoDate > toDate) return false;
+        
         return true;
     }).sort((a, b) => {
-        const dateA = new Date(a.fecha).getTime();
-        const dateB = new Date(b.fecha).getTime();
+        const dateA = new Date(a.fecha + 'T00:00:00').getTime();
+        const dateB = new Date(b.fecha + 'T00:00:00').getTime();
         if (dateB !== dateA) return dateB - dateA;
         const ptoA = parseInt(a.puntoVenta) || 0;
         const ptoB = parseInt(b.puntoVenta) || 0;
@@ -255,7 +264,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         const numB = parseInt(b.numero) || 0;
         return numB - numA;
     });
-  }, [processedRemitos, clienteFilter, paymentStatusFilter, currentUser]);
+  }, [processedRemitos, clienteFilter, paymentStatusFilter, dateFilter, currentUser]);
 
   const handleSave = async (r: any) => {
     try {
@@ -400,9 +409,21 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           </div>
       </div>
       <Card>
-        <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
+        <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="lg:col-span-2">
+                <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
+            </div>
             <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
+            <div className="flex gap-2 w-full">
+                <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
+                    <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm" />
+                </div>
+                <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+                    <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm" />
+                </div>
+            </div>
         </div>
         <div className="space-y-2 p-2">
           {filteredRemitos.map(remito => (
