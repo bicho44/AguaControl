@@ -634,6 +634,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const [clienteParaBaja, setClienteParaBaja] = useState<Cliente | null>(null);
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstadoCliente | 'todos'>(EstadoCliente.ACTIVO);
+  const [paymentFilter, setPaymentFilter] = useState<'todos' | 'cta_cte' | 'contado'>('todos');
   const [expandedClienteId, setExpandedClienteId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const { user: currentUser } = useAuth();
@@ -649,9 +650,12 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     return list.filter(c => {
         const matchesName = (c.nombre || '').toLowerCase().includes(filter.toLowerCase());
         const matchesStatus = statusFilter === 'todos' || c.estado === statusFilter;
-        return matchesName && matchesStatus;
+        const matchesPayment = paymentFilter === 'todos' || 
+            (paymentFilter === 'cta_cte' && c.tieneCuentaCorriente) || 
+            (paymentFilter === 'contado' && !c.tieneCuentaCorriente);
+        return matchesName && matchesStatus && matchesPayment;
     }).sort((a,b) => (a.nombre || '').localeCompare(b.nombre || ''));
-  }, [clientes, filter, statusFilter, currentUser]);
+  }, [clientes, filter, statusFilter, paymentFilter, currentUser]);
 
   // ... (Resto de hooks useMemo de la vista Clientes se mantienen)
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -773,11 +777,23 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
       )}
 
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-            <input type="text" placeholder="Buscar por nombre..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full md:w-1/3 p-3 bg-white dark:bg-gray-700 rounded-xl border dark:border-gray-600" />
-            <div className="flex items-center space-x-4 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
-                {['Activo', 'Inactivo', 'todos'].map(s => (
-                    <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500'}`}>{s === 'todos' ? 'TODOS' : s.toUpperCase()}</button>
-                ))}
+            <div className="relative w-full md:w-1/3">
+                <AppInput placeholder="Buscar por nombre..." value={filter} onChange={(e) => setFilter(e.target.value)} className="pl-10" />
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <SearchIcon className="h-5 w-5 text-gray-400" />
+                </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
+                    {['Activo', 'Inactivo', 'todos'].map(s => (
+                        <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>{s === 'todos' ? 'TODOS' : s}</button>
+                    ))}
+                </div>
+                <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
+                    <button onClick={() => setPaymentFilter('todos')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'todos' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>TODOS</button>
+                    <button onClick={() => setPaymentFilter('cta_cte')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'cta_cte' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>CTA. CTE.</button>
+                    <button onClick={() => setPaymentFilter('contado')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'contado' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>CONTADO</button>
+                </div>
             </div>
       </div>
             
