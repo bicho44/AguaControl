@@ -84,6 +84,19 @@ export const useDataStore = () => {
         nombreFantasia: 'Aguas Puras'
     });
 
+    // --- LOGGER ---
+    const addLog = useCallback(async (logData: Omit<LogEntry, 'id' | 'timestamp'>) => {
+        try {
+            await addDoc(collection(db, 'system_logs'), {
+                ...logData,
+                timestamp: Date.now(),
+                version: '2.6.0'
+            });
+        } catch (e) {
+            console.error("Error crítico al guardar log:", e);
+        }
+    }, []);
+
     useEffect(() => {
         if (!db) return;
 
@@ -439,18 +452,28 @@ export const useDataStore = () => {
             }
         });
         await batch.commit();
-    }, [productos]);
+
+        addLog({
+            level: LogLevel.INFO,
+            message: `Planilla abierta para ${usuarios.find(u => u.id === p.repartidorId)?.nombre}`,
+            details: `Carga inicial: ${JSON.stringify(p.cargaInicial)}`,
+            route: 'planillas'
+        });
+    }, [productos, usuarios, addLog]);
 
     const updatePlanilla = useCallback(async (p: any) => {
         const { id, ...data } = p;
         const oldPlanilla = planillas.find(pl => pl.id === id);
+        if (!oldPlanilla) return;
         
         await updateDoc(doc(db, 'planillas', id), cleanUndefineds(data));
 
-        // Lógica de stock al actualizar planilla
-        if (oldPlanilla && data.estado === EstadoPlanilla.CERRADA && oldPlanilla.estado === EstadoPlanilla.ABIERTA) {
-            // Al cerrar planilla, sumar lo que vuelve al stock de planta
-            const batch = writeBatch(db);
+        const batch = writeBatch(db);
+        let hasChanges = false;
+
+        // 1. Lógica de CIERRE
+        if (data.estado === EstadoPlanilla.CERRADA && oldPlanilla.estado === EstadoPlanilla.ABIERTA) {
+            // Al cerrar planilla, sumar lo que vuelve al stock de planta (Llenos y Vacíos)
             data.devolucion?.forEach((item: any) => {
                 const prod = productos.find(pr => pr.id === item.productoId);
                 if (prod) {
@@ -460,35 +483,134 @@ export const useDataStore = () => {
                         stockPlanta: newStockLlenos,
                         stockEnvases: newStockVacios
                     });
+                    hasChanges = true;
                 }
             });
+            addLog({
+                level: LogLevel.INFO,
+                message: `Planilla cerrada: ${usuarios.find(u => u.id === oldPlanilla.repartidorId)?.nombre}`,
+                details: `Devolución: ${JSON.stringify(data.devolucion)}`,
+                route: 'planillas'
+            });
+        } 
+        
+        // 2. Lógica de RECARGAS (Detección de nuevas recargas)
+        const oldRecargasCount = oldPlanilla.recargas?.length || 0;
+        const newRecargasCount = data.recargas?.length || 0;
+
+        if (newRecargasCount > oldRecargasCount) {
+            // Se agregaron recargas
+            const addedRecargas = data.recargas.slice(oldRecargasCount);
+            addedRecargas.forEach((rec: any) => {
+                // Descontar productos llenos que salen de planta
+                rec.items.forEach((item: any) => {
+                    const prod = productos.find(pr => pr.id === item.productoId);
+                    if (prod) {
+                        const newStock = (prod.stockPlanta || 0) - item.cantidad;
+                        batch.update(doc(db, 'productos', prod.id), { stockPlanta: newStock });
+                        hasChanges = true;
+                    }
+                });
+
+                // Sumar envases vacíos que entran a planta desde el camión
+                rec.vaciosDescargados?.forEach((item: any) => {
+                    const prod = productos.find(pr => pr.id === item.productoId);
+                    if (prod) {
+                        const newStock = (prod.stockEnvases || 0) + item.cantidad;
+                        batch.update(doc(db, 'productos', prod.id), { stockEnvases: newStock });
+                        hasChanges = true;
+                    }
+                });
+            });
+        } else if (newRecargasCount < oldRecargasCount) {
+            // Se eliminaron recargas (Revertir stock)
+            const removedRecargas = oldPlanilla.recargas!.slice(newRecargasCount);
+            removedRecargas.forEach((rec: any) => {
+                // Revertir: Sumar productos llenos que NO salieron
+                rec.items.forEach((item: any) => {
+                    const prod = productos.find(pr => pr.id === item.productoId);
+                    if (prod) {
+                        const newStock = (prod.stockPlanta || 0) + item.cantidad;
+                        batch.update(doc(db, 'productos', prod.id), { stockPlanta: newStock });
+                        hasChanges = true;
+                    }
+                });
+
+                // Revertir: Restar envases vacíos que NO entraron
+                rec.vaciosDescargados?.forEach((item: any) => {
+                    const prod = productos.find(pr => pr.id === item.productoId);
+                    if (prod) {
+                        const newStock = (prod.stockEnvases || 0) - item.cantidad;
+                        batch.update(doc(db, 'productos', prod.id), { stockEnvases: newStock });
+                        hasChanges = true;
+                    }
+                });
+            });
+        }
+
+        if (hasChanges) {
             await batch.commit();
-        } else if (oldPlanilla && data.recargas?.length > (oldPlanilla.recargas?.length || 0)) {
-            // Si se agregó una recarga, descontar del stock de planta
-            const lastRecarga = data.recargas[data.recargas.length - 1];
-            const batch = writeBatch(db);
-            
-            // Descontar productos llenos que salen
-            lastRecarga.items.forEach((item: any) => {
-                const prod = productos.find(pr => pr.id === item.productoId);
+        }
+    }, [planillas, productos, usuarios, addLog]);
+
+    const deletePlanilla = useCallback(async (id: string) => {
+        const planilla = planillas.find(p => p.id === id);
+        if (!planilla) return;
+
+        const batch = writeBatch(db);
+        
+        // REVERTIR CARGA INICIAL (Sumar a planta)
+        planilla.cargaInicial.forEach(item => {
+            const prod = productos.find(p => p.id === item.productoId);
+            if (prod) {
+                const newStock = (prod.stockPlanta || 0) + item.cantidad;
+                batch.update(doc(db, 'productos', prod.id), { stockPlanta: newStock });
+            }
+        });
+
+        // REVERTIR RECARGAS
+        planilla.recargas?.forEach(rec => {
+            rec.items.forEach(item => {
+                const prod = productos.find(p => p.id === item.productoId);
                 if (prod) {
-                    const newStock = (prod.stockPlanta || 0) - item.cantidad;
+                    const newStock = (prod.stockPlanta || 0) + item.cantidad;
                     batch.update(doc(db, 'productos', prod.id), { stockPlanta: newStock });
                 }
             });
-
-            // Sumar envases vacíos que entran a planta desde el camión en la recarga
-            lastRecarga.vaciosDescargados?.forEach((item: any) => {
-                const prod = productos.find(pr => pr.id === item.productoId);
+            rec.vaciosDescargados?.forEach(item => {
+                const prod = productos.find(p => p.id === item.productoId);
                 if (prod) {
-                    const newStock = (prod.stockEnvases || 0) + item.cantidad;
+                    const newStock = (prod.stockEnvases || 0) - item.cantidad;
                     batch.update(doc(db, 'productos', prod.id), { stockEnvases: newStock });
                 }
             });
+        });
 
-            await batch.commit();
+        // REVERTIR DEVOLUCION SI ESTABA CERRADA
+        if (planilla.estado === EstadoPlanilla.CERRADA) {
+            planilla.devolucion?.forEach(item => {
+                const prod = productos.find(p => p.id === item.productoId);
+                if (prod) {
+                    const newStockLlenos = (prod.stockPlanta || 0) - (item.cantidadLlenos || 0);
+                    const newStockVacios = (prod.stockEnvases || 0) - (item.cantidadVacios || 0);
+                    batch.update(doc(db, 'productos', prod.id), { 
+                        stockPlanta: newStockLlenos,
+                        stockEnvases: newStockVacios
+                    });
+                }
+            });
         }
-    }, [planillas, productos]);
+
+        batch.delete(doc(db, 'planillas', id));
+        await batch.commit();
+
+        addLog({
+            level: LogLevel.WARNING,
+            message: `Planilla eliminada: ${usuarios.find(u => u.id === planilla.repartidorId)?.nombre}`,
+            details: `Se revirtieron todos los movimientos de stock asociados.`,
+            route: 'planillas'
+        });
+    }, [planillas, productos, usuarios, addLog]);
 
     const addMovimientoStockPlanta = useCallback(async (mov: Omit<MovimientoStockPlanta, 'id'>) => {
         const docRef = await addDoc(collection(db, 'movimientosStockPlanta'), cleanUndefineds(mov));
@@ -571,19 +693,6 @@ export const useDataStore = () => {
         await batch.commit();
     }, [clientes]);
 
-    // LOGGER
-    const addLog = useCallback(async (logData: Omit<LogEntry, 'id' | 'timestamp'>) => {
-        try {
-            await addDoc(collection(db, 'system_logs'), {
-                ...logData,
-                timestamp: Date.now(),
-                version: '2.6.0'
-            });
-        } catch (e) {
-            console.error("Error crítico al guardar log:", e);
-        }
-    }, []);
-
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, movimientosStockPlanta, empresaSettings, logs, causasRecambio,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
@@ -592,7 +701,7 @@ export const useDataStore = () => {
         addProducto, updateProducto, deleteProducto, reactivarProducto,
         addServicio, updateServicio, deleteServicio, reactivarServicio,
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
-        addPlanilla, updatePlanilla, addMovimientoStockPlanta, updateEmpresaSettings, updateRutasMasivo,
+        addPlanilla, updatePlanilla, deletePlanilla, addMovimientoStockPlanta, updateEmpresaSettings, updateRutasMasivo,
         addCausaRecambio, deleteCausaRecambio,
         addLog
     };

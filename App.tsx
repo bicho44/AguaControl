@@ -13,9 +13,8 @@ import ImportarView from './views/ImportarView';
 import CajaView from './views/CajaView';
 import SettingsView from './views/SettingsView';
 import ContratosView from './views/ContratosView';
-import PlanillasView from './views/PlanillasView';
 import RutasView from './views/RutasView';
-import StockPlantaView from './views/StockPlantaView';
+import GestionStockView from './views/GestionStockView';
 import SystemLogsView from './views/SystemLogsView'; // Nueva vista
 import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
@@ -248,19 +247,17 @@ function AppContent() {
                   deleteContrato={dataStore.deleteContrato}
                 />;
       case 'planillas': 
-        return <PlanillasView
+      case 'stock_planta':
+        return <GestionStockView
                   planillas={dataStore.planillas}
+                  movimientosPlanta={dataStore.movimientosStockPlanta}
                   usuarios={dataStore.usuarios}
                   productos={dataStore.productos}
                   remitos={dataStore.remitos}
                   addPlanilla={dataStore.addPlanilla}
                   updatePlanilla={dataStore.updatePlanilla}
-               />;
-      case 'stock_planta':
-        return <StockPlantaView
-                  productos={dataStore.productos}
-                  movimientos={dataStore.movimientosStockPlanta}
-                  addMovimiento={dataStore.addMovimientoStockPlanta}
+                  deletePlanilla={dataStore.deletePlanilla}
+                  addMovimientoPlanta={dataStore.addMovimientoStockPlanta}
                />;
       case 'rutas':
         return <RutasView
