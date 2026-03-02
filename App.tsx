@@ -116,6 +116,7 @@ function AppContent() {
         empresaSettings: dataStore.empresaSettings,
         causasRecambio: dataStore.causasRecambio,
         planillas: dataStore.planillas,
+        movimientosPlanta: dataStore.movimientosStockPlanta,
         // Acciones para botones rápidos
         addRemito: dataStore.addRemito,
         addPagoManual: dataStore.addPagoManual,
