@@ -15,6 +15,7 @@ import SettingsView from './views/SettingsView';
 import ContratosView from './views/ContratosView';
 import PlanillasView from './views/PlanillasView';
 import RutasView from './views/RutasView';
+import StockPlantaView from './views/StockPlantaView';
 import SystemLogsView from './views/SystemLogsView'; // Nueva vista
 import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
@@ -254,6 +255,12 @@ function AppContent() {
                   remitos={dataStore.remitos}
                   addPlanilla={dataStore.addPlanilla}
                   updatePlanilla={dataStore.updatePlanilla}
+               />;
+      case 'stock_planta':
+        return <StockPlantaView
+                  productos={dataStore.productos}
+                  movimientos={dataStore.movimientosStockPlanta}
+                  addMovimiento={dataStore.addMovimientoStockPlanta}
                />;
       case 'rutas':
         return <RutasView

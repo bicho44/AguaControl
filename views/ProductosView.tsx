@@ -27,7 +27,7 @@ const ProductoForm: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNum = name === 'litros' || name === 'precio' || name === 'precioReventa';
+    const isNum = name === 'litros' || name === 'precio' || name === 'precioReventa' || name === 'stockPlanta' || name === 'stockEnvases';
     setFormData(prev => ({ ...prev, [name]: isNum ? (value === '' ? undefined : Number(value)) : value }));
   };
 
@@ -60,6 +60,14 @@ const ProductoForm: React.FC<{
             <div className="grid grid-cols-2 gap-4">
                 <AppInput label="Precio Lista" type="number" name="precio" value={formData.precio ?? ''} onChange={handleChange} step="0.01" required />
                 <AppInput label="Precio Reventa" type="number" name="precioReventa" value={formData.precioReventa ?? ''} onChange={handleChange} step="0.01" />
+            </div>
+        </Card>
+        <Card title="Stock Inicial en Planta">
+            <div className="grid grid-cols-2 gap-4">
+                <AppInput label="Stock Llenos" type="number" name="stockPlanta" value={formData.stockPlanta ?? ''} onChange={handleChange} />
+                {formData.tipo === TipoProducto.RETORNABLE && (
+                    <AppInput label="Stock Envases Vacíos" type="number" name="stockEnvases" value={formData.stockEnvases ?? ''} onChange={handleChange} />
+                )}
             </div>
         </Card>
         <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600">

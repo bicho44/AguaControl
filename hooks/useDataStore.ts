@@ -30,6 +30,7 @@ import {
   PlanillaDiaria,
   Rol,
   EstadoFactura,
+  EstadoPlanilla,
   PagoDetalle,
   MetodoPago,
   EstadoCliente,
@@ -40,7 +41,8 @@ import {
   LogEntry,
   LogLevel,
   CausaRecambio,
-  Recambio
+  Recambio,
+  MovimientoStockPlanta
 } from '../types';
 
 const cleanUndefineds = (obj: any): any => {
@@ -74,6 +76,7 @@ export const useDataStore = () => {
     const [contratos, setContratos] = useState<Contrato[]>([]);
     const [servicios, setServicios] = useState<Servicio[]>([]);
     const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
+    const [movimientosStockPlanta, setMovimientosStockPlanta] = useState<MovimientoStockPlanta[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [causasRecambio, setCausasRecambio] = useState<CausaRecambio[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
@@ -99,6 +102,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'contratos'), (s) => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() } as Contrato)))),
             onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
+            onSnapshot(collection(db, 'movimientosStockPlanta'), (s) => setMovimientosStockPlanta(s.docs.map(d => ({ id: d.id, ...d.data() } as MovimientoStockPlanta)))),
             onSnapshot(collection(db, 'causasRecambio'), (s) => setCausasRecambio(s.docs.map(d => ({ id: d.id, ...d.data() } as CausaRecambio)))),
             onSnapshot(logsQuery, (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() } as LogEntry)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
@@ -423,13 +427,87 @@ export const useDataStore = () => {
     }, []);
 
     const addPlanilla = useCallback(async (p: any) => {
-        await addDoc(collection(db, 'planillas'), cleanUndefineds(p));
-    }, []);
+        const docRef = await addDoc(collection(db, 'planillas'), cleanUndefineds(p));
+        
+        // Al abrir planilla, descontar carga inicial del stock de planta
+        const batch = writeBatch(db);
+        p.cargaInicial.forEach((item: any) => {
+            const prod = productos.find(pr => pr.id === item.productoId);
+            if (prod) {
+                const newStock = (prod.stockPlanta || 0) - item.cantidad;
+                batch.update(doc(db, 'productos', prod.id), { stockPlanta: newStock });
+            }
+        });
+        await batch.commit();
+    }, [productos]);
 
     const updatePlanilla = useCallback(async (p: any) => {
         const { id, ...data } = p;
+        const oldPlanilla = planillas.find(pl => pl.id === id);
+        
         await updateDoc(doc(db, 'planillas', id), cleanUndefineds(data));
-    }, []);
+
+        // Lógica de stock al actualizar planilla
+        if (oldPlanilla && data.estado === EstadoPlanilla.CERRADA && oldPlanilla.estado === EstadoPlanilla.ABIERTA) {
+            // Al cerrar planilla, sumar lo que vuelve al stock de planta
+            const batch = writeBatch(db);
+            data.devolucion?.forEach((item: any) => {
+                const prod = productos.find(pr => pr.id === item.productoId);
+                if (prod) {
+                    const newStockLlenos = (prod.stockPlanta || 0) + (item.cantidadLlenos || 0);
+                    const newStockVacios = (prod.stockEnvases || 0) + (item.cantidadVacios || 0);
+                    batch.update(doc(db, 'productos', prod.id), { 
+                        stockPlanta: newStockLlenos,
+                        stockEnvases: newStockVacios
+                    });
+                }
+            });
+            await batch.commit();
+        } else if (oldPlanilla && data.recargas?.length > (oldPlanilla.recargas?.length || 0)) {
+            // Si se agregó una recarga, descontar del stock de planta
+            const lastRecarga = data.recargas[data.recargas.length - 1];
+            const batch = writeBatch(db);
+            
+            // Descontar productos llenos que salen
+            lastRecarga.items.forEach((item: any) => {
+                const prod = productos.find(pr => pr.id === item.productoId);
+                if (prod) {
+                    const newStock = (prod.stockPlanta || 0) - item.cantidad;
+                    batch.update(doc(db, 'productos', prod.id), { stockPlanta: newStock });
+                }
+            });
+
+            // Sumar envases vacíos que entran a planta desde el camión en la recarga
+            lastRecarga.vaciosDescargados?.forEach((item: any) => {
+                const prod = productos.find(pr => pr.id === item.productoId);
+                if (prod) {
+                    const newStock = (prod.stockEnvases || 0) + item.cantidad;
+                    batch.update(doc(db, 'productos', prod.id), { stockEnvases: newStock });
+                }
+            });
+
+            await batch.commit();
+        }
+    }, [planillas, productos]);
+
+    const addMovimientoStockPlanta = useCallback(async (mov: Omit<MovimientoStockPlanta, 'id'>) => {
+        const docRef = await addDoc(collection(db, 'movimientosStockPlanta'), cleanUndefineds(mov));
+        
+        // Actualizar stock del producto
+        const prod = productos.find(p => p.id === mov.productoId);
+        if (prod) {
+            const field = mov.esEnvase ? 'stockEnvases' : 'stockPlanta';
+            const currentStock = (prod[field] as number) || 0;
+            let newStock = currentStock;
+            
+            if (mov.tipo === 'entrada') newStock += mov.cantidad;
+            else if (mov.tipo === 'salida') newStock -= mov.cantidad;
+            else if (mov.tipo === 'ajuste') newStock = mov.cantidad;
+
+            await updateDoc(doc(db, 'productos', prod.id), { [field]: newStock });
+        }
+        return docRef.id;
+    }, [productos]);
 
     const updateEmpresaSettings = useCallback(async (s: any) => {
         await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(s));
@@ -507,14 +585,14 @@ export const useDataStore = () => {
     }, []);
 
     return {
-        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, empresaSettings, logs, causasRecambio,
+        remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, movimientosStockPlanta, empresaSettings, logs, causasRecambio,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
         addProducto, updateProducto, deleteProducto, reactivarProducto,
         addServicio, updateServicio, deleteServicio, reactivarServicio,
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
-        addPlanilla, updatePlanilla, updateEmpresaSettings, updateRutasMasivo,
+        addPlanilla, updatePlanilla, addMovimientoStockPlanta, updateEmpresaSettings, updateRutasMasivo,
         addCausaRecambio, deleteCausaRecambio,
         addLog
     };

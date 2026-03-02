@@ -1079,6 +1079,40 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="lg:col-span-1">
+              <Card title="Stock Permanente en Planta">
+                  <div className="overflow-y-auto max-h-[420px] pr-2">
+                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Productos y Envases en Fábrica</p>
+                      {productos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).length > 0 ? (
+                          <table className="w-full text-sm">
+                              <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                  <tr>
+                                      <th className="py-2 text-left">Producto</th>
+                                      <th className="py-2 text-right">Llenos</th>
+                                      <th className="py-2 text-right">Vacíos</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {productos
+                                    .filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE)
+                                    .map(p => (
+                                      <tr key={p.id} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{p.nombre}</td>
+                                          <td className="py-3 text-right font-black text-blue-600 dark:text-blue-400 text-base">{p.stockPlanta || 0}</td>
+                                          <td className="py-3 text-right font-black text-yellow-600 dark:text-yellow-400 text-base">{p.tipo === TipoProducto.RETORNABLE ? (p.stockEnvases || 0) : '-'}</td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                              <p className="text-xs font-bold uppercase">Sin productos registrados</p>
+                          </div>
+                      )}
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-1">
               <Card title="Stock en Poder de Clientes">
                   <div className="overflow-y-auto max-h-[420px] pr-2">
                       <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Activos pendientes de devolución</p>
