@@ -672,7 +672,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     saldoOtros,
     monthlySalesVolumeChartData,
     currentMonthDailySalesData,
-    productionChartData,
     externalVendorsPieData,
     stockEnCalle,
     vendedoresComisiones
@@ -837,28 +836,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         }
     }
 
-    // Lógica de Producción Diaria
-    const productionData: any[] = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dayObj: any = { name: d.toString() };
-        consumableProductNames.forEach(pName => {
-            dayObj[pName] = 0;
-        });
-        
-        movimientosPlanta.forEach(m => {
-            const mDate = parseLocalDate(m.fecha);
-            if (mDate.getFullYear() === today.getFullYear() && mDate.getMonth() === today.getMonth() && mDate.getDate() === d) {
-                if (m.tipo === 'entrada' && m.concepto.toLowerCase().includes('producción')) {
-                    const prod = productosMap.get(m.productoId);
-                    if (prod && consumableProductNames.includes(prod.nombre)) {
-                        dayObj[prod.nombre] += m.cantidad;
-                    }
-                }
-            }
-        });
-        productionData.push(dayObj);
-    }
-
     const externalSalesMap = new Map<string, number>();
     monthlyVentas.forEach(v => {
         const vendor = usuariosMap.get(v.vendedorId);
@@ -897,7 +874,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         saldoOtros: sOtros,
         monthlySalesVolumeChartData: monthlyHistoryData,
         currentMonthDailySalesData: dailyEvolutionData,
-        productionChartData: productionData,
         externalVendorsPieData,
         stockEnCalle,
         vendedoresComisiones: comisiones
@@ -1236,34 +1212,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <p className="text-xs font-bold uppercase">Sin comisiones este mes</p>
                           </div>
                       )}
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-2">
-              <Card title="Producción Diaria (Mes Actual)">
-                  <div className="h-80 px-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={productionChartData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-                              <YAxis axisLine={false} tickLine={false} />
-                              <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
-                              <Legend iconType="circle" formatter={(v) => shortName(v)} />
-                              {consumableProductNames.map(name => visibleProducts.includes(name) && (
-                                  <Area 
-                                    key={name} 
-                                    type="monotone" 
-                                    dataKey={name} 
-                                    stackId="1" 
-                                    stroke={productColors[name]} 
-                                    fill={productColors[name]} 
-                                    fillOpacity={0.6} 
-                                    name={shortName(name)} 
-                                  />
-                              ))}
-                          </AreaChart>
-                      </ResponsiveContainer>
                   </div>
               </Card>
           </div>

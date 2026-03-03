@@ -434,19 +434,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                         <AppButton onClick={() => setIsNewPlanillaOpen(true)}>+ Abrir Planilla</AppButton>
                     )}
                     {activeTab === 'planta' && (
-                        <>
-                            <AppButton variant="success" onClick={() => {
-                                setNewMovPlanta({
-                                    fecha: getLocalDateString(),
-                                    tipo: 'entrada',
-                                    concepto: 'Producción',
-                                    cantidad: 0,
-                                    esEnvase: false
-                                });
-                                setIsMovPlantaOpen(true);
-                            }}>+ Registrar Producción</AppButton>
-                            <AppButton variant="secondary" onClick={() => setIsMovPlantaOpen(true)}>+ Movimiento Manual</AppButton>
-                        </>
+                        <AppButton onClick={() => setIsMovPlantaOpen(true)}>+ Movimiento Manual</AppButton>
                     )}
                 </div>
             </div>
