@@ -132,13 +132,25 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
         const payload = { 
             ...formData,
             id: idToUse,
-            movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0) 
+            movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0).map(mov => {
+                // Si ya tiene precio (ej: estamos editando), lo mantenemos
+                if (mov.precioUnitario !== undefined && mov.precioUnitario !== 0) return mov;
+                
+                // Si no tiene precio, calculamos el precio sugerido actual para persistirlo
+                const prod = productosMap.get(mov.productoId);
+                if (!prod) return mov;
+                const especialCliente = selectedCliente?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio;
+                const especialVendedor = selectedVendedor?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio;
+                const precioSugerido = especialCliente ?? especialVendedor ?? (selectedVendedor?.tipo === TipoVendedor.EXTERNO ? (prod.precioReventa ?? prod.precio) : prod.precio);
+                
+                return { ...mov, precioUnitario: precioSugerido };
+            })
         };
         onSave(payload, true);
     } else {
         onSave(formData, false);
     }
-  }, [formData, isVentaMode, movimientosVenta, onSave, isEdit]);
+  }, [formData, isVentaMode, movimientosVenta, onSave, isEdit, productosMap, selectedCliente, selectedVendedor]);
 
   const vendedorOptions = useMemo(() => vendedores.map(v => ({ value: v.id, label: v.nombre })), [vendedores]);
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);

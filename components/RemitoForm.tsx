@@ -71,7 +71,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         if (!mov.productoId) return total;
         const producto = productosMap.get(mov.productoId);
         if (!producto) return total;
-        const precio = preciosEspecialesMap.get(mov.productoId) ?? producto.precio;
+        const precio = mov.precioUnitario ?? preciosEspecialesMap.get(mov.productoId) ?? producto.precio;
         return total + (mov.entregados * precio);
     }, 0);
   }, [clientes, productosMap]);
@@ -281,7 +281,18 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     const remitoFinal = {
         ...formData,
         puntoVenta: puntoVentaLimpio,
-        numero: numeroLimpio
+        numero: numeroLimpio,
+        movimientos: formData.movimientos?.map(mov => {
+            // Si ya tiene precio (ej: estamos editando un remito que ya lo guardó), lo mantenemos
+            if (mov.precioUnitario !== undefined) return mov;
+            
+            // Si no tiene precio (remito nuevo o antiguo sin el campo), buscamos el precio actual
+            const cliente = clientes.find(c => c.id === formData.clienteId);
+            const producto = productosMap.get(mov.productoId);
+            const precio = cliente?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio ?? producto?.precio ?? 0;
+            
+            return { ...mov, precioUnitario: precio };
+        })
     };
 
     // --- VALIDACIÓN DE DUPLICADOS ---

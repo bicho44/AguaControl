@@ -177,6 +177,7 @@ export interface Movimiento {
     productoId: string;
     entregados: number;
     recibidos: number;
+    precioUnitario?: number;
 }
 
 export interface Remito {

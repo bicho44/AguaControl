@@ -138,7 +138,8 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
     return remito.movimientos.reduce((sum, mov) => {
         const prod = productosMap.get(mov.productoId);
         if (!prod) return sum;
-        return sum + (mov.entregados * (preciosEspecialesMap.get(mov.productoId) ?? prod.precio));
+        const precio = mov.precioUnitario ?? preciosEspecialesMap.get(mov.productoId) ?? prod.precio;
+        return sum + (mov.entregados * precio);
     }, 0);
   }, [productosMap, clientesMap]);
   

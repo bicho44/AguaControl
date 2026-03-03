@@ -221,7 +221,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     return r.movimientos.reduce((total, mov) => {
         const prod = productosMap.get(mov.productoId);
         if (!prod) return total;
-        return total + (mov.entregados * (peMap.get(mov.productoId) ?? prod.precio));
+        const precio = mov.precioUnitario ?? peMap.get(mov.productoId) ?? prod.precio;
+        return total + (mov.entregados * precio);
     }, 0);
   }, [clientesMap, productosMap]);
 
