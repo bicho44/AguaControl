@@ -318,7 +318,7 @@ const ExternalVendorDashboard: React.FC<{
     onOpenStockPurchase: () => void,
     onOpenPago: () => void
 }> = ({ user, ventas, pagos, productosMap, onOpenStockPurchase, onOpenPago }) => {
-    const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id), [ventas, user.id]);
+    const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id && !v.clienteId), [ventas, user.id]);
     
     const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
         let comprado = 0;
@@ -360,7 +360,7 @@ const ExternalVendorDashboard: React.FC<{
         });
 
         // 2. Sumar Pagos (RegistroPago vinculados a ventas de este vendedor)
-        const misPagos = pagos.filter(p => p.vendedorId === user.id);
+        const misPagos = pagos.filter(p => p.vendedorId === user.id && !p.clienteId);
         
         let pagado = 0;
         misPagos.forEach(p => {

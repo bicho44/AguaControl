@@ -33,7 +33,11 @@ const UsuarioForm: React.FC<{
   onSave: (usuario: Omit<Usuario, 'id'> | Usuario) => void;
   onClose: () => void;
 }> = ({ usuario, productos, onSave, onClose }) => {
-  const [formData, setFormData] = useState(usuario);
+  const [formData, setFormData] = useState({
+    comisiones: [],
+    preciosEspeciales: [],
+    ...usuario
+  });
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -141,8 +145,8 @@ const VendorAccountModal: React.FC<{
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
-        const misVentas = ventas.filter(v => v.vendedorId === user.id);
-        const misPagos = pagos.filter(p => p.vendedorId === user.id);
+        const misVentas = ventas.filter(v => v.vendedorId === user.id && !v.clienteId);
+        const misPagos = pagos.filter(p => p.vendedorId === user.id && !p.clienteId);
         
         let comprado = 0;
         const historialCombinado: any[] = [];
@@ -326,14 +330,14 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-        if (e.altKey && (e.key === 'n' || e.key === 'N') && !editingUsuario) {
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && !editingUsuario && !viewAccountUser) {
             e.preventDefault();
             openNewModal();
         }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [editingUsuario, openNewModal]);
+  }, [editingUsuario, viewAccountUser, openNewModal]);
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">

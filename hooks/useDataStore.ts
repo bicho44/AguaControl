@@ -12,6 +12,7 @@ import {
   writeBatch,
   setDoc,
   query,
+  where,
   orderBy,
   limit
 } from 'firebase/firestore';
@@ -266,7 +267,8 @@ export const useDataStore = () => {
                     monto: p.monto,
                     metodo: p.metodo,
                     origen: { tipo: 'venta_vendedor', id: docRef.id },
-                    vendedorId: data.vendedorId
+                    vendedorId: data.vendedorId,
+                    clienteId: data.clienteId || null
                 });
                 pagoIds.push(pDoc.id);
             }
@@ -299,7 +301,13 @@ export const useDataStore = () => {
 
     // NUEVO: Función para eliminar ventas de vendedores (corrección de stock)
     const deleteVentaVendedor = useCallback(async (id: string) => {
+        // Eliminar la venta
         await deleteDoc(doc(db, 'ventasVendedor', id));
+        // Eliminar los pagos asociados en registrosPago
+        const q = query(collection(db, 'registrosPago'), where('origen.tipo', '==', 'venta_vendedor'), where('origen.id', '==', id));
+        const snapshot = await getDocs(q);
+        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
     }, []);
 
     const addUsuario = useCallback(async (u: any) => {
