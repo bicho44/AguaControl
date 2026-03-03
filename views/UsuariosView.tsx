@@ -13,6 +13,8 @@ import AppSelect from '../components/ui/AppSelect';
 import SearchableSelect from '../components/SearchableSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 
+import MovimientoCajaForm from '../components/MovimientoCajaForm';
+
 interface UsuariosViewProps {
   usuarios: Usuario[];
   registrosPago: RegistroPago[];
@@ -23,6 +25,9 @@ interface UsuariosViewProps {
   addUsuario: (usuario: Omit<Usuario, 'id'>) => void;
   updateUsuario: (usuario: Usuario) => void;
   addVentaVendedor: (venta: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => void;
+  addPagoManual: (pago: any) => Promise<void>;
+  updateRegistroPago: (pago: RegistroPago) => Promise<void>;
+  updateVentaVendedor: (venta: VentaVendedor) => Promise<void>;
   deleteRegistroPago: (id: string) => Promise<void>;
   deleteVentaVendedor: (id: string) => Promise<void>;
 }
@@ -134,14 +139,17 @@ const VendorAccountModal: React.FC<{
     user: Usuario;
     ventas: VentaVendedor[];
     pagos: RegistroPago[];
+    clientes: Cliente[];
+    vendedores: Usuario[];
+    productos: Producto[];
     productosMap: Map<string, Producto>;
     onClose: () => void;
-    onAddPayment: (pago: any) => void;
+    onSaveMovement: (data: any, isVenta: boolean) => Promise<void>;
     onDeletePayment: (id: string) => Promise<void>;
     onDeleteSale: (id: string) => Promise<void>;
-}> = ({ user, ventas, pagos, productosMap, onClose, onAddPayment, onDeletePayment, onDeleteSale }) => {
-    const [isPaymentMode, setIsPaymentMode] = useState(false);
-    const [paymentData, setPaymentData] = useState<{ monto: number, metodo: MetodoPago, concepto: string }>({ monto: 0, metodo: MetodoPago.EFECTIVO, concepto: '' });
+}> = ({ user, ventas, pagos, clientes, vendedores, productos, productosMap, onClose, onSaveMovement, onDeletePayment, onDeleteSale }) => {
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [formConfig, setFormConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
@@ -168,20 +176,32 @@ const VendorAccountModal: React.FC<{
                 fecha: v.fecha,
                 concepto: 'Compra de Stock',
                 monto: -totalVenta,
-                detalle: `${v.movimientos.length} items`
+                detalle: `${v.movimientos.length} items`,
+                original: v
             });
         });
 
+        // Agrupar pagos por origen.id para que coincida con la lógica de edición de Caja
+        const pagosAgrupados = misPagos.reduce((acc: Record<string, RegistroPago[]>, p) => {
+            const k = p.origen.id;
+            if (!acc[k]) acc[k] = [];
+            acc[k].push(p);
+            return acc;
+        }, {});
+
         let pagado = 0;
-        misPagos.forEach(p => {
-            pagado += p.monto;
+        Object.values(pagosAgrupados).forEach((grupo: RegistroPago[]) => {
+            const p1 = grupo[0];
+            const totalGrupo = grupo.reduce((sum, p) => sum + p.monto, 0);
+            pagado += totalGrupo;
             historialCombinado.push({
-                id: p.id,
+                id: p1.origen.id,
                 type: 'payment',
-                fecha: p.fecha,
-                concepto: `Pago (${p.metodo})`,
-                monto: p.monto,
-                detalle: p.concepto || '-'
+                fecha: p1.fecha,
+                concepto: `Pago (${grupo.length > 1 ? 'Múltiple' : p1.metodo})`,
+                monto: totalGrupo,
+                detalle: p1.concepto || '-',
+                original: grupo
             });
         });
 
@@ -190,22 +210,42 @@ const VendorAccountModal: React.FC<{
         return { totalComprado: comprado, totalPagado: pagado, saldoPendiente: comprado - pagado, historial: historialCombinado };
     }, [ventas, pagos, user.id, productosMap, user.preciosEspeciales]);
 
-    const handleSavePayment = () => {
-        onAddPayment({
-            fecha: getLocalDateString(),
-            vendedorId: user.id,
-            clienteId: null, // Es un pago del vendedor, no de un cliente
-            concepto: paymentData.concepto || 'Pago a Cuenta',
-            pagos: [{ monto: paymentData.monto, metodo: paymentData.metodo }]
+    const handleOpenNewPayment = () => {
+        setFormConfig({
+            type: 'ingreso',
+            isEdit: false,
+            data: { 
+                fecha: getLocalDateString(), 
+                vendedorId: user.id,
+                pagos: [{ monto: 0, metodo: MetodoPago.EFECTIVO }] 
+            }
         });
-        setIsPaymentMode(false);
+        setIsFormOpen(true);
     };
 
-    const handleDelete = async (id: string, type: string) => {
+    const handleOpenEdit = (h: any) => {
+        if (h.type === 'sale') {
+            setFormConfig({ type: 'ingreso', isEdit: true, data: h.original });
+        } else {
+            const original = h.original as RegistroPago[];
+            const p1 = original[0];
+            setFormConfig({ 
+                type: 'ingreso', 
+                isEdit: true, 
+                data: { ...p1, pagos: original.map(p => ({ monto: p.monto, metodo: p.metodo })) } 
+            });
+        }
+        setIsFormOpen(true);
+    };
+
+    const handleDelete = async (id: string, type: string, original: any) => {
         if (!window.confirm('¿Seguro que deseas eliminar este registro? Se ajustará el saldo.')) return;
         setDeletingId(id);
         try {
-            if (type === 'payment') await onDeletePayment(id);
+            if (type === 'payment') {
+                const pagosArray = original as RegistroPago[];
+                await Promise.all(pagosArray.map(p => onDeletePayment(p.id)));
+            }
             if (type === 'sale') await onDeleteSale(id);
         } catch (e) {
             console.error(e);
@@ -229,24 +269,9 @@ const VendorAccountModal: React.FC<{
                     </div>
                 </div>
 
-                {isPaymentMode ? (
-                    <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border dark:border-gray-700 space-y-4 animate-fade-in">
-                        <h3 className="font-bold text-lg">Registrar Nuevo Pago</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <AppInput label="Monto" type="number" value={paymentData.monto} onChange={e => setPaymentData({...paymentData, monto: Number(e.target.value)})} autoFocus />
-                            <AppSelect label="Método" options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} value={paymentData.metodo} onChange={e => setPaymentData({...paymentData, metodo: e.target.value as MetodoPago})} />
-                            <AppInput label="Concepto / Nota" value={paymentData.concepto} onChange={e => setPaymentData({...paymentData, concepto: e.target.value})} className="md:col-span-2" />
-                        </div>
-                        <div className="flex justify-end gap-2 pt-2">
-                            <AppButton variant="secondary" onClick={() => setIsPaymentMode(false)}>Cancelar</AppButton>
-                            <AppButton variant="success" onClick={handleSavePayment} disabled={paymentData.monto <= 0}>Confirmar Ingreso</AppButton>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex justify-end">
-                        <AppButton onClick={() => setIsPaymentMode(true)}>+ Registrar Cobro</AppButton>
-                    </div>
-                )}
+                <div className="flex justify-end">
+                    <AppButton onClick={handleOpenNewPayment}>+ Registrar Cobro</AppButton>
+                </div>
 
                 <div className="overflow-x-auto max-h-96 border rounded-xl dark:border-gray-700">
                     <table className="w-full text-sm text-left">
@@ -256,7 +281,7 @@ const VendorAccountModal: React.FC<{
                                 <th className="px-4 py-3">Movimiento</th>
                                 <th className="px-4 py-3">Detalle</th>
                                 <th className="px-4 py-3 text-right">Importe</th>
-                                <th className="px-4 py-3 w-10"></th>
+                                <th className="px-4 py-3 w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -268,9 +293,10 @@ const VendorAccountModal: React.FC<{
                                     <td className={`px-4 py-3 text-right font-bold ${h.monto < 0 ? 'text-red-500' : 'text-green-500'}`}>
                                         {h.monto < 0 ? '-' : '+'}${Math.abs(h.monto).toLocaleString()}
                                     </td>
-                                    <td className="px-4 py-3 text-right">
+                                    <td className="px-4 py-3 text-right flex justify-end gap-1">
+                                        <button onClick={() => handleOpenEdit(h)} className="text-blue-500 p-1" title="Editar"><PencilIcon className="w-4 h-4" /></button>
                                         <button 
-                                            onClick={() => handleDelete(h.id, h.type)}
+                                            onClick={() => handleDelete(h.id, h.type, h.original)}
                                             className="text-gray-400 hover:text-red-500 transition-colors p-1"
                                             title="Eliminar registro (Corrección)"
                                             disabled={deletingId === h.id}
@@ -288,12 +314,36 @@ const VendorAccountModal: React.FC<{
                 <div className="flex justify-end pt-4 border-t dark:border-gray-700">
                     <AppButton variant="secondary" onClick={onClose}>Cerrar</AppButton>
                 </div>
+
+                {isFormOpen && (
+                    <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} className="max-w-4xl">
+                        <MovimientoCajaForm 
+                            type={formConfig.type} 
+                            movimiento={formConfig.data} 
+                            isEdit={formConfig.isEdit} 
+                            onSave={async (data, isVenta) => {
+                                await onSaveMovement(data, isVenta);
+                                setIsFormOpen(false);
+                            }} 
+                            onAddCliente={async () => ""} // No habilitado aquí
+                            onClose={() => setIsFormOpen(false)} 
+                            clientes={clientes} 
+                            vendedores={vendedores} 
+                            productos={productos} 
+                            ventasVendedor={ventas}
+                            hideClientSelector={true} // Forzar contexto de vendedor
+                        />
+                    </Modal>
+                )}
             </div>
         </Modal>
     );
 };
 
-const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, addUsuario, updateUsuario, addVentaVendedor, deleteRegistroPago, deleteVentaVendedor }) => {
+const UsuariosView: React.FC<UsuariosViewProps> = ({ 
+    usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, 
+    addUsuario, updateUsuario, addVentaVendedor, addPagoManual, updateRegistroPago, updateVentaVendedor, deleteRegistroPago, deleteVentaVendedor 
+}) => {
   const [editingUsuario, setEditingUsuario] = useState<Partial<Usuario> | null>(null);
   const [viewAccountUser, setViewAccountUser] = useState<Usuario | null>(null);
   const { showNotification } = useNotification();
@@ -314,14 +364,21 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
     } catch (e) { showNotification('Error al guardar.', 'error'); }
   };
 
-  const handleAddPayment = async (pagoData: any) => {
-      addVentaVendedor({
-          fecha: pagoData.fecha,
-          vendedorId: pagoData.vendedorId,
-          movimientos: [], // Sin movimientos de stock
-          pagos: pagoData.pagos // Solo dinero entrando
-      });
-      showNotification('Pago registrado (Ingreso a Caja).', 'success');
+  const handleSaveMovement = async (data: any, isVenta: boolean) => {
+      try {
+          if (isVenta) {
+              if (data.id) await updateVentaVendedor(data);
+              else await addVentaVendedor(data);
+              showNotification('Venta/Stock actualizado.', 'success');
+          } else {
+              if (data.id) await updateRegistroPago(data);
+              else await addPagoManual(data);
+              showNotification('Pago actualizado.', 'success');
+          }
+      } catch (e) {
+          console.error(e);
+          showNotification('Error al guardar movimiento.', 'error');
+      }
   };
 
   const openNewModal = useCallback(() => {
@@ -394,9 +451,12 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
             user={viewAccountUser} 
             ventas={ventasVendedor} 
             pagos={registrosPago} 
+            clientes={clientes}
+            vendedores={usuarios}
+            productos={productos}
             productosMap={productosMap} 
             onClose={() => setViewAccountUser(null)} 
-            onAddPayment={handleAddPayment}
+            onSaveMovement={handleSaveMovement}
             onDeletePayment={deleteRegistroPago}
             onDeleteSale={deleteVentaVendedor}
           />

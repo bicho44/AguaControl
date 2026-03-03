@@ -217,6 +217,9 @@ function AppContent() {
                   updateUsuario={dataStore.updateUsuario}
                   ventasVendedor={dataStore.ventasVendedor}
                   addVentaVendedor={dataStore.addVentaVendedor}
+                  addPagoManual={dataStore.addPagoManual}
+                  updateRegistroPago={dataStore.updateRegistroPago}
+                  updateVentaVendedor={dataStore.updateVentaVendedor}
                   deleteRegistroPago={dataStore.deleteRegistroPago}
                   deleteVentaVendedor={dataStore.deleteVentaVendedor}
                 />;
