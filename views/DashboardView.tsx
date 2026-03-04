@@ -706,7 +706,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const todayStr = getLocalDateString(today);
     const yesterdayStr = getLocalDateString(yesterday);
 
-    const activeRemitos = remitos; // Include all remitos for stats
+    // Excluimos remitos de ajuste (Stock Inicial) para no romper las estadísticas de entregas reales
+    const activeRemitos = remitos.filter(r => !r.esAjuste); 
     const dailyRemitos = activeRemitos.filter(r => r.fecha.split('T')[0] === todayStr);
     const yesterdayRemitos = activeRemitos.filter(r => r.fecha.split('T')[0] === yesterdayStr);
     const weeklyRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha) >= startOfWeek);
