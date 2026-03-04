@@ -640,7 +640,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const parseLocalDate = (dateStr: string) => {
-      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!dateStr) return new Date(0);
+      // Handle YYYY-MM-DD or ISO strings by taking only the date part
+      const cleanDate = dateStr.split('T')[0];
+      const parts = cleanDate.split('-');
+      if (parts.length !== 3) return new Date(0);
+      const [y, m, d] = parts.map(Number);
+      if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date(0);
       return new Date(y, m - 1, d, 0, 0, 0);
   };
 
@@ -691,9 +697,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
 
+    const todayStr = getLocalDateString(today);
+    const yesterdayStr = getLocalDateString(yesterday);
+
     const activeRemitos = remitos.filter(r => !r.esAjuste);
-    const dailyRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha).getTime() === today.getTime());
-    const yesterdayRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha).getTime() === yesterday.getTime());
+    const dailyRemitos = activeRemitos.filter(r => r.fecha.split('T')[0] === todayStr);
+    const yesterdayRemitos = activeRemitos.filter(r => r.fecha.split('T')[0] === yesterdayStr);
     const weeklyRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha) >= startOfWeek);
     const monthlyRemitos = activeRemitos.filter(r => parseLocalDate(r.fecha) >= startOfMonth);
     const lastMonthRemitos = activeRemitos.filter(r => { 
@@ -701,8 +710,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         return d >= startOfLastMonth && d <= endOfLastMonth; 
     });
 
-    const dailyVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha).getTime() === today.getTime());
-    const yesterdayVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha).getTime() === yesterday.getTime());
+    const dailyVentas = ventasVendedor.filter(v => v.fecha.split('T')[0] === todayStr);
+    const yesterdayVentas = ventasVendedor.filter(v => v.fecha.split('T')[0] === yesterdayStr);
     const weeklyVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha) >= startOfWeek);
     const monthlyVentas = ventasVendedor.filter(v => parseLocalDate(v.fecha) >= startOfMonth);
     const lastMonthVentas = ventasVendedor.filter(v => {
