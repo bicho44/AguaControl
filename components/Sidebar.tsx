@@ -39,6 +39,7 @@ const mainNavItems: NavItem[] = [
   { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR] },
   // Remitos: Solo para Admins o Repartidores INTERNOS
   { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
+  { view: 'balance_diario', label: 'Balance Diario', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'planillas', label: 'Stock y Cargas', icon: <ClipboardCheckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },

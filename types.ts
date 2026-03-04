@@ -1,5 +1,5 @@
 
-export type View = 'dashboard' | 'remitos' | 'clientes' | 'usuarios' | 'productos' | 'servicios' | 'cuentacorriente' | 'facturas' | 'importar' | 'caja' | 'settings' | 'contratos' | 'planillas' | 'rutas' | 'logs' | 'login' | 'setup' | 'stock_planta';
+export type View = 'dashboard' | 'remitos' | 'clientes' | 'usuarios' | 'productos' | 'servicios' | 'cuentacorriente' | 'facturas' | 'importar' | 'caja' | 'settings' | 'contratos' | 'planillas' | 'rutas' | 'logs' | 'login' | 'setup' | 'stock_planta' | 'balance_diario';
 
 export enum Rol {
     ADMINISTRADOR = 'Administrador',
@@ -298,9 +298,21 @@ export interface MovimientoStockPlanta {
     fecha: string;
     productoId: string;
     cantidad: number;
-    tipo: 'entrada' | 'salida' | 'ajuste';
+    tipo: 'entrada' | 'salida' | 'ajuste' | 'cierre_fisico';
     concepto: string; // Compra, Producción, Rotura, etc.
     esEnvase?: boolean; // Si es true, afecta stockEnvases, si es false afecta stockPlanta
+}
+
+export interface CierrePlanta {
+    id: string;
+    fecha: string;
+    saldos: {
+        productoId: string;
+        cantidadFisica: number;
+        cantidadTeorica: number;
+        produccionDia: number;
+    }[];
+    cerradoPor: string;
 }
 
 export interface ItemDevolucion {

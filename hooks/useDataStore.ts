@@ -43,7 +43,8 @@ import {
   LogLevel,
   CausaRecambio,
   Recambio,
-  MovimientoStockPlanta
+  MovimientoStockPlanta,
+  CierrePlanta
 } from '../types';
 
 const cleanUndefineds = (obj: any): any => {
@@ -78,6 +79,7 @@ export const useDataStore = () => {
     const [servicios, setServicios] = useState<Servicio[]>([]);
     const [planillas, setPlanillas] = useState<PlanillaDiaria[]>([]);
     const [movimientosStockPlanta, setMovimientosStockPlanta] = useState<MovimientoStockPlanta[]>([]);
+    const [cierresPlanta, setCierresPlanta] = useState<CierrePlanta[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [causasRecambio, setCausasRecambio] = useState<CausaRecambio[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
@@ -117,6 +119,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => ({ id: d.id, ...d.data() } as PlanillaDiaria)))),
             onSnapshot(collection(db, 'movimientosStockPlanta'), (s) => setMovimientosStockPlanta(s.docs.map(d => ({ id: d.id, ...d.data() } as MovimientoStockPlanta)))),
+            onSnapshot(collection(db, 'cierres_planta'), (s) => setCierresPlanta(s.docs.map(d => ({ id: d.id, ...d.data() } as CierrePlanta)))),
             onSnapshot(collection(db, 'causasRecambio'), (s) => setCausasRecambio(s.docs.map(d => ({ id: d.id, ...d.data() } as CausaRecambio)))),
             onSnapshot(logsQuery, (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() } as LogEntry)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
@@ -623,21 +626,47 @@ export const useDataStore = () => {
     const addMovimientoStockPlanta = useCallback(async (mov: Omit<MovimientoStockPlanta, 'id'>) => {
         const docRef = await addDoc(collection(db, 'movimientosStockPlanta'), cleanUndefineds(mov));
         
-        // Actualizar stock del producto
-        const prod = productos.find(p => p.id === mov.productoId);
-        if (prod) {
-            const field = mov.esEnvase ? 'stockEnvases' : 'stockPlanta';
-            const currentStock = (prod[field] as number) || 0;
-            let newStock = currentStock;
-            
-            if (mov.tipo === 'entrada') newStock += mov.cantidad;
-            else if (mov.tipo === 'salida') newStock -= mov.cantidad;
-            else if (mov.tipo === 'ajuste') newStock = mov.cantidad;
+        // Actualizar stock del producto (si no es un cierre físico, ya que el cierre no suma/resta, sino que establece el nuevo punto de partida)
+        if (mov.tipo !== 'cierre_fisico') {
+            const prod = productos.find(p => p.id === mov.productoId);
+            if (prod) {
+                const field = mov.esEnvase ? 'stockEnvases' : 'stockPlanta';
+                const currentStock = (prod[field] as number) || 0;
+                let newStock = currentStock;
+                
+                if (mov.tipo === 'entrada') newStock += mov.cantidad;
+                else if (mov.tipo === 'salida') newStock -= mov.cantidad;
+                else if (mov.tipo === 'ajuste') newStock = mov.cantidad;
 
-            await updateDoc(doc(db, 'productos', prod.id), { [field]: newStock });
+                await updateDoc(doc(db, 'productos', prod.id), { [field]: newStock });
+            }
         }
         return docRef.id;
     }, [productos]);
+
+    const addCierrePlanta = useCallback(async (cierre: Omit<CierrePlanta, 'id'>) => {
+        const docRef = await addDoc(collection(db, 'cierres_planta'), cleanUndefineds(cierre));
+        
+        // Al cerrar, actualizamos el stock de los productos con el valor físico real
+        const batch = writeBatch(db);
+        for (const saldo of cierre.saldos) {
+            const prodRef = doc(db, 'productos', saldo.productoId);
+            batch.update(prodRef, { stockPlanta: saldo.cantidadFisica });
+            
+            // También registramos un movimiento de tipo 'cierre_fisico' para el historial
+            const movRef = doc(collection(db, 'movimientosStockPlanta'));
+            batch.set(movRef, cleanUndefineds({
+                fecha: cierre.fecha,
+                productoId: saldo.productoId,
+                cantidad: saldo.cantidadFisica,
+                tipo: 'cierre_fisico',
+                concepto: 'Cierre Diario de Planta',
+                esEnvase: false
+            }));
+        }
+        await batch.commit();
+        return docRef.id;
+    }, []);
 
     const updateEmpresaSettings = useCallback(async (s: any) => {
         await setDoc(doc(db, 'settings', 'empresa'), cleanUndefineds(s));
@@ -709,8 +738,9 @@ export const useDataStore = () => {
         addProducto, updateProducto, deleteProducto, reactivarProducto,
         addServicio, updateServicio, deleteServicio, reactivarServicio,
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
-        addPlanilla, updatePlanilla, deletePlanilla, addMovimientoStockPlanta, updateEmpresaSettings, updateRutasMasivo,
+        addPlanilla, updatePlanilla, deletePlanilla, addMovimientoStockPlanta, addCierrePlanta, updateEmpresaSettings, updateRutasMasivo,
         addCausaRecambio, deleteCausaRecambio,
+        cierresPlanta,
         addLog
     };
 };

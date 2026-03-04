@@ -11,7 +11,9 @@ import {
     Remito, 
     ItemDevolucion, 
     TipoProducto,
-    MovimientoStockPlanta
+    MovimientoStockPlanta,
+    VentaVendedor,
+    CierrePlanta
 } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -28,13 +30,16 @@ import { getLocalDateString } from '../utils/dateUtils';
 interface GestionStockViewProps {
   planillas: PlanillaDiaria[];
   movimientosPlanta: MovimientoStockPlanta[];
+  cierresPlanta: CierrePlanta[];
   usuarios: Usuario[];
   productos: Producto[];
   remitos: Remito[];
+  ventasVendedor: VentaVendedor[];
   addPlanilla: (planilla: Omit<PlanillaDiaria, 'id'>) => void;
   updatePlanilla: (planilla: PlanillaDiaria) => void;
   deletePlanilla: (id: string) => void;
   addMovimientoPlanta: (mov: Omit<MovimientoStockPlanta, 'id'>) => Promise<string>;
+  addCierrePlanta: (cierre: Omit<CierrePlanta, 'id'>) => Promise<string>;
 }
 
 // --- SUB-COMPONENTES ---
@@ -325,21 +330,126 @@ const CierrePlanillaModal: React.FC<{
 const GestionStockView: React.FC<GestionStockViewProps> = ({ 
     planillas, 
     movimientosPlanta, 
+    cierresPlanta,
     usuarios, 
     productos, 
     remitos,
+    ventasVendedor,
     addPlanilla,
     updatePlanilla,
     deletePlanilla,
-    addMovimientoPlanta
+    addMovimientoPlanta,
+    addCierrePlanta
 }) => {
     const { showNotification } = useNotification();
-    const [activeTab, setActiveTab] = useState<'planta' | 'planillas' | 'flujo'>('planillas');
+    const [activeTab, setActiveTab] = useState<'planta' | 'planillas' | 'flujo' | 'balance'>('planillas');
+    const [selectedDate, setSelectedDate] = useState(getLocalDateString());
     const [isNewPlanillaOpen, setIsNewPlanillaOpen] = useState(false);
     const [selectedPlanilla, setSelectedPlanilla] = useState<PlanillaDiaria | null>(null);
     const [isClosingPlanilla, setIsClosingPlanilla] = useState<PlanillaDiaria | null>(null);
     const [isRecargaOpen, setIsRecargaOpen] = useState(false);
     const [isMovPlantaOpen, setIsMovPlantaOpen] = useState(false);
+    const [physicalStock, setPhysicalStock] = useState<Record<string, number>>({});
+    const [productionInput, setProductionInput] = useState<Record<string, number>>({});
+    const [isSavingCierre, setIsSavingCierre] = useState(false);
+
+
+    // --- LÓGICA DE BALANCE DIARIO ---
+    const balanceData = useMemo(() => {
+        const date = selectedDate;
+        const prevDateObj = new Date(date + 'T00:00:00');
+        prevDateObj.setDate(prevDateObj.getDate() - 1);
+        const prevDate = getLocalDateString(prevDateObj);
+
+        const lastCierre = cierresPlanta.find(c => c.fecha === prevDate);
+        const planillasDia = planillas.filter(p => p.fecha === date);
+        const ventasDia = ventasVendedor.filter(v => v.fecha === date && !v.clienteId);
+        const movsDia = movimientosPlanta.filter(m => m.fecha === date);
+
+        return productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
+            // 1. Stock Inicial (del cierre anterior o stock actual si no hay cierre)
+            const stockInicial = lastCierre?.saldos.find(s => s.productoId === p.id)?.cantidadFisica ?? (p.stockPlanta || 0);
+            
+            // 2. Producción (Movimientos manuales de entrada con concepto Producción)
+            const produccion = movsDia
+                .filter(m => m.productoId === p.id && m.tipo === 'entrada' && m.concepto.toLowerCase().includes('producción'))
+                .reduce((sum, m) => sum + m.cantidad, 0);
+
+            // 3. Salidas Internas (Planillas)
+            let salidasInternas = 0;
+            planillasDia.forEach(pl => {
+                // Carga inicial
+                salidasInternas += pl.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
+                // Recargas
+                pl.recargas?.forEach(rec => {
+                    salidasInternas += rec.items.find(i => i.productoId === p.id)?.cantidad || 0;
+                });
+                // Devoluciones (restan a la salida)
+                if (pl.estado === EstadoPlanilla.CERRADA) {
+                    salidasInternas -= pl.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
+                }
+            });
+
+            // 4. Salidas Externas (Ventas a revendedores)
+            const salidasExternas = ventasDia.reduce((sum, v) => {
+                return sum + (v.movimientos.find(m => m.productoId === p.id)?.cantidad || 0);
+            }, 0);
+
+            const teorico = stockInicial + produccion - salidasInternas - salidasExternas;
+
+            return {
+                producto: p,
+                inicial: stockInicial,
+                produccion,
+                salidasInternas,
+                salidasExternas,
+                teorico
+            };
+        });
+    }, [selectedDate, cierresPlanta, planillas, ventasVendedor, movimientosPlanta, productos]);
+
+    const handleSaveCierre = async () => {
+        if (isSavingCierre) return;
+        setIsSavingCierre(true);
+        try {
+            const saldos = balanceData.map(d => ({
+                productoId: d.producto.id,
+                cantidadFisica: physicalStock[d.producto.id] ?? d.teorico,
+                cantidadTeorica: d.teorico,
+                produccionDia: d.produccion
+            }));
+
+            await addCierrePlanta({
+                fecha: selectedDate,
+                saldos,
+                cerradoPor: 'Admin' // TODO: Get from auth
+            });
+
+            showNotification('Cierre de planta guardado correctamente', 'success');
+        } catch (e) {
+            showNotification('Error al guardar el cierre', 'error');
+        } finally {
+            setIsSavingCierre(false);
+        }
+    };
+
+    const handleQuickProduction = async (productoId: string) => {
+        const cant = productionInput[productoId];
+        if (!cant || cant <= 0) return;
+
+        await addMovimientoPlanta({
+            fecha: selectedDate,
+            productoId,
+            cantidad: cant,
+            tipo: 'entrada',
+            concepto: 'Producción Diaria',
+            esEnvase: false
+        });
+
+        setProductionInput(prev => ({ ...prev, [productoId]: 0 }));
+        showNotification('Producción registrada', 'success');
+    };
+
     const [newMovPlanta, setNewMovPlanta] = useState<Partial<MovimientoStockPlanta>>({
         fecha: getLocalDateString(),
         tipo: 'entrada',
@@ -440,12 +550,18 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
             </div>
 
             {/* TABS */}
-            <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
+            <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
                 <button 
                     onClick={() => setActiveTab('planillas')} 
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'planillas' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                 >
                     <ClipboardCheckIcon className="h-4 w-4" /> CONTROL DE CARGAS
+                </button>
+                <button 
+                    onClick={() => setActiveTab('balance')} 
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'balance' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                    <ChartBarIcon className="h-4 w-4" /> BALANCE DIARIO
                 </button>
                 <button 
                     onClick={() => setActiveTab('planta')} 
@@ -501,67 +617,131 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                 </div>
             )}
 
-            {activeTab === 'planta' && (
+            {activeTab === 'balance' && (
                 <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {productos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).map(p => (
-                            <Card key={p.id} title={p.nombre} compact>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
-                                        <p className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400">Llenos</p>
-                                        <p className="text-2xl font-black text-blue-700 dark:text-blue-300">{p.stockPlanta || 0}</p>
-                                    </div>
-                                    {p.tipo === TipoProducto.RETORNABLE && (
-                                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl border border-yellow-100 dark:border-yellow-800">
-                                            <p className="text-[9px] font-black uppercase text-yellow-600 dark:text-yellow-400">Vacíos</p>
-                                            <p className="text-2xl font-black text-yellow-700 dark:text-yellow-300">{p.stockEnvases || 0}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                    <Card title="Historial de Movimientos de Planta">
+                    <Card title="Balance Diario de Planta">
+                        <div className="flex flex-wrap gap-4 mb-6 items-end">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Fecha de Balance</label>
+                                <input 
+                                    type="date" 
+                                    value={selectedDate} 
+                                    onChange={e => setSelectedDate(e.target.value)} 
+                                    className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-none focus:ring-2 focus:ring-primary-500"
+                                />
+                            </div>
+                            <div className="flex-grow"></div>
+                            <AppButton 
+                                variant="success" 
+                                onClick={handleSaveCierre}
+                                isLoading={isSavingCierre}
+                            >
+                                Guardar Cierre de Día
+                            </AppButton>
+                        </div>
+
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-4 py-3">Fecha</th>
                                         <th className="px-4 py-3">Producto</th>
-                                        <th className="px-4 py-3">Tipo</th>
-                                        <th className="px-4 py-3">Concepto</th>
-                                        <th className="px-4 py-3 text-right">Cantidad</th>
+                                        <th className="px-4 py-3 text-right">Stock Inicial</th>
+                                        <th className="px-4 py-3 text-right">Producción</th>
+                                        <th className="px-4 py-3 text-right">Salidas (Calle)</th>
+                                        <th className="px-4 py-3 text-right">Teórico</th>
+                                        <th className="px-4 py-3 text-right w-32">Físico (Piso)</th>
+                                        <th className="px-4 py-3 text-right">Diferencia</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {movimientosPlanta
-                                        .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime())
-                                        .slice(0, 20)
-                                        .map(m => (
-                                        <tr key={m.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50">
-                                            <td className="px-4 py-3 font-mono text-xs">{new Date(m.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
-                                            <td className="px-4 py-3 font-bold">
-                                                {productosMap.get(m.productoId)?.nombre}
-                                                {m.esEnvase && <span className="ml-2 text-[8px] bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded uppercase font-black">Envase</span>}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${
-                                                    m.tipo === 'entrada' ? 'bg-green-100 text-green-700' : 
-                                                    m.tipo === 'salida' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                    {m.tipo}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-500">{m.concepto}</td>
-                                            <td className={`px-4 py-3 text-right font-black ${m.tipo === 'entrada' ? 'text-green-600' : m.tipo === 'salida' ? 'text-red-600' : 'text-gray-600'}`}>
-                                                {m.tipo === 'entrada' ? '+' : m.tipo === 'salida' ? '-' : ''}{m.cantidad}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {balanceData.map(d => {
+                                        const fisico = physicalStock[d.producto.id] ?? d.teorico;
+                                        const diferencia = fisico - d.teorico;
+                                        return (
+                                            <tr key={d.producto.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                                <td className="px-4 py-3">
+                                                    <p className="font-bold">{d.producto.nombre}</p>
+                                                    <div className="flex gap-2 mt-1">
+                                                        <input 
+                                                            type="number" 
+                                                            placeholder="Llenar..."
+                                                            value={productionInput[d.producto.id] || ''}
+                                                            onChange={e => setProductionInput(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
+                                                            className="w-20 p-1 text-[10px] bg-white dark:bg-gray-600 rounded border dark:border-gray-500"
+                                                        />
+                                                        <button 
+                                                            onClick={() => handleQuickProduction(d.producto.id)}
+                                                            className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold hover:bg-blue-200"
+                                                        >
+                                                            + PRODUCIR
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-mono">{d.inicial}</td>
+                                                <td className="px-4 py-3 text-right font-bold text-blue-600">+{d.produccion}</td>
+                                                <td className="px-4 py-3 text-right font-bold text-red-600">-{d.salidasInternas + d.salidasExternas}</td>
+                                                <td className="px-4 py-3 text-right font-black text-gray-700 dark:text-gray-200">{d.teorico}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <input 
+                                                        type="number" 
+                                                        value={fisico}
+                                                        onChange={e => setPhysicalStock(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
+                                                        className="w-24 p-2 text-right font-black bg-white dark:bg-gray-600 rounded-lg border-2 border-primary-500/30 focus:border-primary-500"
+                                                    />
+                                                </td>
+                                                <td className={`px-4 py-3 text-right font-black ${diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {diferencia > 0 ? `+${diferencia}` : diferencia}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card title="Desglose de Salidas">
+                            <div className="space-y-4">
+                                {balanceData.map(d => (
+                                    <div key={d.producto.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+                                        <span className="font-bold text-xs">{d.producto.nombre}</span>
+                                        <div className="flex gap-4 text-[10px]">
+                                            <div className="text-right">
+                                                <p className="text-gray-400 uppercase font-black">Interno</p>
+                                                <p className="font-bold text-gray-700 dark:text-gray-200">{d.salidasInternas}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-gray-400 uppercase font-black">Externo</p>
+                                                <p className="font-bold text-gray-700 dark:text-gray-200">{d.salidasExternas}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                        <div className="bg-primary-50 dark:bg-primary-900/20 p-6 rounded-2xl border border-primary-100 dark:border-primary-800">
+                            <h3 className="font-black text-primary-800 dark:text-primary-300 uppercase text-xs mb-4">Instrucciones de Balance</h3>
+                            <ul className="space-y-3 text-xs text-primary-700 dark:text-primary-400">
+                                <li className="flex gap-2">
+                                    <span className="font-black">1.</span>
+                                    <span>Registra la <strong>Producción</strong> del día usando el botón azul en cada fila.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-black">2.</span>
+                                    <span>Verifica que las <strong>Salidas</strong> coincidan con tus registros de carga.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-black">3.</span>
+                                    <span>Ingresa el <strong>Stock Físico</strong> que tu jefe contó en el piso.</span>
+                                </li>
+                                <li className="flex gap-2">
+                                    <span className="font-black">4.</span>
+                                    <span>Presiona <strong>Guardar Cierre</strong> para establecer el stock inicial de mañana.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             )}
 

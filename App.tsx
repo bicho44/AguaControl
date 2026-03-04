@@ -252,16 +252,20 @@ function AppContent() {
                 />;
       case 'planillas': 
       case 'stock_planta':
+      case 'balance_diario':
         return <GestionStockView
                   planillas={dataStore.planillas}
                   movimientosPlanta={dataStore.movimientosStockPlanta}
+                  cierresPlanta={dataStore.cierresPlanta}
                   usuarios={dataStore.usuarios}
                   productos={dataStore.productos}
                   remitos={dataStore.remitos}
+                  ventasVendedor={dataStore.ventasVendedor}
                   addPlanilla={dataStore.addPlanilla}
                   updatePlanilla={dataStore.updatePlanilla}
                   deletePlanilla={dataStore.deletePlanilla}
                   addMovimientoPlanta={dataStore.addMovimientoStockPlanta}
+                  addCierrePlanta={dataStore.addCierrePlanta}
                />;
       case 'rutas':
         return <RutasView
