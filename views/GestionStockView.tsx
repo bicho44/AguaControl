@@ -15,7 +15,6 @@ import {
     CierrePlanta,
     EstadoProducto
 } from '../types';
-import { motion, AnimatePresence } from 'motion-react';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { useNotification } from '../context/NotificationContext';
@@ -504,11 +503,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
 
     // --- RENDER ---
     return (
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8 pt-12 md:pt-0 pb-12"
-        >
+        <div className="space-y-8 pt-12 md:pt-0 pb-12">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b dark:border-gray-700 pb-6">
                 <div>
                     <h1 className="text-4xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic leading-none">Control de Planta</h1>
@@ -548,55 +543,43 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                     <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em]">Repartos en Curso</h2>
                 </div>
                 
-                <AnimatePresence mode="popLayout">
-                    {repartosActivos.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {repartosActivos.map(p => {
-                                const totalUnidades = p.cargaInicial.reduce((s, i) => s + i.cantidad, 0);
-                                return (
-                                    <motion.div
-                                        key={p.id}
-                                        layout
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
-                                    >
-                                        <Card className="border-l-8 border-l-blue-500 hover:shadow-2xl transition-all group overflow-hidden relative">
-                                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                                <TruckIcon className="h-24 w-24 -rotate-12" />
+                {repartosActivos.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {repartosActivos.map(p => {
+                            const totalUnidades = (p.cargaInicial || []).reduce((s, i) => s + (i.cantidad || 0), 0);
+                            return (
+                                <div key={p.id}>
+                                    <Card className="border-l-8 border-l-blue-500 hover:shadow-2xl transition-all group overflow-hidden relative">
+                                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                            <TruckIcon className="h-24 w-24 -rotate-12" />
+                                        </div>
+                                        <div className="flex justify-between items-start mb-6 relative z-10">
+                                            <div>
+                                                <h3 className="font-black text-xl text-gray-800 dark:text-white truncate max-w-[180px] group-hover:text-primary-600 transition-colors tracking-tighter">
+                                                    {usuariosMap.get(p.repartidorId)?.nombre || 'S/N'}
+                                                </h3>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Carga: <span className="text-blue-600">{totalUnidades}</span> unidades</p>
                                             </div>
-                                            <div className="flex justify-between items-start mb-6 relative z-10">
-                                                <div>
-                                                    <h3 className="font-black text-xl text-gray-800 dark:text-white truncate max-w-[180px] group-hover:text-primary-600 transition-colors tracking-tighter">
-                                                        {usuariosMap.get(p.repartidorId)?.nombre}
-                                                    </h3>
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Carga: <span className="text-blue-600">{totalUnidades}</span> unidades</p>
-                                                </div>
-                                                <div className="flex flex-col items-end">
-                                                    <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-blue-100 text-blue-700 mb-2 tracking-widest">En Viaje</span>
-                                                    <span className="text-[10px] font-mono font-bold text-gray-400">{p.recargas?.length || 0} Recargas</span>
-                                                </div>
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-blue-100 text-blue-700 mb-2 tracking-widest">En Viaje</span>
+                                                <span className="text-[10px] font-mono font-bold text-gray-400">{p.recargas?.length || 0} Recargas</span>
                                             </div>
-                                            <div className="flex gap-3 pt-4 border-t dark:border-gray-700 relative z-10">
-                                                <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="font-black uppercase tracking-widest text-[10px]">Gestionar</AppButton>
-                                                <AppButton size="sm" variant="success" fullWidth onClick={() => handleClosePlanilla(p)} className="font-black uppercase tracking-widest text-[10px]">Cerrar</AppButton>
-                                            </div>
-                                        </Card>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="p-16 border-4 border-dashed border-gray-100 dark:border-gray-800 rounded-[3rem] flex flex-col items-center justify-center text-gray-300 dark:text-gray-700"
-                        >
-                            <ClipboardCheckIcon className="h-16 w-16 mb-4 opacity-10" />
-                            <p className="text-xs font-black uppercase tracking-[0.4em]">No hay repartos activos</p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                                        </div>
+                                        <div className="flex gap-3 pt-4 border-t dark:border-gray-700 relative z-10">
+                                            <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="font-black uppercase tracking-widest text-[10px]">Gestionar</AppButton>
+                                            <AppButton size="sm" variant="success" fullWidth onClick={() => handleClosePlanilla(p)} className="font-black uppercase tracking-widest text-[10px]">Cerrar</AppButton>
+                                        </div>
+                                    </Card>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="p-16 border-4 border-dashed border-gray-100 dark:border-gray-800 rounded-[3rem] flex flex-col items-center justify-center text-gray-300 dark:text-gray-700">
+                        <ClipboardCheckIcon className="h-16 w-16 mb-4 opacity-10" />
+                        <p className="text-xs font-black uppercase tracking-[0.4em]">No hay repartos activos</p>
+                    </div>
+                )}
             </section>
 
             {/* SECCIÓN 2: BALANCE DE PLANTA (AUDITORÍA) */}
@@ -695,15 +678,15 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 opacity-60 hover:opacity-100 transition-opacity">
                         {repartosCerrados.map(p => (
-                            <motion.div key={p.id} whileHover={{ scale: 1.02 }}>
+                            <div key={p.id}>
                                 <Card className="border-l-4 border-l-green-500 bg-gray-50/50 dark:bg-gray-800/50 p-4">
                                     <div className="flex justify-between items-start mb-3">
-                                        <h3 className="font-black text-sm text-gray-700 dark:text-gray-300 truncate uppercase tracking-tighter">{usuariosMap.get(p.repartidorId)?.nombre}</h3>
+                                        <h3 className="font-black text-sm text-gray-700 dark:text-gray-300 truncate uppercase tracking-tighter">{usuariosMap.get(p.repartidorId)?.nombre || 'S/N'}</h3>
                                         <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase bg-green-100 text-green-700 tracking-widest">OK</span>
                                     </div>
                                     <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="text-[9px] font-black uppercase tracking-widest py-1">Ver Resumen</AppButton>
                                 </Card>
-                            </motion.div>
+                            </div>
                         ))}
                     </div>
                 </section>
@@ -889,7 +872,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                     />
                 )}
             </Modal>
-        </motion.div>
+        </div>
     );
 };
 
