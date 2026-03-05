@@ -15,12 +15,14 @@ import {
     CierrePlanta,
     EstadoProducto
 } from '../types';
+import { motion, AnimatePresence } from 'motion-react';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { ChartBarIcon } from '../components/icons/ChartBarIcon';
 import { ClipboardCheckIcon } from '../components/icons/ClipboardCheckIcon';
+import { TruckIcon } from '../components/icons/TruckIcon';
 import AppButton from '../components/ui/AppButton';
 import { getLocalDateString } from '../utils/dateUtils';
 import SearchableSelect from '../components/SearchableSelect';
@@ -46,119 +48,116 @@ interface GestionStockViewProps {
 const PlanillaForm: React.FC<{
     usuarios: Usuario[];
     productos: Producto[];
+    planillas: PlanillaDiaria[];
     onSave: (data: Omit<PlanillaDiaria, 'id'>) => void;
     onClose: () => void;
-}> = ({ usuarios, productos, onSave, onClose }) => {
+}> = ({ usuarios, productos, planillas, onSave, onClose }) => {
     const [repartidorId, setRepartidorId] = useState('');
     const [fecha, setFecha] = useState(getLocalDateString());
-    const [cargaInicial, setCargaInicial] = useState<ItemStock[]>([]);
+    const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
     const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO), [usuarios]);
-    const productosOptions = useMemo(() => 
-        productos
-            .filter(p => p.estado !== EstadoProducto.INACTIVO)
-            .map(p => ({ value: p.id, label: p.nombre })), 
-    [productos]);
+    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO && p.tipo !== TipoProducto.EQUIPO), [productos]);
 
-    const handleAddItem = useCallback(() => {
-        setCargaInicial(prev => [...prev, { productoId: '', cantidad: 0 }]);
-    }, []);
+    const handleLoadLast = useCallback(() => {
+        if (!repartidorId) return;
+        const lastPlanilla = [...planillas]
+            .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime())
+            .find(p => p.repartidorId === repartidorId);
+        
+        if (lastPlanilla) {
+            const newCantidades: Record<string, number> = {};
+            lastPlanilla.cargaInicial.forEach(item => {
+                newCantidades[item.productoId] = item.cantidad;
+            });
+            setCantidades(newCantidades);
+        }
+    }, [repartidorId, planillas]);
 
-    const handleItemChange = (index: number, field: keyof ItemStock, value: any) => {
-        const newItems = [...cargaInicial];
-        newItems[index] = { ...newItems[index], [field]: value };
-        setCargaInicial(newItems);
-    };
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const itemsValidos: ItemStock[] = Object.entries(cantidades)
+            .filter(([_, cant]) => (cant as number) > 0)
+            .map(([id, cant]) => ({ productoId: id, cantidad: cant as number }));
 
-    const handleRemoveItem = (index: number) => {
-        setCargaInicial(cargaInicial.filter((_, i) => i !== index));
-    };
-
-    const handleSubmit = useCallback((e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        const itemsValidos = cargaInicial.filter(item => item.productoId && item.cantidad > 0);
         if (!repartidorId || itemsValidos.length === 0) return;
 
-        const nuevaPlanilla: Omit<PlanillaDiaria, 'id'> = {
+        onSave({
             fecha,
             repartidorId,
             estado: EstadoPlanilla.ABIERTA,
             cargaInicial: itemsValidos,
-        };
-        onSave(nuevaPlanilla);
-    }, [fecha, repartidorId, cargaInicial, onSave]);
+        });
+    };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Abrir Nuevo Reparto</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex justify-between items-start pr-10">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+                    <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Abrir Reparto</h2>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Carga Inicial de Camión</p>
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border dark:border-gray-700">
+                <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Repartidor</label>
+                    <select 
+                        value={repartidorId} 
+                        onChange={(e) => setRepartidorId(e.target.value)} 
+                        className="w-full p-2.5 bg-white dark:bg-gray-700 rounded-xl border-2 border-gray-100 dark:border-gray-600 font-bold"
+                        required
+                    >
+                        <option value="">Seleccione...</option>
+                        {repartidores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Fecha</label>
                     <input 
                         type="date" 
                         value={fecha} 
                         onChange={(e) => setFecha(e.target.value)} 
-                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
+                        className="w-full p-2.5 bg-white dark:bg-gray-700 rounded-xl border-2 border-gray-100 dark:border-gray-600 font-bold"
                         required 
                     />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Repartidor</label>
-                    <select 
-                        value={repartidorId} 
-                        onChange={(e) => setRepartidorId(e.target.value)} 
-                        className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
-                        required
-                    >
-                        <option value="">Seleccione repartidor...</option>
-                        {repartidores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                    </select>
-                </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-gray-700 dark:text-gray-300">Carga Inicial (Llenos)</h3>
-                    <AppButton type="button" size="sm" variant="secondary" onClick={handleAddItem}>+ Agregar Producto</AppButton>
+            <div className="space-y-3">
+                <div className="flex justify-between items-center px-1">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Productos en Planta</h3>
+                    {repartidorId && (
+                        <button 
+                            type="button" 
+                            onClick={handleLoadLast}
+                            className="text-[10px] font-black text-primary-600 hover:text-primary-700 uppercase tracking-widest bg-primary-50 dark:bg-primary-900/20 px-3 py-1 rounded-full transition-colors"
+                        >
+                            ⚡ Cargar Último Reparto
+                        </button>
+                    )}
                 </div>
                 
-                {cargaInicial.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-end bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border dark:border-gray-700">
-                        <div className="flex-grow">
-                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Producto</label>
-                            <SearchableSelect 
-                                options={productosOptions}
-                                value={item.productoId} 
-                                onChange={(v) => handleItemChange(index, 'productoId', v)}
-                                placeholder="Seleccionar..."
-                            />
-                        </div>
-                        <div className="w-24">
-                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Cant.</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {productosActivos.map(p => (
+                        <div key={p.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 hover:border-primary-500 transition-colors shadow-sm">
+                            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{p.nombre}</span>
                             <input 
                                 type="number" 
-                                value={item.cantidad || ''} 
-                                onChange={(e) => handleItemChange(index, 'cantidad', parseInt(e.target.value) || 0)}
-                                className="w-full p-2 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600"
-                                required
-                                min="1"
+                                value={cantidades[p.id] || ''} 
+                                onChange={(e) => setCantidades(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                className="w-20 p-1.5 text-right bg-gray-50 dark:bg-gray-700 rounded-lg border-none font-black text-primary-600 focus:ring-2 focus:ring-primary-500"
+                                placeholder="0"
+                                min="0"
                             />
                         </div>
-                        <button 
-                            type="button"
-                            onClick={() => handleRemoveItem(index)}
-                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md mb-[2px]"
-                        >
-                            <TrashIcon className="h-5 w-5" />
-                        </button>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit">Abrir Reparto</AppButton>
+                <AppButton type="submit" className="px-8">Abrir Reparto</AppButton>
             </div>
         </form>
     );
@@ -170,90 +169,80 @@ const RecargaModal: React.FC<{
     onSave: (itemsCarga: ItemStock[], itemsDescarga: ItemStock[]) => void;
     onClose: () => void;
 }> = ({ productos, onSave, onClose }) => {
-    const [itemsCarga, setItemsCarga] = useState<ItemStock[]>([]);
-    const [itemsDescarga, setItemsDescarga] = useState<ItemStock[]>([]);
+    const [cantidadesCarga, setCantidadesCarga] = useState<Record<string, number>>({});
+    const [cantidadesDescarga, setCantidadesDescarga] = useState<Record<string, number>>({});
 
-    const productosOptions = useMemo(() => 
-        productos
-            .filter(p => p.estado !== EstadoProducto.INACTIVO)
-            .map(p => ({ value: p.id, label: p.nombre })), 
-    [productos]);
-
-    const handleAddCarga = () => setItemsCarga(prev => [...prev, { productoId: '', cantidad: 0 }]);
-    const handleAddDescarga = () => setItemsDescarga(prev => [...prev, { productoId: '', cantidad: 0 }]);
+    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO && p.tipo !== TipoProducto.EQUIPO), [productos]);
 
     const handleSave = () => {
-        const cargaValida = itemsCarga.filter(i => i.productoId && i.cantidad > 0);
-        const descargaValida = itemsDescarga.filter(i => i.productoId && i.cantidad > 0);
+        const cargaValida: ItemStock[] = Object.entries(cantidadesCarga)
+            .filter(([_, cant]) => (cant as number) > 0)
+            .map(([id, cant]) => ({ productoId: id, cantidad: cant as number }));
+
+        const descargaValida: ItemStock[] = Object.entries(cantidadesDescarga)
+            .filter(([_, cant]) => (cant as number) > 0)
+            .map(([id, cant]) => ({ productoId: id, cantidad: cant as number }));
+
         if (cargaValida.length === 0 && descargaValida.length === 0) return;
         onSave(cargaValida, descargaValida);
     };
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white pr-8">Registrar Recarga / Descarga</h2>
+            <div className="pr-10">
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Registrar Recarga</h2>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Movimiento intermedio de stock</p>
+            </div>
             
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-blue-600 dark:text-blue-400 uppercase text-xs tracking-widest">Carga (Sale de Planta Lleno)</h3>
-                    <AppButton size="sm" variant="secondary" onClick={handleAddCarga}>+ Agregar</AppButton>
-                </div>
-                {itemsCarga.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-end">
-                        <div className="flex-grow">
-                            <SearchableSelect 
-                                options={productosOptions}
-                                value={item.productoId} 
-                                onChange={(v) => {
-                                    const newItems = [...itemsCarga];
-                                    newItems[index].productoId = v;
-                                    setItemsCarga(newItems);
-                                }}
-                                placeholder="Seleccionar producto..."
-                            />
-                        </div>
-                        <input type="number" value={item.cantidad || ''} onChange={(e) => {
-                            const newItems = [...itemsCarga];
-                            newItems[index].cantidad = parseInt(e.target.value) || 0;
-                            setItemsCarga(newItems);
-                        }} className="w-24 p-2 bg-gray-100 dark:bg-gray-700 rounded-md border dark:border-gray-600" placeholder="Cant." />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* CARGA (LLENOS) */}
+                <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        Sale de Planta (Llenos)
+                    </h3>
+                    <div className="space-y-2">
+                        {productosActivos.map(p => (
+                            <div key={p.id} className="flex items-center justify-between p-2 bg-blue-50/30 dark:bg-blue-900/5 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{p.nombre}</span>
+                                <input 
+                                    type="number" 
+                                    value={cantidadesCarga[p.id] || ''} 
+                                    onChange={(e) => setCantidadesCarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                    className="w-16 p-1 text-right bg-white dark:bg-gray-800 rounded border-none font-black text-blue-600 focus:ring-1 focus:ring-blue-500 text-sm"
+                                    placeholder="0"
+                                />
+                            </div>
+                        ))}
                     </div>
-                ))}
+                </div>
+
+                {/* DESCARGA (VACÍOS) */}
+                <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-600"></div>
+                        Entra a Planta (Vacíos)
+                    </h3>
+                    <div className="space-y-2">
+                        {productosActivos.map(p => (
+                            <div key={p.id} className="flex items-center justify-between p-2 bg-orange-50/30 dark:bg-orange-900/5 rounded-lg border border-orange-100 dark:border-orange-900/30">
+                                <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{p.nombre}</span>
+                                <input 
+                                    type="number" 
+                                    value={cantidadesDescarga[p.id] || ''} 
+                                    onChange={(e) => setCantidadesDescarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                    className="w-16 p-1 text-right bg-white dark:bg-gray-800 rounded border-none font-black text-orange-600 focus:ring-1 focus:ring-orange-500 text-sm"
+                                    placeholder="0"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
-            <hr className="dark:border-gray-700" />
-
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-yellow-600 dark:text-yellow-400 uppercase text-xs tracking-widest">Descarga (Entra a Planta Vacío)</h3>
-                    <AppButton size="sm" variant="secondary" onClick={handleAddDescarga}>+ Agregar</AppButton>
-                </div>
-                {itemsDescarga.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-end">
-                        <div className="flex-grow">
-                            <SearchableSelect 
-                                options={productosOptions}
-                                value={item.productoId} 
-                                onChange={(v) => {
-                                    const newItems = [...itemsDescarga];
-                                    newItems[index].productoId = v;
-                                    setItemsDescarga(newItems);
-                                }}
-                                placeholder="Seleccionar producto..."
-                            />
-                        </div>
-                        <input type="number" value={item.cantidad || ''} onChange={(e) => {
-                            const newItems = [...itemsDescarga];
-                            newItems[index].cantidad = parseInt(e.target.value) || 0;
-                            setItemsDescarga(newItems);
-                        }} className="w-24 p-2 bg-gray-100 dark:bg-gray-700 rounded-md border dark:border-gray-600" placeholder="Cant." />
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
+            <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton onClick={handleSave}>Guardar Recarga</AppButton>
+                <AppButton onClick={handleSave} className="px-8">Guardar Recarga</AppButton>
             </div>
         </div>
     );
@@ -371,7 +360,6 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
     addCierrePlanta
 }) => {
     const { showNotification } = useNotification();
-    const [activeTab, setActiveTab] = useState<'planillas' | 'balance'>('planillas');
     const [selectedDate, setSelectedDate] = useState(getLocalDateString());
     
     // Modals state
@@ -387,6 +375,19 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
 
     const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
     const usuariosMap = useMemo(() => new Map(usuarios.map(u => [u.id, u])), [usuarios]);
+
+    // Planillas filtradas por fecha
+    const planillasDelDia = useMemo(() => 
+        planillas.filter(p => p.fecha === selectedDate)
+    , [planillas, selectedDate]);
+
+    const repartosActivos = useMemo(() => 
+        planillasDelDia.filter(p => p.estado === EstadoPlanilla.ABIERTA)
+    , [planillasDelDia]);
+
+    const repartosCerrados = useMemo(() => 
+        planillasDelDia.filter(p => p.estado === EstadoPlanilla.CERRADA)
+    , [planillasDelDia]);
 
     // --- LOGICA DE PLANILLAS ---
     const handleClosePlanilla = (planilla: PlanillaDiaria) => {
@@ -503,176 +504,216 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
 
     // --- RENDER ---
     return (
-        <div className="space-y-6 pt-12 md:pt-0">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter italic">Control de Planta</h1>
-                <div className="flex gap-2">
-                    {activeTab === 'planillas' && (
-                        <AppButton onClick={() => setIsNewPlanillaOpen(true)}>+ Abrir Reparto</AppButton>
-                    )}
-                </div>
-            </div>
-
-            {/* TABS */}
-            <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
-                <button 
-                    onClick={() => setActiveTab('planillas')} 
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'planillas' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                    <ClipboardCheckIcon className="h-4 w-4" /> REPARTOS
-                </button>
-                <button 
-                    onClick={() => setActiveTab('balance')} 
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'balance' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                    <ChartBarIcon className="h-4 w-4" /> BALANCE DIARIO
-                </button>
-            </div>
-
-            {/* CONTENIDO TABS */}
-            {activeTab === 'planillas' && (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {planillas
-                            .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime())
-                            .slice(0, 12)
-                            .map(p => {
-                                const totalUnidades = p.cargaInicial.reduce((s, i) => s + i.cantidad, 0);
-                                const totalRecargas = p.recargas?.length || 0;
-                                return (
-                                <Card key={p.id} className={`border-l-4 ${p.estado === EstadoPlanilla.ABIERTA ? 'border-l-blue-500' : 'border-l-green-500'}`}>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p>
-                                            <h3 className="font-bold text-gray-800 dark:text-white truncate max-w-[150px]">{usuariosMap.get(p.repartidorId)?.nombre}</h3>
-                                        </div>
-                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase shrink-0 ${p.estado === EstadoPlanilla.ABIERTA ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                            {p.estado}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1 mb-4 min-h-[60px]">
-                                        {p.cargaInicial.slice(0, 3).map(item => (
-                                            <div key={item.productoId} className="flex justify-between text-[11px]">
-                                                <span className="text-gray-500 truncate mr-2">{productosMap.get(item.productoId)?.nombre}</span>
-                                                <span className="font-bold shrink-0">{item.cantidad}</span>
-                                            </div>
-                                        ))}
-                                        {p.cargaInicial.length > 3 && (
-                                            <p className="text-[10px] text-gray-400 italic">+{p.cargaInicial.length - 3} productos más...</p>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-2 pt-3 border-t dark:border-gray-700">
-                                        <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)}>Detalle</AppButton>
-                                        {p.estado === EstadoPlanilla.ABIERTA && (
-                                            <AppButton size="sm" variant="success" fullWidth onClick={() => handleClosePlanilla(p)}>Cerrar</AppButton>
-                                        )}
-                                    </div>
-                                </Card>
-                                );
-                            })}
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8 pt-12 md:pt-0 pb-12"
+        >
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b dark:border-gray-700 pb-6">
+                <div>
+                    <h1 className="text-4xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic leading-none">Control de Planta</h1>
+                    <div className="flex items-center gap-2 mt-2">
+                        <input 
+                            type="date" 
+                            value={selectedDate} 
+                            onChange={e => setSelectedDate(e.target.value)} 
+                            className="p-0 bg-transparent border-none text-sm font-black text-primary-600 focus:ring-0 cursor-pointer uppercase tracking-widest"
+                        />
+                        <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">• Sesión Diaria</span>
                     </div>
                 </div>
-            )}
+                <div className="flex flex-col items-end gap-2">
+                    <AppButton onClick={() => setIsNewPlanillaOpen(true)} className="shadow-2xl shadow-primary-500/40 px-8 py-3 text-sm font-black uppercase tracking-widest">
+                        + Abrir Nuevo Reparto
+                    </AppButton>
+                    <div className="hidden md:flex items-center gap-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                        <span>1. Apertura</span>
+                        <span className="text-gray-300">→</span>
+                        <span>2. Recargas</span>
+                        <span className="text-gray-300">→</span>
+                        <span>3. Cierre Reparto</span>
+                        <span className="text-gray-300">→</span>
+                        <span>4. Auditoría Planta</span>
+                    </div>
+                </div>
+            </div>
 
-            {activeTab === 'balance' && (
-                <div className="space-y-6">
-                    <Card>
-                        <div className="flex flex-wrap gap-4 mb-6 items-end justify-between border-b dark:border-gray-700 pb-4">
-                            <div className="flex gap-4 items-end">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Fecha de Balance</label>
-                                    <input 
-                                        type="date" 
-                                        value={selectedDate} 
-                                        onChange={e => setSelectedDate(e.target.value)} 
-                                        className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-none focus:ring-2 focus:ring-primary-500 font-bold"
-                                    />
-                                </div>
-                                <div className="hidden md:block">
-                                    <p className="text-xs text-gray-500 italic">El balance compara el stock teórico (calculado por el sistema) contra el conteo físico real en planta.</p>
-                                </div>
-                            </div>
-                            <AppButton 
-                                variant="success" 
-                                onClick={handleSaveBalance}
-                                isLoading={isSavingCierre}
-                            >
-                                Guardar Cierre de Planta
-                            </AppButton>
+            {/* SECCIÓN 1: REPARTOS EN CURSO */}
+            <section className="space-y-6">
+                <div className="flex items-center gap-3 px-1">
+                    <div className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                    </div>
+                    <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em]">Repartos en Curso</h2>
+                </div>
+                
+                <AnimatePresence mode="popLayout">
+                    {repartosActivos.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {repartosActivos.map(p => {
+                                const totalUnidades = p.cargaInicial.reduce((s, i) => s + i.cantidad, 0);
+                                return (
+                                    <motion.div
+                                        key={p.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                    >
+                                        <Card className="border-l-8 border-l-blue-500 hover:shadow-2xl transition-all group overflow-hidden relative">
+                                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                                <TruckIcon className="h-24 w-24 -rotate-12" />
+                                            </div>
+                                            <div className="flex justify-between items-start mb-6 relative z-10">
+                                                <div>
+                                                    <h3 className="font-black text-xl text-gray-800 dark:text-white truncate max-w-[180px] group-hover:text-primary-600 transition-colors tracking-tighter">
+                                                        {usuariosMap.get(p.repartidorId)?.nombre}
+                                                    </h3>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Carga: <span className="text-blue-600">{totalUnidades}</span> unidades</p>
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-blue-100 text-blue-700 mb-2 tracking-widest">En Viaje</span>
+                                                    <span className="text-[10px] font-mono font-bold text-gray-400">{p.recargas?.length || 0} Recargas</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3 pt-4 border-t dark:border-gray-700 relative z-10">
+                                                <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="font-black uppercase tracking-widest text-[10px]">Gestionar</AppButton>
+                                                <AppButton size="sm" variant="success" fullWidth onClick={() => handleClosePlanilla(p)} className="font-black uppercase tracking-widest text-[10px]">Cerrar</AppButton>
+                                            </div>
+                                        </Card>
+                                    </motion.div>
+                                );
+                            })}
                         </div>
+                    ) : (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="p-16 border-4 border-dashed border-gray-100 dark:border-gray-800 rounded-[3rem] flex flex-col items-center justify-center text-gray-300 dark:text-gray-700"
+                        >
+                            <ClipboardCheckIcon className="h-16 w-16 mb-4 opacity-10" />
+                            <p className="text-xs font-black uppercase tracking-[0.4em]">No hay repartos activos</p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </section>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th className="px-4 py-3">Producto</th>
-                                        <th className="px-4 py-3 text-right">Stock Inicial</th>
-                                        <th className="px-4 py-3 text-right w-32 bg-blue-50/50 dark:bg-blue-900/10">+ Producción</th>
-                                        <th className="px-4 py-3 text-right">- Salidas (Total)</th>
-                                        <th className="px-4 py-3 text-right">= Teórico</th>
-                                        <th className="px-4 py-3 text-right w-32 bg-yellow-50/50 dark:bg-yellow-900/10">Físico (Real)</th>
-                                        <th className="px-4 py-3 text-right">Diferencia</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {balanceData.map(d => {
-                                        const fisico = physicalStock[d.producto.id] ?? d.teorico;
-                                        const diferencia = fisico - d.teorico;
-                                        const totalSalidas = d.salidasInternas + d.salidasExternas;
-                                        
-                                        if (d.inicial === 0 && d.produccionHistorica === 0 && d.produccionNueva === 0 && totalSalidas === 0 && fisico === 0) {
-                                            return null;
-                                        }
+            {/* SECCIÓN 2: BALANCE DE PLANTA (AUDITORÍA) */}
+            <section className="space-y-6">
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-3">
+                        <ChartBarIcon className="h-5 w-5 text-primary-600" />
+                        <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em]">Balance de Planta / Auditoría</h2>
+                    </div>
+                    <AppButton 
+                        variant="success" 
+                        size="sm"
+                        onClick={handleSaveBalance}
+                        isLoading={isSavingCierre}
+                        className="shadow-xl shadow-green-500/20 px-6 font-black uppercase tracking-widest text-[10px]"
+                    >
+                        Guardar Cierre de Planta
+                    </AppButton>
+                </div>
 
-                                        return (
-                                            <tr key={d.producto.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                                <td className="px-4 py-3 font-bold">{d.producto.nombre}</td>
-                                                <td className="px-4 py-3 text-right font-mono text-gray-500">{d.inicial}</td>
-                                                <td className="px-4 py-3 text-right bg-blue-50/30 dark:bg-blue-900/5">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        {d.produccionHistorica > 0 && <span className="text-[10px] text-gray-400">({d.produccionHistorica}) +</span>}
-                                                        <input 
-                                                            type="number" 
-                                                            placeholder="0"
-                                                            value={productionInput[d.producto.id] || ''}
-                                                            onChange={e => setProductionInput(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
-                                                            className="w-16 p-1 text-right bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-400 font-bold rounded border border-blue-200 dark:border-blue-800 focus:ring-1 focus:ring-blue-500"
-                                                        />
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="font-bold text-red-600">-{totalSalidas}</span>
-                                                        <span className="text-[9px] text-gray-400 uppercase">({d.salidasInternas} Int / {d.salidasExternas} Ext)</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-black text-gray-800 dark:text-white text-lg">{d.teorico}</td>
-                                                <td className="px-4 py-3 text-right bg-yellow-50/30 dark:bg-yellow-900/5">
+                <Card className="overflow-hidden border-none shadow-2xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-50/50 dark:bg-gray-800/50 border-b dark:border-gray-700">
+                                <tr>
+                                    <th className="px-6 py-5">Producto</th>
+                                    <th className="px-6 py-5 text-right">Inicial</th>
+                                    <th className="px-6 py-5 text-right bg-blue-50/30 dark:bg-blue-900/5">+ Producción</th>
+                                    <th className="px-6 py-5 text-right">- Salidas</th>
+                                    <th className="px-6 py-5 text-right">= Teórico</th>
+                                    <th className="px-6 py-5 text-right bg-yellow-50/30 dark:bg-yellow-900/5">Físico</th>
+                                    <th className="px-6 py-5 text-right">Dif.</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y dark:divide-gray-700">
+                                {balanceData.map(d => {
+                                    const fisico = physicalStock[d.producto.id] ?? d.teorico;
+                                    const diferencia = fisico - d.teorico;
+                                    const totalSalidas = d.salidasInternas + d.salidasExternas;
+                                    
+                                    if (d.inicial === 0 && d.produccionHistorica === 0 && d.produccionNueva === 0 && totalSalidas === 0 && fisico === 0) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <tr key={d.producto.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
+                                            <td className="px-6 py-5">
+                                                <p className="font-black text-gray-800 dark:text-white group-hover:text-primary-600 transition-colors uppercase tracking-tighter">{d.producto.nombre}</p>
+                                            </td>
+                                            <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.inicial}</td>
+                                            <td className="px-6 py-5 text-right bg-blue-50/10 dark:bg-blue-900/5">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {d.produccionHistorica > 0 && <span className="text-[10px] text-gray-400 font-black">({d.produccionHistorica}) +</span>}
                                                     <input 
                                                         type="number" 
-                                                        value={fisico}
-                                                        onChange={e => setPhysicalStock(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
-                                                        className="w-20 p-2 text-right font-black bg-white dark:bg-gray-600 rounded-lg border-2 border-gray-200 focus:border-primary-500 focus:ring-0"
+                                                        placeholder="0"
+                                                        value={productionInput[d.producto.id] || ''}
+                                                        onChange={e => setProductionInput(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
+                                                        className="w-20 p-2 text-right bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 font-black rounded-xl border-2 border-blue-50 dark:border-blue-900 focus:border-blue-500 outline-none transition-all shadow-sm"
                                                     />
-                                                </td>
-                                                <td className={`px-4 py-3 text-right font-black text-lg ${diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {diferencia > 0 ? `+${diferencia}` : diferencia}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </div>
-            )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-black text-red-500 text-base">-{totalSalidas}</span>
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">({d.salidasInternas} Int / {d.salidasExternas} Ext)</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-right font-black text-gray-800 dark:text-white text-xl tracking-tighter">{d.teorico}</td>
+                                            <td className="px-6 py-5 text-right bg-yellow-50/10 dark:bg-yellow-900/5">
+                                                <input 
+                                                    type="number" 
+                                                    value={fisico}
+                                                    onChange={e => setPhysicalStock(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
+                                                    className="w-24 p-2.5 text-right font-black bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-100 dark:border-gray-700 focus:border-primary-500 focus:ring-0 outline-none shadow-md transition-all"
+                                                />
+                                            </td>
+                                            <td className={`px-6 py-5 text-right font-black text-xl ${diferencia === 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                {diferencia > 0 ? `+${diferencia}` : diferencia}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </section>
 
+            {/* SECCIÓN 3: REPARTOS CERRADOS */}
+            {repartosCerrados.length > 0 && (
+                <section className="space-y-6">
+                    <div className="flex items-center gap-3 px-1">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em]">Repartos Finalizados</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 opacity-60 hover:opacity-100 transition-opacity">
+                        {repartosCerrados.map(p => (
+                            <motion.div key={p.id} whileHover={{ scale: 1.02 }}>
+                                <Card className="border-l-4 border-l-green-500 bg-gray-50/50 dark:bg-gray-800/50 p-4">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <h3 className="font-black text-sm text-gray-700 dark:text-gray-300 truncate uppercase tracking-tighter">{usuariosMap.get(p.repartidorId)?.nombre}</h3>
+                                        <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase bg-green-100 text-green-700 tracking-widest">OK</span>
+                                    </div>
+                                    <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="text-[9px] font-black uppercase tracking-widest py-1">Ver Resumen</AppButton>
+                                </Card>
+                            </motion.div>
+                        ))}
+                    </div>
+                </section>
+            )}
             {/* MODALS */}
             <Modal isOpen={isNewPlanillaOpen} onClose={() => setIsNewPlanillaOpen(false)}>
                 <PlanillaForm 
                     usuarios={usuarios} 
                     productos={productos} 
+                    planillas={planillas}
                     onSave={(data) => {
                         addPlanilla(data);
                         setIsNewPlanillaOpen(false);
@@ -682,20 +723,25 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                 />
             </Modal>
 
-            <Modal isOpen={!!selectedPlanilla} onClose={() => setSelectedPlanilla(null)} className="max-w-4xl">
+            <Modal isOpen={!!selectedPlanilla} onClose={() => setSelectedPlanilla(null)} className="max-w-5xl">
                 {selectedPlanilla && (
                     <div className="space-y-6">
-                        <div className="flex flex-col md:flex-row justify-between items-start gap-4 border-b dark:border-gray-700 pb-4 pr-10">
+                        <div className="flex flex-col md:flex-row justify-between items-start gap-4 border-b dark:border-gray-700 pb-4 pr-12">
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalle de Reparto</h2>
-                                <p className="text-gray-500 font-medium">
-                                    {usuariosMap.get(selectedPlanilla.repartidorId)?.nombre} • {new Date(selectedPlanilla.fecha + 'T00:00:00').toLocaleDateString('es-AR')}
-                                </p>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                        {selectedPlanilla.estado}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(selectedPlanilla.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</span>
+                                </div>
+                                <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">
+                                    Reparto: {usuariosMap.get(selectedPlanilla.repartidorId)?.nombre}
+                                </h2>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {selectedPlanilla.estado === EstadoPlanilla.ABIERTA && (
                                     <>
-                                        <AppButton size="sm" variant="secondary" onClick={() => setIsRecargaOpen(true)}>+ Registrar Recarga</AppButton>
+                                        <AppButton size="sm" variant="secondary" onClick={() => setIsRecargaOpen(true)}>+ Recarga</AppButton>
                                         <AppButton size="sm" variant="success" onClick={() => handleClosePlanilla(selectedPlanilla)}>Cerrar Reparto</AppButton>
                                     </>
                                 )}
@@ -708,91 +754,105 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                             </div>
                         </div>
 
-                        {/* Comparación con Remitos */}
-                        <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800">
-                            <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 flex items-center gap-2">
-                                <ChartBarIcon className="h-5 w-5" /> Comparación con Entregas (Remitos)
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="text-[10px] font-black text-blue-600/70 dark:text-blue-400/70 uppercase tracking-widest">
-                                        <tr>
-                                            <th className="text-left pb-2">Producto</th>
-                                            <th className="text-right pb-2">Entregado (Reparto)</th>
-                                            <th className="text-right pb-2">Entregado (Remitos)</th>
-                                            <th className="text-right pb-2">Diferencia</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
-                                            // Entregado Reparto = Inicial + Recargas - Devolucion
-                                            let entregadoReparto = selectedPlanilla.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
-                                            selectedPlanilla.recargas?.forEach(r => {
-                                                entregadoReparto += r.items.find(i => i.productoId === p.id)?.cantidad || 0;
-                                            });
-                                            if (selectedPlanilla.estado === EstadoPlanilla.CERRADA) {
-                                                entregadoReparto -= selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
-                                            }
-
-                                            // Entregado Remitos
-                                            const remitosDelDia = remitos.filter(r => r.fecha === selectedPlanilla.fecha && r.vendedorId === selectedPlanilla.repartidorId);
-                                            const entregadoRemitos = remitosDelDia.reduce((sum, r) => {
-                                                return sum + (r.movimientos.find(m => m.productoId === p.id)?.entregados || 0);
-                                            }, 0);
-
-                                            if (entregadoReparto === 0 && entregadoRemitos === 0) return null;
-
-                                            const diff = entregadoRemitos - entregadoReparto;
-
-                                            return (
-                                                <tr key={p.id} className="border-t border-blue-100 dark:border-blue-800/50">
-                                                    <td className="py-2 font-medium">{p.nombre}</td>
-                                                    <td className="py-2 text-right font-mono">{selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? 'Pendiente Cierre' : entregadoReparto}</td>
-                                                    <td className="py-2 text-right font-mono">{entregadoRemitos}</td>
-                                                    <td className={`py-2 text-right font-bold ${diff === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? '-' : (diff > 0 ? `+${diff}` : diff)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </Card>
-
-                        {/* Movimientos del Reparto */}
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left">Producto</th>
-                                        <th className="px-4 py-2 text-right">Carga Inicial</th>
-                                        <th className="px-4 py-2 text-right">Recargas</th>
-                                        <th className="px-4 py-2 text-right">Devolución (Llenos)</th>
-                                        <th className="px-4 py-2 text-right">Devolución (Vacíos)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
-                                        const inicial = selectedPlanilla.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
-                                        const recargas = selectedPlanilla.recargas?.reduce((sum, r) => sum + (r.items.find(i => i.productoId === p.id)?.cantidad || 0), 0) || 0;
-                                        const devLlenos = selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
-                                        const devVacios = selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadVacios || 0;
-
-                                        if (inicial === 0 && recargas === 0 && devLlenos === 0 && devVacios === 0) return null;
-
-                                        return (
-                                            <tr key={p.id} className="border-b dark:border-gray-700">
-                                                <td className="px-4 py-3 font-bold">{p.nombre}</td>
-                                                <td className="px-4 py-3 text-right">{inicial > 0 ? inicial : '-'}</td>
-                                                <td className="px-4 py-3 text-right text-blue-600">{recargas > 0 ? `+${recargas}` : '-'}</td>
-                                                <td className="px-4 py-3 text-right text-orange-600">{selectedPlanilla.estado === EstadoPlanilla.CERRADA ? devLlenos : '...'}</td>
-                                                <td className="px-4 py-3 text-right text-gray-500">{selectedPlanilla.estado === EstadoPlanilla.CERRADA ? devVacios : '...'}</td>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Auditoría de Ventas */}
+                            <Card className="bg-primary-50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-800">
+                                <h3 className="font-black text-xs text-primary-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <ClipboardCheckIcon className="h-4 w-4" /> Auditoría de Ventas (Remitos)
+                                </h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="text-[9px] font-black text-primary-400 uppercase tracking-widest border-b border-primary-100 dark:border-primary-800">
+                                            <tr>
+                                                <th className="text-left py-2">Producto</th>
+                                                <th className="text-right py-2">Entregado</th>
+                                                <th className="text-right py-2">Remitos</th>
+                                                <th className="text-right py-2">Dif.</th>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                                        </thead>
+                                        <tbody>
+                                            {productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
+                                                let entregadoReparto = selectedPlanilla.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
+                                                selectedPlanilla.recargas?.forEach(r => {
+                                                    entregadoReparto += r.items.find(i => i.productoId === p.id)?.cantidad || 0;
+                                                });
+                                                if (selectedPlanilla.estado === EstadoPlanilla.CERRADA) {
+                                                    entregadoReparto -= selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
+                                                }
+
+                                                const remitosDelDia = remitos.filter(r => r.fecha === selectedPlanilla.fecha && r.vendedorId === selectedPlanilla.repartidorId);
+                                                const entregadoRemitos = remitosDelDia.reduce((sum, r) => {
+                                                    return sum + (r.movimientos.find(m => m.productoId === p.id)?.entregados || 0);
+                                                }, 0);
+
+                                                if (entregadoReparto === 0 && entregadoRemitos === 0) return null;
+                                                const diff = entregadoRemitos - entregadoReparto;
+
+                                                return (
+                                                    <tr key={p.id} className="border-b border-primary-50 dark:border-primary-900/30 last:border-0">
+                                                        <td className="py-2.5 font-bold text-xs">{p.nombre}</td>
+                                                        <td className="py-2.5 text-right font-mono text-gray-500">{selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? '...' : entregadoReparto}</td>
+                                                        <td className="py-2.5 text-right font-mono font-bold">{entregadoRemitos}</td>
+                                                        <td className={`py-2.5 text-right font-black ${diff === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? '-' : (diff > 0 ? `+${diff}` : diff)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card>
+
+                            {/* Detalle de Movimientos */}
+                            <div className="space-y-4">
+                                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border dark:border-gray-700">
+                                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Carga Inicial</h3>
+                                    <div className="space-y-1">
+                                        {selectedPlanilla.cargaInicial.map(item => (
+                                            <div key={item.productoId} className="flex justify-between text-xs">
+                                                <span className="text-gray-600 dark:text-gray-400">{productosMap.get(item.productoId)?.nombre}</span>
+                                                <span className="font-black">{item.cantidad}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {selectedPlanilla.recargas && selectedPlanilla.recargas.length > 0 && (
+                                    <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                                        <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-3">Recargas ({selectedPlanilla.recargas.length})</h3>
+                                        <div className="space-y-3">
+                                            {selectedPlanilla.recargas.map((rec, idx) => (
+                                                <div key={idx} className="border-b border-blue-100 dark:border-blue-800 last:border-0 pb-2 last:pb-0">
+                                                    {rec.items.map(item => (
+                                                        <div key={item.productoId} className="flex justify-between text-xs">
+                                                            <span className="text-blue-700 dark:text-blue-400">{productosMap.get(item.productoId)?.nombre}</span>
+                                                            <span className="font-black">+{item.cantidad}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedPlanilla.estado === EstadoPlanilla.CERRADA && selectedPlanilla.devolucion && (
+                                    <div className="bg-green-50/50 dark:bg-green-900/10 p-4 rounded-2xl border border-green-100 dark:border-green-900/30">
+                                        <h3 className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-3">Devolución (Retorno)</h3>
+                                        <div className="space-y-1">
+                                            {selectedPlanilla.devolucion.map(item => (
+                                                <div key={item.productoId} className="flex justify-between text-xs">
+                                                    <span className="text-green-700 dark:text-green-400">{productosMap.get(item.productoId)?.nombre}</span>
+                                                    <div className="flex gap-3">
+                                                        <span className="font-black text-orange-600">L: {item.cantidadLlenos}</span>
+                                                        <span className="font-black text-green-600">V: {item.cantidadVacios}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -829,7 +889,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                     />
                 )}
             </Modal>
-        </div>
+        </motion.div>
     );
 };
 
