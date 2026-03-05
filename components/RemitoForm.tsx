@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto, EstadoProducto } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
 import AppInput from './ui/AppInput';
@@ -46,7 +46,11 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         .map(c => ({ value: c.id, label: c.nombre }));
   }, [clientes, formData.clienteId]);
 
-  const productosOptions = useMemo(() => productos.map(p => ({ value: p.id, label: p.nombre })), [productos]);
+  const productosOptions = useMemo(() => 
+    productos
+      .filter(p => p.estado !== EstadoProducto.INACTIVO || p.id === formData.movimientos?.[0]?.productoId) // Permitir el producto actual si ya está guardado
+      .map(p => ({ value: p.id, label: p.nombre })), 
+  [productos, formData.movimientos]);
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const pagosMap = useMemo(() => {

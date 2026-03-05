@@ -252,7 +252,6 @@ function AppContent() {
                 />;
       case 'planillas': 
       case 'stock_planta':
-      case 'balance_diario':
         return <GestionStockView
                   planillas={dataStore.planillas}
                   movimientosPlanta={dataStore.movimientosStockPlanta}

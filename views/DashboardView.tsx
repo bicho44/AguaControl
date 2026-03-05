@@ -764,21 +764,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const monthLabel = date.toLocaleString('es-ES', { month: 'short', year: '2-digit' }).toUpperCase();
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthObj: any = { name: monthLabel, sortKey: monthKey };
+        
+        // Totales generales del mes
+        monthObj["Total General"] = 0;
+        monthObj["Total Interno"] = 0;
+        monthObj["Total Externo"] = 0;
+
         consumableProductNames.forEach(pName => {
-            monthObj[pName] = 0; // Legacy key for compatibility if needed
             monthObj[`Total - ${pName}`] = 0;
             monthObj[`Interno - ${pName}`] = 0;
             monthObj[`Externo - ${pName}`] = 0;
         });
+
         activeRemitos.forEach(r => {
             const d = parseLocalDate(r.fecha);
             if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()) {
                 r.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
                     if (prod && consumableProductNames.includes(prod.nombre)) {
-                        monthObj[prod.nombre] += m.entregados;
-                        monthObj[`Total - ${prod.nombre}`] += m.entregados;
-                        monthObj[`Interno - ${prod.nombre}`] += m.entregados;
+                        const cant = Number(m.entregados) || 0;
+                        monthObj["Total General"] += cant;
+                        monthObj["Total Interno"] += cant;
+                        monthObj[`Total - ${prod.nombre}`] += cant;
+                        monthObj[`Interno - ${prod.nombre}`] += cant;
                     }
                 });
             }
@@ -789,9 +797,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 v.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
                     if (prod && consumableProductNames.includes(prod.nombre)) {
-                        monthObj[prod.nombre] += m.cantidad;
-                        monthObj[`Total - ${prod.nombre}`] += m.cantidad;
-                        monthObj[`Externo - ${prod.nombre}`] += m.cantidad;
+                        const cant = Number(m.cantidad) || 0;
+                        monthObj["Total General"] += cant;
+                        monthObj["Total Externo"] += cant;
+                        monthObj[`Total - ${prod.nombre}`] += cant;
+                        monthObj[`Externo - ${prod.nombre}`] += cant;
                     }
                 });
             }
@@ -808,15 +818,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const dayLabel = d.toString();
         const dayObj: any = { name: dayLabel };
         
+        // Totales por día para la comparativa general
+        dayObj["Total Interno"] = 0;
+        dayObj["Total Externo"] = 0;
+        dayObj["Total Interno Mes Ant"] = 0;
+        dayObj["Total Externo Mes Ant"] = 0;
+
         consumableProductNames.forEach(pName => {
             dayObj[`Interno - ${pName}`] = 0;
             dayObj[`Externo - ${pName}`] = 0;
             dayObj[`Interno Mes Ant - ${pName}`] = 0;
             dayObj[`Externo Mes Ant - ${pName}`] = 0;
-            // Keep legacy keys for now to avoid breaking chart until updated
-            dayObj[`Carga - ${pName}`] = 0;
-            dayObj[`Caja - ${pName}`] = 0;
-            dayObj[`Mes Ant - ${pName}`] = 0;
         });
 
         // Mes Actual
@@ -826,8 +838,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     r.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
                         if (prod && consumableProductNames.includes(prod.nombre)) {
-                            dayObj[`Interno - ${prod.nombre}`] += m.entregados;
-                            dayObj[`Carga - ${prod.nombre}`] += m.entregados;
+                            const cant = Number(m.entregados) || 0;
+                            dayObj["Total Interno"] += cant;
+                            dayObj[`Interno - ${prod.nombre}`] += cant;
                         }
                     });
                 }
@@ -837,8 +850,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     v.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
                         if (prod && consumableProductNames.includes(prod.nombre)) {
-                            dayObj[`Externo - ${prod.nombre}`] += m.cantidad;
-                            dayObj[`Caja - ${prod.nombre}`] += m.cantidad;
+                            const cant = Number(m.cantidad) || 0;
+                            dayObj["Total Externo"] += cant;
+                            dayObj[`Externo - ${prod.nombre}`] += cant;
                         }
                     });
                 }
@@ -852,8 +866,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     r.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
                         if (prod && consumableProductNames.includes(prod.nombre)) {
-                            dayObj[`Interno Mes Ant - ${prod.nombre}`] += m.entregados;
-                            dayObj[`Mes Ant - ${prod.nombre}`] += m.entregados;
+                            const cant = Number(m.entregados) || 0;
+                            dayObj["Total Interno Mes Ant"] += cant;
+                            dayObj[`Interno Mes Ant - ${prod.nombre}`] += cant;
                         }
                     });
                 }
@@ -863,8 +878,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     v.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
                         if (prod && consumableProductNames.includes(prod.nombre)) {
-                            dayObj[`Externo Mes Ant - ${prod.nombre}`] += m.cantidad;
-                            dayObj[`Mes Ant - ${prod.nombre}`] += m.cantidad;
+                            const cant = Number(m.cantidad) || 0;
+                            dayObj["Total Externo Mes Ant"] += cant;
+                            dayObj[`Externo Mes Ant - ${prod.nombre}`] += cant;
                         }
                     });
                 }
@@ -1144,13 +1160,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <XAxis dataKey="name" axisLine={false} tickLine={false} label={{ value: 'Día', position: 'insideBottom', offset: -5, fontSize: 10 }} />
                               <YAxis axisLine={false} tickLine={false} />
                               <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
-                              <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} formatter={(v) => v.replace('Interno - ', '📦 Int: ').replace('Externo - ', '🏪 Ext: ').replace('Interno Mes Ant - ', '⏮ Int Ant: ').replace('Externo Mes Ant - ', '⏮ Ext Ant: ').split(' ').map(w => w.length > 12 ? w.substring(0,8)+'.' : w).join(' ')} />
+                              <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                              
+                              {/* Líneas de Totales Generales (Siempre visibles) */}
+                              <Line type="monotone" dataKey="Total Interno" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 TOTAL INTERNO" />
+                              <Line type="monotone" dataKey="Total Externo" stroke="#10b981" strokeWidth={4} dot={false} name="🏪 TOTAL EXTERNO" />
+                              <Line type="monotone" dataKey="Total Interno Mes Ant" stroke="#3b82f6" strokeWidth={1} strokeDasharray="5 5" dot={false} name="⏮ Int Mes Ant" opacity={0.4} />
+                              <Line type="monotone" dataKey="Total Externo Mes Ant" stroke="#10b981" strokeWidth={1} strokeDasharray="5 5" dot={false} name="⏮ Ext Mes Ant" opacity={0.4} />
+
+                              {/* Líneas por Producto (Solo si están seleccionados) */}
                               {consumableProductNames.map(name => visibleProducts.includes(name) && (
                                   <React.Fragment key={name}>
-                                      <Line type="monotone" dataKey={`Interno - ${name}`} stroke={productColors[name]} strokeWidth={3} dot={false} name={`Int - ${shortName(name)}`} />
-                                      <Line type="monotone" dataKey={`Externo - ${name}`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="3 3" dot={false} name={`Ext - ${shortName(name)}`} />
-                                      <Line type="monotone" dataKey={`Interno Mes Ant - ${name}`} stroke={productColors[name]} strokeWidth={1} strokeDasharray="5 5" dot={false} name={`Int Ant - ${shortName(name)}`} opacity={0.4} />
-                                      <Line type="monotone" dataKey={`Externo Mes Ant - ${name}`} stroke={productColors[name]} strokeWidth={1} strokeDasharray="2 2" dot={false} name={`Ext Ant - ${shortName(name)}`} opacity={0.4} />
+                                      <Line type="monotone" dataKey={`Interno - ${name}`} stroke={productColors[name]} strokeWidth={2} dot={false} name={`Int: ${shortName(name)}`} />
+                                      <Line type="monotone" dataKey={`Externo - ${name}`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="3 3" dot={false} name={`Ext: ${shortName(name)}`} />
                                   </React.Fragment>
                               ))}
                           </LineChart>
@@ -1227,6 +1249,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
                               <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
                               <Legend iconType="circle" formatter={(v) => v} />
+                              
+                              {/* Líneas de Totales Generales */}
+                              <Line type="monotone" dataKey="Total General" stroke="#111827" strokeWidth={4} dot={{ r: 5 }} name="📈 TOTAL VENTAS" />
+                              <Line type="monotone" dataKey="Total Interno" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} name="📦 Total Interno" opacity={0.6} />
+                              <Line type="monotone" dataKey="Total Externo" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} name="🏪 Total Externo" opacity={0.6} />
+
                               {consumableProductNames.map(name => {
                                   if (!visibleProducts.includes(name)) return null;
                                   const prod = productos.find(p => p.nombre === name);
@@ -1235,14 +1263,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                   if (isReturnable) {
                                       return (
                                           <React.Fragment key={name}>
-                                              <Line type="monotone" dataKey={`Total - ${name}`} stroke={productColors[name]} strokeWidth={4} dot={{ r: 4 }} name={`Total ${shortName(name)}`} />
-                                              <Line type="monotone" dataKey={`Interno - ${name}`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} name={`Int ${shortName(name)}`} opacity={0.7} />
-                                              <Line type="monotone" dataKey={`Externo - ${name}`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3 }} name={`Ext ${shortName(name)}`} opacity={0.7} />
+                                              <Line type="monotone" dataKey={`Total - ${name}`} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={`Total ${shortName(name)}`} />
+                                              <Line type="monotone" dataKey={`Interno - ${name}`} stroke={productColors[name]} strokeWidth={1.5} strokeDasharray="3 3" dot={{ r: 2 }} name={`Int ${shortName(name)}`} opacity={0.5} />
+                                              <Line type="monotone" dataKey={`Externo - ${name}`} stroke={productColors[name]} strokeWidth={1.5} strokeDasharray="2 2" dot={{ r: 2 }} name={`Ext ${shortName(name)}`} opacity={0.5} />
                                           </React.Fragment>
                                       );
                                   }
                                   
-                                  return <Line key={name} type="monotone" dataKey={`Total - ${name}`} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
+                                  return <Line key={name} type="monotone" dataKey={`Total - ${name}`} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
                               })}
                           </LineChart>
                       </ResponsiveContainer>

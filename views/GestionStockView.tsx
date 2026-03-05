@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { 
     PlanillaDiaria, 
@@ -13,19 +12,18 @@ import {
     TipoProducto,
     MovimientoStockPlanta,
     VentaVendedor,
-    CierrePlanta
+    CierrePlanta,
+    EstadoProducto
 } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { useNotification } from '../context/NotificationContext';
-import SearchableSelect from '../components/SearchableSelect';
 import { TrashIcon } from '../components/icons/TrashIcon';
-import { CubeIcon } from '../components/icons/CubeIcon';
-import { ReplyIcon } from '../components/icons/ReplyIcon';
 import { ChartBarIcon } from '../components/icons/ChartBarIcon';
 import { ClipboardCheckIcon } from '../components/icons/ClipboardCheckIcon';
 import AppButton from '../components/ui/AppButton';
 import { getLocalDateString } from '../utils/dateUtils';
+import SearchableSelect from '../components/SearchableSelect';
 
 interface GestionStockViewProps {
   planillas: PlanillaDiaria[];
@@ -56,7 +54,11 @@ const PlanillaForm: React.FC<{
     const [cargaInicial, setCargaInicial] = useState<ItemStock[]>([]);
 
     const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO), [usuarios]);
-    const productosOptions = useMemo(() => productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
+    const productosOptions = useMemo(() => 
+        productos
+            .filter(p => p.estado !== EstadoProducto.INACTIVO)
+            .map(p => ({ value: p.id, label: p.nombre })), 
+    [productos]);
 
     const handleAddItem = useCallback(() => {
         setCargaInicial(prev => [...prev, { productoId: '', cantidad: 0 }]);
@@ -87,8 +89,8 @@ const PlanillaForm: React.FC<{
     }, [fecha, repartidorId, cargaInicial, onSave]);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Abrir Nueva Planilla de Carga</h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Abrir Nuevo Reparto</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -124,26 +126,29 @@ const PlanillaForm: React.FC<{
                 {cargaInicial.map((item, index) => (
                     <div key={index} className="flex gap-2 items-end bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border dark:border-gray-700">
                         <div className="flex-grow">
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Producto</label>
                             <SearchableSelect 
-                                label="Producto"
                                 options={productosOptions}
-                                value={item.productoId}
-                                onChange={(val) => handleItemChange(index, 'productoId', val)}
+                                value={item.productoId} 
+                                onChange={(v) => handleItemChange(index, 'productoId', v)}
+                                placeholder="Seleccionar..."
                             />
                         </div>
                         <div className="w-24">
                             <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Cant.</label>
                             <input 
                                 type="number" 
-                                value={item.cantidad} 
+                                value={item.cantidad || ''} 
                                 onChange={(e) => handleItemChange(index, 'cantidad', parseInt(e.target.value) || 0)}
                                 className="w-full p-2 bg-white dark:bg-gray-700 rounded-md border dark:border-gray-600"
+                                required
+                                min="1"
                             />
                         </div>
                         <button 
                             type="button"
                             onClick={() => handleRemoveItem(index)}
-                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md mb-[2px]"
                         >
                             <TrashIcon className="h-5 w-5" />
                         </button>
@@ -153,7 +158,7 @@ const PlanillaForm: React.FC<{
 
             <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit">Abrir Planilla</AppButton>
+                <AppButton type="submit">Abrir Reparto</AppButton>
             </div>
         </form>
     );
@@ -168,7 +173,11 @@ const RecargaModal: React.FC<{
     const [itemsCarga, setItemsCarga] = useState<ItemStock[]>([]);
     const [itemsDescarga, setItemsDescarga] = useState<ItemStock[]>([]);
 
-    const productosOptions = useMemo(() => productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
+    const productosOptions = useMemo(() => 
+        productos
+            .filter(p => p.estado !== EstadoProducto.INACTIVO)
+            .map(p => ({ value: p.id, label: p.nombre })), 
+    [productos]);
 
     const handleAddCarga = () => setItemsCarga(prev => [...prev, { productoId: '', cantidad: 0 }]);
     const handleAddDescarga = () => setItemsDescarga(prev => [...prev, { productoId: '', cantidad: 0 }]);
@@ -182,7 +191,7 @@ const RecargaModal: React.FC<{
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Recarga / Descarga</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white pr-8">Registrar Recarga / Descarga</h2>
             
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -192,17 +201,22 @@ const RecargaModal: React.FC<{
                 {itemsCarga.map((item, index) => (
                     <div key={index} className="flex gap-2 items-end">
                         <div className="flex-grow">
-                            <SearchableSelect options={productosOptions} value={item.productoId} onChange={(val) => {
-                                const newItems = [...itemsCarga];
-                                newItems[index].productoId = val;
-                                setItemsCarga(newItems);
-                            }} />
+                            <SearchableSelect 
+                                options={productosOptions}
+                                value={item.productoId} 
+                                onChange={(v) => {
+                                    const newItems = [...itemsCarga];
+                                    newItems[index].productoId = v;
+                                    setItemsCarga(newItems);
+                                }}
+                                placeholder="Seleccionar producto..."
+                            />
                         </div>
-                        <input type="number" value={item.cantidad} onChange={(e) => {
+                        <input type="number" value={item.cantidad || ''} onChange={(e) => {
                             const newItems = [...itemsCarga];
                             newItems[index].cantidad = parseInt(e.target.value) || 0;
                             setItemsCarga(newItems);
-                        }} className="w-20 p-2 bg-gray-100 dark:bg-gray-700 rounded-md" />
+                        }} className="w-24 p-2 bg-gray-100 dark:bg-gray-700 rounded-md border dark:border-gray-600" placeholder="Cant." />
                     </div>
                 ))}
             </div>
@@ -217,22 +231,27 @@ const RecargaModal: React.FC<{
                 {itemsDescarga.map((item, index) => (
                     <div key={index} className="flex gap-2 items-end">
                         <div className="flex-grow">
-                            <SearchableSelect options={productosOptions} value={item.productoId} onChange={(val) => {
-                                const newItems = [...itemsDescarga];
-                                newItems[index].productoId = val;
-                                setItemsDescarga(newItems);
-                            }} />
+                            <SearchableSelect 
+                                options={productosOptions}
+                                value={item.productoId} 
+                                onChange={(v) => {
+                                    const newItems = [...itemsDescarga];
+                                    newItems[index].productoId = v;
+                                    setItemsDescarga(newItems);
+                                }}
+                                placeholder="Seleccionar producto..."
+                            />
                         </div>
-                        <input type="number" value={item.cantidad} onChange={(e) => {
+                        <input type="number" value={item.cantidad || ''} onChange={(e) => {
                             const newItems = [...itemsDescarga];
                             newItems[index].cantidad = parseInt(e.target.value) || 0;
                             setItemsDescarga(newItems);
-                        }} className="w-20 p-2 bg-gray-100 dark:bg-gray-700 rounded-md" />
+                        }} className="w-24 p-2 bg-gray-100 dark:bg-gray-700 rounded-md border dark:border-gray-600" placeholder="Cant." />
                     </div>
                 ))}
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
                 <AppButton onClick={handleSave}>Guardar Recarga</AppButton>
             </div>
@@ -244,16 +263,19 @@ const RecargaModal: React.FC<{
 const CierrePlanillaModal: React.FC<{
     planilla: PlanillaDiaria;
     productos: Producto[];
-    onConfirm: (devolucion: ItemDevolucion[], observaciones: string) => void;
+    onConfirm: (devolucion: ItemDevolucion[]) => void;
     onClose: () => void;
 }> = ({ planilla, productos, onConfirm, onClose }) => {
     const [devolucion, setDevolucion] = useState<ItemDevolucion[]>([]);
-    const [observaciones, setObservaciones] = useState('');
 
     useEffect(() => {
-        // Inicializar con los productos que salieron en la carga inicial
-        const initialDev: ItemDevolucion[] = planilla.cargaInicial.map(item => ({
-            productoId: item.productoId,
+        // Inicializar con los productos que salieron en la carga inicial y recargas
+        const productosSalidos = new Set<string>();
+        planilla.cargaInicial.forEach(i => productosSalidos.add(i.productoId));
+        planilla.recargas?.forEach(r => r.items.forEach(i => productosSalidos.add(i.productoId)));
+
+        const initialDev: ItemDevolucion[] = Array.from(productosSalidos).map(id => ({
+            productoId: id,
             cantidadLlenos: 0,
             cantidadVacios: 0
         }));
@@ -269,7 +291,7 @@ const CierrePlanillaModal: React.FC<{
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Cierre de Planilla</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white pr-8">Cierre de Reparto</h2>
                 <p className="text-xs text-gray-500">Registre lo que el repartidor trae de vuelta a la planta.</p>
             </div>
 
@@ -278,49 +300,56 @@ const CierrePlanillaModal: React.FC<{
                     <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                             <th className="px-4 py-2 text-left">Producto</th>
-                            <th className="px-4 py-2 text-right">Llenos (Sobrante)</th>
-                            <th className="px-4 py-2 text-right">Vacíos (Recuperados)</th>
+                            <th className="px-4 py-2 text-right">Salió (Total)</th>
+                            <th className="px-4 py-2 text-right">Volvió (Lleno)</th>
+                            <th className="px-4 py-2 text-right">Entregado</th>
+                            <th className="px-4 py-2 text-right">Vacíos (Recup.)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {devolucion.map((item, idx) => (
-                            <tr key={item.productoId} className="border-b dark:border-gray-700">
-                                <td className="px-4 py-3 font-bold">{productos.find(p => p.id === item.productoId)?.nombre}</td>
-                                <td className="px-4 py-3">
-                                    <input 
-                                        type="number" 
-                                        value={item.cantidadLlenos} 
-                                        onChange={e => handleItemChange(idx, 'cantidadLlenos', parseInt(e.target.value) || 0)}
-                                        className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded text-right"
-                                    />
-                                </td>
-                                <td className="px-4 py-3">
-                                    <input 
-                                        type="number" 
-                                        value={item.cantidadVacios} 
-                                        onChange={e => handleItemChange(idx, 'cantidadVacios', parseInt(e.target.value) || 0)}
-                                        className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded text-right"
-                                    />
-                                </td>
-                            </tr>
-                        ))}
+                        {devolucion.map((item, idx) => {
+                            const pId = item.productoId;
+                            let salio = planilla.cargaInicial.find(i => i.productoId === pId)?.cantidad || 0;
+                            planilla.recargas?.forEach(r => {
+                                salio += r.items.find(i => i.productoId === pId)?.cantidad || 0;
+                            });
+                            const entregado = salio - item.cantidadLlenos;
+
+                            return (
+                                <tr key={item.productoId} className="border-b dark:border-gray-700">
+                                    <td className="px-4 py-3">
+                                        <p className="font-bold text-gray-800 dark:text-white">{productos.find(p => p.id === item.productoId)?.nombre}</p>
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono text-gray-500">{salio}</td>
+                                    <td className="px-4 py-3">
+                                        <input 
+                                            type="number" 
+                                            value={item.cantidadLlenos || ''} 
+                                            onChange={e => handleItemChange(idx, 'cantidadLlenos', parseInt(e.target.value) || 0)}
+                                            className="w-full p-2 bg-white dark:bg-gray-600 border dark:border-gray-500 rounded text-right font-bold text-orange-600"
+                                        />
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-black text-blue-600 text-lg">
+                                        {entregado}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <input 
+                                            type="number" 
+                                            value={item.cantidadVacios || ''} 
+                                            onChange={e => handleItemChange(idx, 'cantidadVacios', parseInt(e.target.value) || 0)}
+                                            className="w-full p-2 bg-white dark:bg-gray-600 border dark:border-gray-500 rounded text-right font-bold text-green-600"
+                                        />
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
 
-            <div>
-                <label className="block text-xs font-black uppercase text-gray-400 mb-1">Observaciones</label>
-                <textarea 
-                    value={observaciones}
-                    onChange={e => setObservaciones(e.target.value)}
-                    className="w-full p-3 bg-gray-100 dark:bg-gray-700 rounded-xl border-none focus:ring-2 focus:ring-primary-500 min-h-[100px]"
-                    placeholder="Ej: Diferencia de stock por rotura, etc..."
-                />
-            </div>
-
             <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton variant="success" onClick={() => onConfirm(devolucion, observaciones)}>Confirmar Cierre y Ajustar Stock</AppButton>
+                <AppButton variant="success" onClick={() => onConfirm(devolucion)}>Confirmar Cierre</AppButton>
             </div>
         </div>
     );
@@ -342,17 +371,39 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
     addCierrePlanta
 }) => {
     const { showNotification } = useNotification();
-    const [activeTab, setActiveTab] = useState<'planta' | 'planillas' | 'flujo' | 'balance'>('planillas');
+    const [activeTab, setActiveTab] = useState<'planillas' | 'balance'>('planillas');
     const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+    
+    // Modals state
     const [isNewPlanillaOpen, setIsNewPlanillaOpen] = useState(false);
     const [selectedPlanilla, setSelectedPlanilla] = useState<PlanillaDiaria | null>(null);
     const [isClosingPlanilla, setIsClosingPlanilla] = useState<PlanillaDiaria | null>(null);
     const [isRecargaOpen, setIsRecargaOpen] = useState(false);
-    const [isMovPlantaOpen, setIsMovPlantaOpen] = useState(false);
+    
+    // Balance state
     const [physicalStock, setPhysicalStock] = useState<Record<string, number>>({});
     const [productionInput, setProductionInput] = useState<Record<string, number>>({});
     const [isSavingCierre, setIsSavingCierre] = useState(false);
 
+    const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
+    const usuariosMap = useMemo(() => new Map(usuarios.map(u => [u.id, u])), [usuarios]);
+
+    // --- LOGICA DE PLANILLAS ---
+    const handleClosePlanilla = (planilla: PlanillaDiaria) => {
+        setIsClosingPlanilla(planilla);
+    };
+
+    const confirmClosePlanilla = (devolucion: ItemDevolucion[]) => {
+        if (!isClosingPlanilla) return;
+        updatePlanilla({
+            ...isClosingPlanilla,
+            estado: EstadoPlanilla.CERRADA,
+            devolucion,
+            observaciones: ''
+        });
+        setIsClosingPlanilla(null);
+        showNotification('Reparto cerrado correctamente', 'success');
+    };
 
     // --- LÓGICA DE BALANCE DIARIO ---
     const balanceData = useMemo(() => {
@@ -367,24 +418,21 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
         const movsDia = movimientosPlanta.filter(m => m.fecha === date);
 
         return productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
-            // 1. Stock Inicial (del cierre anterior o stock actual si no hay cierre)
+            // 1. Stock Inicial
             const stockInicial = lastCierre?.saldos.find(s => s.productoId === p.id)?.cantidadFisica ?? (p.stockPlanta || 0);
             
-            // 2. Producción (Movimientos manuales de entrada con concepto Producción)
-            const produccion = movsDia
+            // 2. Producción Histórica (si ya se guardó antes)
+            const produccionHistorica = movsDia
                 .filter(m => m.productoId === p.id && m.tipo === 'entrada' && m.concepto.toLowerCase().includes('producción'))
                 .reduce((sum, m) => sum + m.cantidad, 0);
 
             // 3. Salidas Internas (Planillas)
             let salidasInternas = 0;
             planillasDia.forEach(pl => {
-                // Carga inicial
                 salidasInternas += pl.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
-                // Recargas
                 pl.recargas?.forEach(rec => {
                     salidasInternas += rec.items.find(i => i.productoId === p.id)?.cantidad || 0;
                 });
-                // Devoluciones (restan a la salida)
                 if (pl.estado === EstadoPlanilla.CERRADA) {
                     salidasInternas -= pl.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
                 }
@@ -395,28 +443,46 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                 return sum + (v.movimientos.find(m => m.productoId === p.id)?.cantidad || 0);
             }, 0);
 
-            const teorico = stockInicial + produccion - salidasInternas - salidasExternas;
+            // Teórico = Inicial + Producción Histórica + Producción Nueva (input) - Salidas
+            const prodNueva = productionInput[p.id] || 0;
+            const teorico = stockInicial + produccionHistorica + prodNueva - salidasInternas - salidasExternas;
 
             return {
                 producto: p,
                 inicial: stockInicial,
-                produccion,
+                produccionHistorica,
+                produccionNueva: prodNueva,
                 salidasInternas,
                 salidasExternas,
                 teorico
             };
         });
-    }, [selectedDate, cierresPlanta, planillas, ventasVendedor, movimientosPlanta, productos]);
+    }, [selectedDate, cierresPlanta, planillas, ventasVendedor, movimientosPlanta, productos, productionInput]);
 
-    const handleSaveCierre = async () => {
+    const handleSaveBalance = async () => {
         if (isSavingCierre) return;
         setIsSavingCierre(true);
         try {
+            // 1. Guardar movimientos de producción nuevos
+            for (const d of balanceData) {
+                if (d.produccionNueva > 0) {
+                    await addMovimientoPlanta({
+                        fecha: selectedDate,
+                        productoId: d.producto.id,
+                        cantidad: d.produccionNueva,
+                        tipo: 'entrada',
+                        concepto: 'Producción Diaria',
+                        esEnvase: false
+                    });
+                }
+            }
+
+            // 2. Guardar Cierre
             const saldos = balanceData.map(d => ({
                 productoId: d.producto.id,
                 cantidadFisica: physicalStock[d.producto.id] ?? d.teorico,
                 cantidadTeorica: d.teorico,
-                produccionDia: d.produccion
+                produccionDia: d.produccionHistorica + d.produccionNueva
             }));
 
             await addCierrePlanta({
@@ -425,126 +491,24 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                 cerradoPor: 'Admin' // TODO: Get from auth
             });
 
-            showNotification('Cierre de planta guardado correctamente', 'success');
+            // Limpiar inputs de producción porque ya pasaron a ser históricos
+            setProductionInput({});
+            showNotification('Balance diario guardado correctamente', 'success');
         } catch (e) {
-            showNotification('Error al guardar el cierre', 'error');
+            showNotification('Error al guardar el balance', 'error');
         } finally {
             setIsSavingCierre(false);
         }
     };
 
-    const handleQuickProduction = async (productoId: string) => {
-        const cant = productionInput[productoId];
-        if (!cant || cant <= 0) return;
-
-        await addMovimientoPlanta({
-            fecha: selectedDate,
-            productoId,
-            cantidad: cant,
-            tipo: 'entrada',
-            concepto: 'Producción Diaria',
-            esEnvase: false
-        });
-
-        setProductionInput(prev => ({ ...prev, [productoId]: 0 }));
-        showNotification('Producción registrada', 'success');
-    };
-
-    const [newMovPlanta, setNewMovPlanta] = useState<Partial<MovimientoStockPlanta>>({
-        fecha: getLocalDateString(),
-        tipo: 'entrada',
-        concepto: 'Producción',
-        cantidad: 0,
-        esEnvase: false
-    });
-
-    const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
-    const usuariosMap = useMemo(() => new Map(usuarios.map(u => [u.id, u])), [usuarios]);
-
-    // --- LOGICA DE PLANILLAS ---
-    const handleClosePlanilla = (planilla: PlanillaDiaria) => {
-        setIsClosingPlanilla(planilla);
-    };
-
-    const confirmClosePlanilla = (devolucion: ItemDevolucion[], observaciones: string) => {
-        if (!isClosingPlanilla) return;
-        updatePlanilla({
-            ...isClosingPlanilla,
-            estado: EstadoPlanilla.CERRADA,
-            devolucion,
-            observaciones
-        });
-        setIsClosingPlanilla(null);
-        showNotification('Planilla cerrada y stock ajustado', 'success');
-    };
-
-    // --- LOGICA DE MOVIMIENTOS PLANTA ---
-    const handleSaveMovPlanta = async () => {
-        if (!newMovPlanta.productoId || !newMovPlanta.cantidad || newMovPlanta.cantidad <= 0) {
-            showNotification('Complete todos los campos', 'error');
-            return;
-        }
-        await addMovimientoPlanta(newMovPlanta as Omit<MovimientoStockPlanta, 'id'>);
-        showNotification('Movimiento registrado', 'success');
-        setIsMovPlantaOpen(false);
-    };
-
-    // --- CALCULOS DE FLUJO ---
-    const flujoDelDia = useMemo(() => {
-        const today = getLocalDateString();
-        const planillasHoy = planillas.filter(p => p.fecha === today);
-        const movsHoy = movimientosPlanta.filter(m => m.fecha === today);
-
-        const resumen: Record<string, { salio: number, entro: number, ventas: number, devoluciones: number }> = {};
-
-        productos.forEach(p => {
-            if (p.tipo === TipoProducto.EQUIPO) return;
-            resumen[p.id] = { salio: 0, entro: 0, ventas: 0, devoluciones: 0 };
-        });
-
-        // 1. Salidas de Planta (Cargas Iniciales + Recargas)
-        planillasHoy.forEach(p => {
-            p.cargaInicial.forEach(item => {
-                if (resumen[item.productoId]) resumen[item.productoId].salio += item.cantidad;
-            });
-            p.recargas?.forEach(rec => {
-                rec.items.forEach(item => {
-                    if (resumen[item.productoId]) resumen[item.productoId].salio += item.cantidad;
-                });
-                rec.vaciosDescargados?.forEach(item => {
-                    if (resumen[item.productoId]) resumen[item.productoId].entro += item.cantidad; // Envases que entran
-                });
-            });
-            if (p.estado === EstadoPlanilla.CERRADA) {
-                p.devolucion?.forEach(item => {
-                    if (resumen[item.productoId]) {
-                        resumen[item.productoId].entro += item.cantidadLlenos;
-                        resumen[item.productoId].devoluciones += item.cantidadLlenos;
-                    }
-                });
-            }
-        });
-
-        // 2. Movimientos Manuales
-        movsHoy.forEach(m => {
-            if (!resumen[m.productoId]) return;
-            if (m.tipo === 'entrada') resumen[m.productoId].entro += m.cantidad;
-            else if (m.tipo === 'salida') resumen[m.productoId].salio += m.cantidad;
-        });
-
-        return resumen;
-    }, [planillas, movimientosPlanta, productos]);
-
+    // --- RENDER ---
     return (
         <div className="space-y-6 pt-12 md:pt-0">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter italic">Gestión de Stock y Cargas</h1>
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter italic">Control de Planta</h1>
                 <div className="flex gap-2">
                     {activeTab === 'planillas' && (
-                        <AppButton onClick={() => setIsNewPlanillaOpen(true)}>+ Abrir Planilla</AppButton>
-                    )}
-                    {activeTab === 'planta' && (
-                        <AppButton onClick={() => setIsMovPlantaOpen(true)}>+ Movimiento Manual</AppButton>
+                        <AppButton onClick={() => setIsNewPlanillaOpen(true)}>+ Abrir Reparto</AppButton>
                     )}
                 </div>
             </div>
@@ -555,25 +519,13 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                     onClick={() => setActiveTab('planillas')} 
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'planillas' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                 >
-                    <ClipboardCheckIcon className="h-4 w-4" /> CONTROL DE CARGAS
+                    <ClipboardCheckIcon className="h-4 w-4" /> REPARTOS
                 </button>
                 <button 
                     onClick={() => setActiveTab('balance')} 
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'balance' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                 >
                     <ChartBarIcon className="h-4 w-4" /> BALANCE DIARIO
-                </button>
-                <button 
-                    onClick={() => setActiveTab('planta')} 
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'planta' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                    <CubeIcon className="h-4 w-4" /> STOCK PLANTA
-                </button>
-                <button 
-                    onClick={() => setActiveTab('flujo')} 
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'flujo' ? 'bg-primary-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                >
-                    <ChartBarIcon className="h-4 w-4" /> FLUJO DIARIO
                 </button>
             </div>
 
@@ -584,59 +536,68 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                         {planillas
                             .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime())
                             .slice(0, 12)
-                            .map(p => (
-                            <Card key={p.id} className={`border-l-4 ${p.estado === EstadoPlanilla.ABIERTA ? 'border-l-blue-500' : 'border-l-green-500'}`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p>
-                                        <h3 className="font-bold text-gray-800 dark:text-white">{usuariosMap.get(p.repartidorId)?.nombre}</h3>
+                            .map(p => {
+                                const totalUnidades = p.cargaInicial.reduce((s, i) => s + i.cantidad, 0);
+                                const totalRecargas = p.recargas?.length || 0;
+                                return (
+                                <Card key={p.id} className={`border-l-4 ${p.estado === EstadoPlanilla.ABIERTA ? 'border-l-blue-500' : 'border-l-green-500'}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p>
+                                            <h3 className="font-bold text-gray-800 dark:text-white truncate max-w-[150px]">{usuariosMap.get(p.repartidorId)?.nombre}</h3>
+                                        </div>
+                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase shrink-0 ${p.estado === EstadoPlanilla.ABIERTA ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                            {p.estado}
+                                        </span>
                                     </div>
-                                    <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase ${p.estado === EstadoPlanilla.ABIERTA ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                        {p.estado}
-                                    </span>
-                                </div>
-                                <div className="space-y-2 mb-4">
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">Carga Inicial:</span>
-                                        <span className="font-bold">{p.cargaInicial.reduce((s, i) => s + i.cantidad, 0)} items</span>
+                                    <div className="space-y-1 mb-4 min-h-[60px]">
+                                        {p.cargaInicial.slice(0, 3).map(item => (
+                                            <div key={item.productoId} className="flex justify-between text-[11px]">
+                                                <span className="text-gray-500 truncate mr-2">{productosMap.get(item.productoId)?.nombre}</span>
+                                                <span className="font-bold shrink-0">{item.cantidad}</span>
+                                            </div>
+                                        ))}
+                                        {p.cargaInicial.length > 3 && (
+                                            <p className="text-[10px] text-gray-400 italic">+{p.cargaInicial.length - 3} productos más...</p>
+                                        )}
                                     </div>
-                                    <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">Recargas:</span>
-                                        <span className="font-bold">{p.recargas?.length || 0} veces</span>
+                                    <div className="flex gap-2 pt-3 border-t dark:border-gray-700">
+                                        <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)}>Detalle</AppButton>
+                                        {p.estado === EstadoPlanilla.ABIERTA && (
+                                            <AppButton size="sm" variant="success" fullWidth onClick={() => handleClosePlanilla(p)}>Cerrar</AppButton>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)}>Ver Detalle</AppButton>
-                                    {p.estado === EstadoPlanilla.ABIERTA && (
-                                        <AppButton size="sm" variant="success" fullWidth onClick={() => handleClosePlanilla(p)}>Cerrar</AppButton>
-                                    )}
-                                </div>
-                            </Card>
-                        ))}
+                                </Card>
+                                );
+                            })}
                     </div>
                 </div>
             )}
 
             {activeTab === 'balance' && (
                 <div className="space-y-6">
-                    <Card title="Balance Diario de Planta">
-                        <div className="flex flex-wrap gap-4 mb-6 items-end">
-                            <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Fecha de Balance</label>
-                                <input 
-                                    type="date" 
-                                    value={selectedDate} 
-                                    onChange={e => setSelectedDate(e.target.value)} 
-                                    className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-none focus:ring-2 focus:ring-primary-500"
-                                />
+                    <Card>
+                        <div className="flex flex-wrap gap-4 mb-6 items-end justify-between border-b dark:border-gray-700 pb-4">
+                            <div className="flex gap-4 items-end">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Fecha de Balance</label>
+                                    <input 
+                                        type="date" 
+                                        value={selectedDate} 
+                                        onChange={e => setSelectedDate(e.target.value)} 
+                                        className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border-none focus:ring-2 focus:ring-primary-500 font-bold"
+                                    />
+                                </div>
+                                <div className="hidden md:block">
+                                    <p className="text-xs text-gray-500 italic">El balance compara el stock teórico (calculado por el sistema) contra el conteo físico real en planta.</p>
+                                </div>
                             </div>
-                            <div className="flex-grow"></div>
                             <AppButton 
                                 variant="success" 
-                                onClick={handleSaveCierre}
+                                onClick={handleSaveBalance}
                                 isLoading={isSavingCierre}
                             >
-                                Guardar Cierre de Día
+                                Guardar Cierre de Planta
                             </AppButton>
                         </div>
 
@@ -646,10 +607,10 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                     <tr>
                                         <th className="px-4 py-3">Producto</th>
                                         <th className="px-4 py-3 text-right">Stock Inicial</th>
-                                        <th className="px-4 py-3 text-right">Producción</th>
-                                        <th className="px-4 py-3 text-right">Salidas (Calle)</th>
-                                        <th className="px-4 py-3 text-right">Teórico</th>
-                                        <th className="px-4 py-3 text-right w-32">Físico (Piso)</th>
+                                        <th className="px-4 py-3 text-right w-32 bg-blue-50/50 dark:bg-blue-900/10">+ Producción</th>
+                                        <th className="px-4 py-3 text-right">- Salidas (Total)</th>
+                                        <th className="px-4 py-3 text-right">= Teórico</th>
+                                        <th className="px-4 py-3 text-right w-32 bg-yellow-50/50 dark:bg-yellow-900/10">Físico (Real)</th>
                                         <th className="px-4 py-3 text-right">Diferencia</th>
                                     </tr>
                                 </thead>
@@ -657,39 +618,44 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                     {balanceData.map(d => {
                                         const fisico = physicalStock[d.producto.id] ?? d.teorico;
                                         const diferencia = fisico - d.teorico;
+                                        const totalSalidas = d.salidasInternas + d.salidasExternas;
+                                        
+                                        if (d.inicial === 0 && d.produccionHistorica === 0 && d.produccionNueva === 0 && totalSalidas === 0 && fisico === 0) {
+                                            return null;
+                                        }
+
                                         return (
                                             <tr key={d.producto.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                                <td className="px-4 py-3">
-                                                    <p className="font-bold">{d.producto.nombre}</p>
-                                                    <div className="flex gap-2 mt-1">
+                                                <td className="px-4 py-3 font-bold">{d.producto.nombre}</td>
+                                                <td className="px-4 py-3 text-right font-mono text-gray-500">{d.inicial}</td>
+                                                <td className="px-4 py-3 text-right bg-blue-50/30 dark:bg-blue-900/5">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {d.produccionHistorica > 0 && <span className="text-[10px] text-gray-400">({d.produccionHistorica}) +</span>}
                                                         <input 
                                                             type="number" 
-                                                            placeholder="Llenar..."
+                                                            placeholder="0"
                                                             value={productionInput[d.producto.id] || ''}
                                                             onChange={e => setProductionInput(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
-                                                            className="w-20 p-1 text-[10px] bg-white dark:bg-gray-600 rounded border dark:border-gray-500"
+                                                            className="w-16 p-1 text-right bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-400 font-bold rounded border border-blue-200 dark:border-blue-800 focus:ring-1 focus:ring-blue-500"
                                                         />
-                                                        <button 
-                                                            onClick={() => handleQuickProduction(d.producto.id)}
-                                                            className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold hover:bg-blue-200"
-                                                        >
-                                                            + PRODUCIR
-                                                        </button>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-mono">{d.inicial}</td>
-                                                <td className="px-4 py-3 text-right font-bold text-blue-600">+{d.produccion}</td>
-                                                <td className="px-4 py-3 text-right font-bold text-red-600">-{d.salidasInternas + d.salidasExternas}</td>
-                                                <td className="px-4 py-3 text-right font-black text-gray-700 dark:text-gray-200">{d.teorico}</td>
                                                 <td className="px-4 py-3 text-right">
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="font-bold text-red-600">-{totalSalidas}</span>
+                                                        <span className="text-[9px] text-gray-400 uppercase">({d.salidasInternas} Int / {d.salidasExternas} Ext)</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-black text-gray-800 dark:text-white text-lg">{d.teorico}</td>
+                                                <td className="px-4 py-3 text-right bg-yellow-50/30 dark:bg-yellow-900/5">
                                                     <input 
                                                         type="number" 
                                                         value={fisico}
                                                         onChange={e => setPhysicalStock(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
-                                                        className="w-24 p-2 text-right font-black bg-white dark:bg-gray-600 rounded-lg border-2 border-primary-500/30 focus:border-primary-500"
+                                                        className="w-20 p-2 text-right font-black bg-white dark:bg-gray-600 rounded-lg border-2 border-gray-200 focus:border-primary-500 focus:ring-0"
                                                     />
                                                 </td>
-                                                <td className={`px-4 py-3 text-right font-black ${diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                <td className={`px-4 py-3 text-right font-black text-lg ${diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                     {diferencia > 0 ? `+${diferencia}` : diferencia}
                                                 </td>
                                             </tr>
@@ -699,257 +665,170 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                             </table>
                         </div>
                     </Card>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card title="Desglose de Salidas">
-                            <div className="space-y-4">
-                                {balanceData.map(d => (
-                                    <div key={d.producto.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-                                        <span className="font-bold text-xs">{d.producto.nombre}</span>
-                                        <div className="flex gap-4 text-[10px]">
-                                            <div className="text-right">
-                                                <p className="text-gray-400 uppercase font-black">Interno</p>
-                                                <p className="font-bold text-gray-700 dark:text-gray-200">{d.salidasInternas}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-gray-400 uppercase font-black">Externo</p>
-                                                <p className="font-bold text-gray-700 dark:text-gray-200">{d.salidasExternas}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                        <div className="bg-primary-50 dark:bg-primary-900/20 p-6 rounded-2xl border border-primary-100 dark:border-primary-800">
-                            <h3 className="font-black text-primary-800 dark:text-primary-300 uppercase text-xs mb-4">Instrucciones de Balance</h3>
-                            <ul className="space-y-3 text-xs text-primary-700 dark:text-primary-400">
-                                <li className="flex gap-2">
-                                    <span className="font-black">1.</span>
-                                    <span>Registra la <strong>Producción</strong> del día usando el botón azul en cada fila.</span>
-                                </li>
-                                <li className="flex gap-2">
-                                    <span className="font-black">2.</span>
-                                    <span>Verifica que las <strong>Salidas</strong> coincidan con tus registros de carga.</span>
-                                </li>
-                                <li className="flex gap-2">
-                                    <span className="font-black">3.</span>
-                                    <span>Ingresa el <strong>Stock Físico</strong> que tu jefe contó en el piso.</span>
-                                </li>
-                                <li className="flex gap-2">
-                                    <span className="font-black">4.</span>
-                                    <span>Presiona <strong>Guardar Cierre</strong> para establecer el stock inicial de mañana.</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
                 </div>
             )}
 
-            {activeTab === 'flujo' && (
-                <div className="space-y-6">
-                    <Card title={`Balance de Movimientos del Día (${new Date().toLocaleDateString('es-AR')})`}>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th className="px-4 py-3">Producto</th>
-                                        <th className="px-4 py-3 text-right">Salida (Calle)</th>
-                                        <th className="px-4 py-3 text-right">Entrada (Devolución)</th>
-                                        <th className="px-4 py-3 text-right">Venta Teórica</th>
-                                        <th className="px-4 py-3 text-right">Balance Planta</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.entries(flujoDelDia).map(([prodId, data]: [string, any]) => (
-                                        <tr key={prodId} className="border-b dark:border-gray-700">
-                                            <td className="px-4 py-3 font-bold">{productosMap.get(prodId)?.nombre}</td>
-                                            <td className="px-4 py-3 text-right text-red-600 font-bold">-{data.salio}</td>
-                                            <td className="px-4 py-3 text-right text-green-600 font-bold">+{data.entro}</td>
-                                            <td className="px-4 py-3 text-right font-black text-primary-600">{data.salio - data.entro}</td>
-                                            <td className={`px-4 py-3 text-right font-black ${data.entro - data.salio >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {data.entro - data.salio}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
-                        <p className="text-xs text-blue-700 dark:text-blue-300">
-                            <strong>Nota:</strong> El balance de planta muestra la diferencia neta de stock físico al final del día. 
-                            Un balance negativo indica que salió más producto del que volvió (Venta o Pérdida).
-                        </p>
-                    </div>
-                </div>
-            )}
+            {/* MODALS */}
+            <Modal isOpen={isNewPlanillaOpen} onClose={() => setIsNewPlanillaOpen(false)}>
+                <PlanillaForm 
+                    usuarios={usuarios} 
+                    productos={productos} 
+                    onSave={(data) => {
+                        addPlanilla(data);
+                        setIsNewPlanillaOpen(false);
+                        showNotification('Reparto abierto', 'success');
+                    }} 
+                    onClose={() => setIsNewPlanillaOpen(false)} 
+                />
+            </Modal>
 
-            {/* MODALES */}
-            {isNewPlanillaOpen && (
-                <Modal isOpen={true} onClose={() => setIsNewPlanillaOpen(false)}>
-                    <PlanillaForm 
-                        usuarios={usuarios} 
-                        productos={productos} 
-                        onSave={(p) => { addPlanilla(p); setIsNewPlanillaOpen(false); }} 
-                        onClose={() => setIsNewPlanillaOpen(false)} 
-                    />
-                </Modal>
-            )}
-
-            {isClosingPlanilla && (
-                <Modal isOpen={true} onClose={() => setIsClosingPlanilla(null)} className="max-w-2xl">
-                    <CierrePlanillaModal 
-                        planilla={isClosingPlanilla}
-                        productos={productos}
-                        onConfirm={confirmClosePlanilla}
-                        onClose={() => setIsClosingPlanilla(null)}
-                    />
-                </Modal>
-            )}
-
-            {selectedPlanilla && (
-                <Modal isOpen={true} onClose={() => setSelectedPlanilla(null)} className="max-w-4xl">
+            <Modal isOpen={!!selectedPlanilla} onClose={() => setSelectedPlanilla(null)} className="max-w-4xl">
+                {selectedPlanilla && (
                     <div className="space-y-6">
-                        <div className="flex justify-between items-start border-b dark:border-gray-700 pb-4">
+                        <div className="flex flex-col md:flex-row justify-between items-start gap-4 border-b dark:border-gray-700 pb-4 pr-10">
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalle de Planilla</h2>
-                                <p className="text-gray-500">{usuariosMap.get(selectedPlanilla.repartidorId)?.nombre} - {new Date(selectedPlanilla.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p>
+                                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalle de Reparto</h2>
+                                <p className="text-gray-500 font-medium">
+                                    {usuariosMap.get(selectedPlanilla.repartidorId)?.nombre} • {new Date(selectedPlanilla.fecha + 'T00:00:00').toLocaleDateString('es-AR')}
+                                </p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 {selectedPlanilla.estado === EstadoPlanilla.ABIERTA && (
-                                    <AppButton variant="success" onClick={() => setIsRecargaOpen(true)}>+ Registrar Recarga</AppButton>
+                                    <>
+                                        <AppButton size="sm" variant="secondary" onClick={() => setIsRecargaOpen(true)}>+ Registrar Recarga</AppButton>
+                                        <AppButton size="sm" variant="success" onClick={() => handleClosePlanilla(selectedPlanilla)}>Cerrar Reparto</AppButton>
+                                    </>
                                 )}
-                                <AppButton variant="danger" onClick={() => { if(confirm('¿Eliminar planilla?')) { deletePlanilla(selectedPlanilla.id); setSelectedPlanilla(null); } }}>Eliminar</AppButton>
+                                <AppButton size="sm" variant="danger" onClick={() => {
+                                    if(window.confirm('¿Eliminar este reparto?')) {
+                                        deletePlanilla(selectedPlanilla.id);
+                                        setSelectedPlanilla(null);
+                                    }
+                                }}>Eliminar</AppButton>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card title="Carga Inicial (Llenos)" compact>
-                                <table className="w-full text-xs">
-                                    <tbody>
-                                        {selectedPlanilla.cargaInicial.map(item => (
-                                            <tr key={item.productoId} className="border-b dark:border-gray-700 last:border-0">
-                                                <td className="py-2">{productosMap.get(item.productoId)?.nombre}</td>
-                                                <td className="py-2 text-right font-bold">{item.cantidad}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </Card>
-
-                            <Card title="Recargas / Descargas" compact>
-                                {selectedPlanilla.recargas && selectedPlanilla.recargas.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {selectedPlanilla.recargas.map((rec, idx) => (
-                                            <div key={idx} className="text-[10px] bg-gray-50 dark:bg-gray-700/50 p-2 rounded border dark:border-gray-600">
-                                                <p className="font-black mb-1">HORA: {rec.hora}</p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <p className="text-blue-600 font-bold uppercase">Sale (Llenos):</p>
-                                                        {rec.items.map(i => <p key={i.productoId}>{productosMap.get(i.productoId)?.nombre}: {i.cantidad}</p>)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-yellow-600 font-bold uppercase">Entra (Vacíos):</p>
-                                                        {rec.vaciosDescargados?.map(i => <p key={i.productoId}>{productosMap.get(i.productoId)?.nombre}: {i.cantidad}</p>)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : <p className="text-xs text-gray-400 italic">Sin recargas registradas</p>}
-                            </Card>
-                        </div>
-
-                        {selectedPlanilla.estado === EstadoPlanilla.CERRADA && (
-                            <Card title="Devolución al Cierre (Lo que volvió a Planta)" compact>
-                                <table className="w-full text-xs">
-                                    <thead className="text-[10px] uppercase font-black text-gray-400">
+                        {/* Comparación con Remitos */}
+                        <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800">
+                            <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 flex items-center gap-2">
+                                <ChartBarIcon className="h-5 w-5" /> Comparación con Entregas (Remitos)
+                            </h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="text-[10px] font-black text-blue-600/70 dark:text-blue-400/70 uppercase tracking-widest">
                                         <tr>
-                                            <th className="text-left py-2">Producto</th>
-                                            <th className="text-right py-2">Llenos</th>
-                                            <th className="text-right py-2">Vacíos</th>
+                                            <th className="text-left pb-2">Producto</th>
+                                            <th className="text-right pb-2">Entregado (Reparto)</th>
+                                            <th className="text-right pb-2">Entregado (Remitos)</th>
+                                            <th className="text-right pb-2">Diferencia</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {selectedPlanilla.devolucion?.map(item => (
-                                            <tr key={item.productoId} className="border-b dark:border-gray-700 last:border-0">
-                                                <td className="py-2">{productosMap.get(item.productoId)?.nombre}</td>
-                                                <td className="py-2 text-right font-bold text-blue-600">{item.cantidadLlenos}</td>
-                                                <td className="py-2 text-right font-bold text-yellow-600">{item.cantidadVacios}</td>
-                                            </tr>
-                                        ))}
+                                        {productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
+                                            // Entregado Reparto = Inicial + Recargas - Devolucion
+                                            let entregadoReparto = selectedPlanilla.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
+                                            selectedPlanilla.recargas?.forEach(r => {
+                                                entregadoReparto += r.items.find(i => i.productoId === p.id)?.cantidad || 0;
+                                            });
+                                            if (selectedPlanilla.estado === EstadoPlanilla.CERRADA) {
+                                                entregadoReparto -= selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
+                                            }
+
+                                            // Entregado Remitos
+                                            const remitosDelDia = remitos.filter(r => r.fecha === selectedPlanilla.fecha && r.vendedorId === selectedPlanilla.repartidorId);
+                                            const entregadoRemitos = remitosDelDia.reduce((sum, r) => {
+                                                return sum + (r.movimientos.find(m => m.productoId === p.id)?.entregados || 0);
+                                            }, 0);
+
+                                            if (entregadoReparto === 0 && entregadoRemitos === 0) return null;
+
+                                            const diff = entregadoRemitos - entregadoReparto;
+
+                                            return (
+                                                <tr key={p.id} className="border-t border-blue-100 dark:border-blue-800/50">
+                                                    <td className="py-2 font-medium">{p.nombre}</td>
+                                                    <td className="py-2 text-right font-mono">{selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? 'Pendiente Cierre' : entregadoReparto}</td>
+                                                    <td className="py-2 text-right font-mono">{entregadoRemitos}</td>
+                                                    <td className={`py-2 text-right font-bold ${diff === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? '-' : (diff > 0 ? `+${diff}` : diff)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
-                                {selectedPlanilla.observaciones && (
-                                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded text-xs italic">
-                                        Obs: {selectedPlanilla.observaciones}
-                                    </div>
-                                )}
-                            </Card>
-                        )}
+                            </div>
+                        </Card>
 
-                        <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-                            <AppButton variant="secondary" onClick={() => setSelectedPlanilla(null)}>Cerrar Ventana</AppButton>
+                        {/* Movimientos del Reparto */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
+                                    <tr>
+                                        <th className="px-4 py-2 text-left">Producto</th>
+                                        <th className="px-4 py-2 text-right">Carga Inicial</th>
+                                        <th className="px-4 py-2 text-right">Recargas</th>
+                                        <th className="px-4 py-2 text-right">Devolución (Llenos)</th>
+                                        <th className="px-4 py-2 text-right">Devolución (Vacíos)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
+                                        const inicial = selectedPlanilla.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
+                                        const recargas = selectedPlanilla.recargas?.reduce((sum, r) => sum + (r.items.find(i => i.productoId === p.id)?.cantidad || 0), 0) || 0;
+                                        const devLlenos = selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
+                                        const devVacios = selectedPlanilla.devolucion?.find(d => d.productoId === p.id)?.cantidadVacios || 0;
+
+                                        if (inicial === 0 && recargas === 0 && devLlenos === 0 && devVacios === 0) return null;
+
+                                        return (
+                                            <tr key={p.id} className="border-b dark:border-gray-700">
+                                                <td className="px-4 py-3 font-bold">{p.nombre}</td>
+                                                <td className="px-4 py-3 text-right">{inicial > 0 ? inicial : '-'}</td>
+                                                <td className="px-4 py-3 text-right text-blue-600">{recargas > 0 ? `+${recargas}` : '-'}</td>
+                                                <td className="px-4 py-3 text-right text-orange-600">{selectedPlanilla.estado === EstadoPlanilla.CERRADA ? devLlenos : '...'}</td>
+                                                <td className="px-4 py-3 text-right text-gray-500">{selectedPlanilla.estado === EstadoPlanilla.CERRADA ? devVacios : '...'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                </Modal>
-            )}
+                )}
+            </Modal>
 
-            {isRecargaOpen && selectedPlanilla && (
-                <Modal isOpen={true} onClose={() => setIsRecargaOpen(false)}>
-                    <RecargaModal 
-                        productos={productos} 
-                        onSave={(carga, descarga) => {
-                            const newRecarga = {
-                                hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+            <Modal isOpen={isRecargaOpen} onClose={() => setIsRecargaOpen(false)}>
+                <RecargaModal 
+                    productos={productos} 
+                    onSave={(carga, descarga) => {
+                        if (selectedPlanilla) {
+                            const updatedPlanilla = { ...selectedPlanilla };
+                            if (!updatedPlanilla.recargas) updatedPlanilla.recargas = [];
+                            updatedPlanilla.recargas.push({
+                                hora: new Date().toLocaleTimeString(),
                                 items: carga,
                                 vaciosDescargados: descarga
-                            };
-                            updatePlanilla({
-                                ...selectedPlanilla,
-                                recargas: [...(selectedPlanilla.recargas || []), newRecarga]
                             });
+                            updatePlanilla(updatedPlanilla);
                             setIsRecargaOpen(false);
                             showNotification('Recarga registrada', 'success');
-                        }}
-                        onClose={() => setIsRecargaOpen(false)}
-                    />
-                </Modal>
-            )}
+                        }
+                    }} 
+                    onClose={() => setIsRecargaOpen(false)} 
+                />
+            </Modal>
 
-            {isMovPlantaOpen && (
-                <Modal isOpen={true} onClose={() => setIsMovPlantaOpen(false)} title="Movimiento Manual de Planta">
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-black uppercase text-gray-400 mb-1">Fecha</label>
-                                <input type="date" value={newMovPlanta.fecha} onChange={e => setNewMovPlanta({...newMovPlanta, fecha: e.target.value})} className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black uppercase text-gray-400 mb-1">Tipo Stock</label>
-                                <select value={newMovPlanta.esEnvase ? 'envase' : 'lleno'} onChange={e => setNewMovPlanta({...newMovPlanta, esEnvase: e.target.value === 'envase'})} className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                                    <option value="lleno">Producto Lleno</option>
-                                    <option value="envase">Envase Vacío</option>
-                                </select>
-                            </div>
-                        </div>
-                        <SearchableSelect label="Producto" options={productos.map(p => ({ value: p.id, label: p.nombre }))} value={newMovPlanta.productoId || ''} onChange={v => setNewMovPlanta({...newMovPlanta, productoId: v})} />
-                        <div className="grid grid-cols-2 gap-4">
-                            <select value={newMovPlanta.tipo} onChange={e => setNewMovPlanta({...newMovPlanta, tipo: e.target.value as any})} className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                                <option value="entrada">Entrada (+)</option>
-                                <option value="salida">Salida (-)</option>
-                                <option value="ajuste">Ajuste (=)</option>
-                            </select>
-                            <input type="number" value={newMovPlanta.cantidad} onChange={e => setNewMovPlanta({...newMovPlanta, cantidad: parseInt(e.target.value) || 0})} className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" />
-                        </div>
-                        <input type="text" placeholder="Concepto..." value={newMovPlanta.concepto} onChange={e => setNewMovPlanta({...newMovPlanta, concepto: e.target.value})} className="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" />
-                        <div className="flex justify-end gap-2 pt-4">
-                            <AppButton variant="secondary" onClick={() => setIsMovPlantaOpen(false)}>Cancelar</AppButton>
-                            <AppButton onClick={handleSaveMovPlanta}>Guardar</AppButton>
-                        </div>
-                    </div>
-                </Modal>
-            )}
+            <Modal isOpen={!!isClosingPlanilla} onClose={() => setIsClosingPlanilla(null)}>
+                {isClosingPlanilla && (
+                    <CierrePlanillaModal 
+                        planilla={isClosingPlanilla} 
+                        productos={productos} 
+                        onConfirm={confirmClosePlanilla} 
+                        onClose={() => setIsClosingPlanilla(null)} 
+                    />
+                )}
+            </Modal>
         </div>
     );
 };
