@@ -55,10 +55,14 @@ const PlanillaForm: React.FC<{
 }> = ({ usuarios, productos, planillas, onSave, onClose }) => {
     const [repartidorId, setRepartidorId] = useState('');
     const [fecha, setFecha] = useState(getLocalDateString());
-    const [cantidades, setCantidades] = useState<Record<string, number>>({});
+    const [items, setItems] = useState<ItemStock[]>([{ productoId: '', cantidad: 0 }]);
 
     const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO), [usuarios]);
-    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO), [productos]);
+    const productosOptions = useMemo(() => 
+        productos
+            .filter(p => p.estado !== EstadoProducto.INACTIVO)
+            .map(p => ({ value: p.id, label: p.nombre })), 
+    [productos]);
 
     const handleLoadLast = useCallback(() => {
         if (!repartidorId) return;
@@ -67,19 +71,21 @@ const PlanillaForm: React.FC<{
             .find(p => p.repartidorId === repartidorId);
         
         if (lastPlanilla) {
-            const newCantidades: Record<string, number> = {};
-            lastPlanilla.cargaInicial.forEach(item => {
-                newCantidades[item.productoId] = item.cantidad;
-            });
-            setCantidades(newCantidades);
+            setItems(lastPlanilla.cargaInicial.map(i => ({ ...i })));
         }
     }, [repartidorId, planillas]);
 
+    const addItem = () => setItems([...items, { productoId: '', cantidad: 0 }]);
+    const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
+    const updateItem = (index: number, field: keyof ItemStock, value: any) => {
+        const newItems = [...items];
+        newItems[index] = { ...newItems[index], [field]: value };
+        setItems(newItems);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const itemsValidos: ItemStock[] = Object.entries(cantidades)
-            .filter(([_, cant]) => (cant as number) > 0)
-            .map(([id, cant]) => ({ productoId: id, cantidad: cant as number }));
+        const itemsValidos = items.filter(i => i.productoId && i.cantidad > 0);
 
         if (!repartidorId || itemsValidos.length === 0) return;
 
@@ -134,32 +140,46 @@ const PlanillaForm: React.FC<{
                     )}
                 </div>
                 
-                <div className="overflow-hidden border dark:border-gray-700 rounded-2xl">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            <tr>
-                                <th className="px-4 py-2 text-left">Producto</th>
-                                <th className="px-4 py-2 text-right w-32">Cantidad</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y dark:divide-gray-700">
-                            {productosActivos.map(p => (
-                                <tr key={p.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                    <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{p.nombre}</td>
-                                    <td className="px-4 py-3">
-                                        <AppInput 
-                                            type="number" 
-                                            value={cantidades[p.id] || ''} 
-                                            onChange={(e) => setCantidades(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
-                                            className="text-right font-black text-primary-600"
-                                            placeholder="0"
-                                            min="0"
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="space-y-3">
+                    {items.map((item, index) => (
+                        <div key={index} className="flex gap-3 items-end bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 shadow-sm">
+                            <div className="flex-1">
+                                <SearchableSelect 
+                                    options={productosOptions} 
+                                    value={item.productoId} 
+                                    onChange={(v) => updateItem(index, 'productoId', v)} 
+                                    placeholder="Seleccionar Producto"
+                                />
+                            </div>
+                            <div className="w-32">
+                                <AppInput 
+                                    type="number" 
+                                    value={item.cantidad || ''} 
+                                    onChange={(e) => updateItem(index, 'cantidad', parseInt(e.target.value) || 0)}
+                                    placeholder="Cant."
+                                    className="text-right font-black"
+                                />
+                            </div>
+                            <AppButton 
+                                variant="danger" 
+                                size="sm" 
+                                onClick={() => removeItem(index)}
+                                className="!p-2 h-[42px] w-[42px]"
+                                type="button"
+                            >
+                                <TrashIcon className="w-5 h-5" />
+                            </AppButton>
+                        </div>
+                    ))}
+                    <AppButton 
+                        variant="secondary" 
+                        size="sm" 
+                        onClick={addItem} 
+                        className="w-full border-dashed border-2 !py-3 font-black uppercase tracking-widest text-[10px]"
+                        type="button"
+                    >
+                        + Agregar Producto
+                    </AppButton>
                 </div>
             </div>
 
@@ -177,68 +197,110 @@ const RecargaModal: React.FC<{
     onSave: (itemsCarga: ItemStock[], itemsDescarga: ItemStock[]) => void;
     onClose: () => void;
 }> = ({ productos, onSave, onClose }) => {
-    const [cantidadesCarga, setCantidadesCarga] = useState<Record<string, number>>({});
-    const [cantidadesDescarga, setCantidadesDescarga] = useState<Record<string, number>>({});
+    const [itemsCarga, setItemsCarga] = useState<ItemStock[]>([{ productoId: '', cantidad: 0 }]);
+    const [itemsDescarga, setItemsDescarga] = useState<ItemStock[]>([{ productoId: '', cantidad: 0 }]);
 
-    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO), [productos]);
+    const productosOptions = useMemo(() => 
+        productos
+            .filter(p => p.estado !== EstadoProducto.INACTIVO)
+            .map(p => ({ value: p.id, label: p.nombre })), 
+    [productos]);
+
+    const addItemCarga = () => setItemsCarga([...itemsCarga, { productoId: '', cantidad: 0 }]);
+    const removeItemCarga = (index: number) => setItemsCarga(itemsCarga.filter((_, i) => i !== index));
+    const updateItemCarga = (index: number, field: keyof ItemStock, value: any) => {
+        const newItems = [...itemsCarga];
+        newItems[index] = { ...newItems[index], [field]: value };
+        setItemsCarga(newItems);
+    };
+
+    const addItemDescarga = () => setItemsDescarga([...itemsDescarga, { productoId: '', cantidad: 0 }]);
+    const removeItemDescarga = (index: number) => setItemsDescarga(itemsDescarga.filter((_, i) => i !== index));
+    const updateItemDescarga = (index: number, field: keyof ItemStock, value: any) => {
+        const newItems = [...itemsDescarga];
+        newItems[index] = { ...newItems[index], [field]: value };
+        setItemsDescarga(newItems);
+    };
 
     const handleSave = () => {
-        const cargaValida: ItemStock[] = Object.entries(cantidadesCarga)
-            .filter(([_, cant]) => (cant as number) > 0)
-            .map(([id, cant]) => ({ productoId: id, cantidad: cant as number }));
-
-        const descargaValida: ItemStock[] = Object.entries(cantidadesDescarga)
-            .filter(([_, cant]) => (cant as number) > 0)
-            .map(([id, cant]) => ({ productoId: id, cantidad: cant as number }));
+        const cargaValida = itemsCarga.filter(i => i.productoId && i.cantidad > 0);
+        const descargaValida = itemsDescarga.filter(i => i.productoId && i.cantidad > 0);
 
         if (cargaValida.length === 0 && descargaValida.length === 0) return;
         onSave(cargaValida, descargaValida);
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div className="pr-10">
                 <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Registrar Recarga</h2>
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Movimiento intermedio de stock</p>
             </div>
             
-            <div className="overflow-hidden border dark:border-gray-700 rounded-2xl">
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        <tr>
-                            <th className="px-4 py-2 text-left">Producto</th>
-                            <th className="px-4 py-2 text-right text-blue-600">Sale (Llenos)</th>
-                            <th className="px-4 py-2 text-right text-orange-600">Entra (Vacíos)</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y dark:divide-gray-700">
-                        {productosActivos.map(p => (
-                            <tr key={p.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{p.nombre}</td>
-                                <td className="px-4 py-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* CARGA (SALE DE PLANTA) */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b dark:border-gray-700 pb-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Carga (Sale de Planta)</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {itemsCarga.map((item, index) => (
+                            <div key={index} className="flex gap-2 items-end bg-gray-50 dark:bg-gray-800/50 p-2 rounded-xl border dark:border-gray-700">
+                                <div className="flex-1">
+                                    <SearchableSelect 
+                                        options={productosOptions} 
+                                        value={item.productoId} 
+                                        onChange={(v) => updateItemCarga(index, 'productoId', v)} 
+                                        placeholder="Producto"
+                                    />
+                                </div>
+                                <div className="w-20">
                                     <AppInput 
                                         type="number" 
-                                        value={cantidadesCarga[p.id] || ''} 
-                                        onChange={(e) => setCantidadesCarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                        value={item.cantidad || ''} 
+                                        onChange={(e) => updateItemCarga(index, 'cantidad', parseInt(e.target.value) || 0)}
                                         className="text-right font-black text-blue-600"
-                                        placeholder="0"
-                                        min="0"
                                     />
-                                </td>
-                                <td className="px-4 py-3">
+                                </div>
+                                <AppButton variant="danger" size="sm" onClick={() => removeItemCarga(index)} className="!p-2 h-[38px] w-[38px]"><TrashIcon className="w-4 h-4"/></AppButton>
+                            </div>
+                        ))}
+                        <AppButton variant="secondary" size="sm" onClick={addItemCarga} className="w-full border-dashed border-2 !py-2 text-[9px] font-black uppercase">+ Agregar Carga</AppButton>
+                    </div>
+                </div>
+
+                {/* DESCARGA (ENTRA A PLANTA) */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b dark:border-gray-700 pb-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Descarga (Entra a Planta)</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {itemsDescarga.map((item, index) => (
+                            <div key={index} className="flex gap-2 items-end bg-gray-50 dark:bg-gray-800/50 p-2 rounded-xl border dark:border-gray-700">
+                                <div className="flex-1">
+                                    <SearchableSelect 
+                                        options={productosOptions} 
+                                        value={item.productoId} 
+                                        onChange={(v) => updateItemDescarga(index, 'productoId', v)} 
+                                        placeholder="Producto"
+                                    />
+                                </div>
+                                <div className="w-20">
                                     <AppInput 
                                         type="number" 
-                                        value={cantidadesDescarga[p.id] || ''} 
-                                        onChange={(e) => setCantidadesDescarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                        value={item.cantidad || ''} 
+                                        onChange={(e) => updateItemDescarga(index, 'cantidad', parseInt(e.target.value) || 0)}
                                         className="text-right font-black text-orange-600"
-                                        placeholder="0"
-                                        min="0"
                                     />
-                                </td>
-                            </tr>
+                                </div>
+                                <AppButton variant="danger" size="sm" onClick={() => removeItemDescarga(index)} className="!p-2 h-[38px] w-[38px]"><TrashIcon className="w-4 h-4"/></AppButton>
+                            </div>
                         ))}
-                    </tbody>
-                </table>
+                        <AppButton variant="secondary" size="sm" onClick={addItemDescarga} className="w-full border-dashed border-2 !py-2 text-[9px] font-black uppercase">+ Agregar Descarga</AppButton>
+                    </div>
+                </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
