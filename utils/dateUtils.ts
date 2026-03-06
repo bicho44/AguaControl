@@ -4,3 +4,13 @@ export const getLocalDateString = (date: Date = new Date()): string => {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+
+export const formatDate = (dateStr: string | undefined): string => {
+    if (!dateStr) return '-';
+    // Handle YYYY-MM-DD
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+};

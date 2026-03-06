@@ -23,7 +23,9 @@ import { ChartBarIcon } from '../components/icons/ChartBarIcon';
 import { ClipboardCheckIcon } from '../components/icons/ClipboardCheckIcon';
 import { TruckIcon } from '../components/icons/TruckIcon';
 import AppButton from '../components/ui/AppButton';
-import { getLocalDateString } from '../utils/dateUtils';
+import AppInput from '../components/ui/AppInput';
+import AppSelect from '../components/ui/AppSelect';
+import { getLocalDateString, formatDate } from '../utils/dateUtils';
 import SearchableSelect from '../components/SearchableSelect';
 
 interface GestionStockViewProps {
@@ -56,7 +58,7 @@ const PlanillaForm: React.FC<{
     const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
     const repartidores = useMemo(() => usuarios.filter(u => u.rol === Rol.REPARTIDOR && u.tipo === TipoVendedor.INTERNO), [usuarios]);
-    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO && p.tipo !== TipoProducto.EQUIPO), [productos]);
+    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO), [productos]);
 
     const handleLoadLast = useCallback(() => {
         if (!repartidorId) return;
@@ -99,33 +101,28 @@ const PlanillaForm: React.FC<{
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border dark:border-gray-700">
-                <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Repartidor</label>
-                    <select 
-                        value={repartidorId} 
-                        onChange={(e) => setRepartidorId(e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-700 rounded-xl border-2 border-gray-100 dark:border-gray-600 font-bold"
-                        required
-                    >
-                        <option value="">Seleccione...</option>
-                        {repartidores.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Fecha</label>
-                    <input 
-                        type="date" 
-                        value={fecha} 
-                        onChange={(e) => setFecha(e.target.value)} 
-                        className="w-full p-2.5 bg-white dark:bg-gray-700 rounded-xl border-2 border-gray-100 dark:border-gray-600 font-bold"
-                        required 
-                    />
-                </div>
+                <AppSelect
+                    label="Repartidor"
+                    value={repartidorId}
+                    onChange={(e) => setRepartidorId(e.target.value)}
+                    options={[
+                        { value: '', label: 'Seleccione...' },
+                        ...repartidores.map(r => ({ value: r.id, label: r.nombre }))
+                    ]}
+                    required
+                />
+                <AppInput
+                    label="Fecha"
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    required
+                />
             </div>
 
             <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Productos en Planta</h3>
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Productos a Cargar</h3>
                     {repartidorId && (
                         <button 
                             type="button" 
@@ -137,20 +134,32 @@ const PlanillaForm: React.FC<{
                     )}
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {productosActivos.map(p => (
-                        <div key={p.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 hover:border-primary-500 transition-colors shadow-sm">
-                            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{p.nombre}</span>
-                            <input 
-                                type="number" 
-                                value={cantidades[p.id] || ''} 
-                                onChange={(e) => setCantidades(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
-                                className="w-20 p-1.5 text-right bg-gray-50 dark:bg-gray-700 rounded-lg border-none font-black text-primary-600 focus:ring-2 focus:ring-primary-500"
-                                placeholder="0"
-                                min="0"
-                            />
-                        </div>
-                    ))}
+                <div className="overflow-hidden border dark:border-gray-700 rounded-2xl">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <tr>
+                                <th className="px-4 py-2 text-left">Producto</th>
+                                <th className="px-4 py-2 text-right w-32">Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-gray-700">
+                            {productosActivos.map(p => (
+                                <tr key={p.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                    <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{p.nombre}</td>
+                                    <td className="px-4 py-3">
+                                        <AppInput 
+                                            type="number" 
+                                            value={cantidades[p.id] || ''} 
+                                            onChange={(e) => setCantidades(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                            className="text-right font-black text-primary-600"
+                                            placeholder="0"
+                                            min="0"
+                                        />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -171,7 +180,7 @@ const RecargaModal: React.FC<{
     const [cantidadesCarga, setCantidadesCarga] = useState<Record<string, number>>({});
     const [cantidadesDescarga, setCantidadesDescarga] = useState<Record<string, number>>({});
 
-    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO && p.tipo !== TipoProducto.EQUIPO), [productos]);
+    const productosActivos = useMemo(() => productos.filter(p => p.estado !== EstadoProducto.INACTIVO), [productos]);
 
     const handleSave = () => {
         const cargaValida: ItemStock[] = Object.entries(cantidadesCarga)
@@ -193,50 +202,43 @@ const RecargaModal: React.FC<{
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Movimiento intermedio de stock</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* CARGA (LLENOS) */}
-                <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
-                        Sale de Planta (Llenos)
-                    </h3>
-                    <div className="space-y-2">
+            <div className="overflow-hidden border dark:border-gray-700 rounded-2xl">
+                <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <tr>
+                            <th className="px-4 py-2 text-left">Producto</th>
+                            <th className="px-4 py-2 text-right text-blue-600">Sale (Llenos)</th>
+                            <th className="px-4 py-2 text-right text-orange-600">Entra (Vacíos)</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y dark:divide-gray-700">
                         {productosActivos.map(p => (
-                            <div key={p.id} className="flex items-center justify-between p-2 bg-blue-50/30 dark:bg-blue-900/5 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                                <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{p.nombre}</span>
-                                <input 
-                                    type="number" 
-                                    value={cantidadesCarga[p.id] || ''} 
-                                    onChange={(e) => setCantidadesCarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
-                                    className="w-16 p-1 text-right bg-white dark:bg-gray-800 rounded border-none font-black text-blue-600 focus:ring-1 focus:ring-blue-500 text-sm"
-                                    placeholder="0"
-                                />
-                            </div>
+                            <tr key={p.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td className="px-4 py-3 font-bold text-gray-700 dark:text-gray-300">{p.nombre}</td>
+                                <td className="px-4 py-3">
+                                    <AppInput 
+                                        type="number" 
+                                        value={cantidadesCarga[p.id] || ''} 
+                                        onChange={(e) => setCantidadesCarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                        className="text-right font-black text-blue-600"
+                                        placeholder="0"
+                                        min="0"
+                                    />
+                                </td>
+                                <td className="px-4 py-3">
+                                    <AppInput 
+                                        type="number" 
+                                        value={cantidadesDescarga[p.id] || ''} 
+                                        onChange={(e) => setCantidadesDescarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                                        className="text-right font-black text-orange-600"
+                                        placeholder="0"
+                                        min="0"
+                                    />
+                                </td>
+                            </tr>
                         ))}
-                    </div>
-                </div>
-
-                {/* DESCARGA (VACÍOS) */}
-                <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-600"></div>
-                        Entra a Planta (Vacíos)
-                    </h3>
-                    <div className="space-y-2">
-                        {productosActivos.map(p => (
-                            <div key={p.id} className="flex items-center justify-between p-2 bg-orange-50/30 dark:bg-orange-900/5 rounded-lg border border-orange-100 dark:border-orange-900/30">
-                                <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{p.nombre}</span>
-                                <input 
-                                    type="number" 
-                                    value={cantidadesDescarga[p.id] || ''} 
-                                    onChange={(e) => setCantidadesDescarga(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
-                                    className="w-16 p-1 text-right bg-white dark:bg-gray-800 rounded border-none font-black text-orange-600 focus:ring-1 focus:ring-orange-500 text-sm"
-                                    placeholder="0"
-                                />
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                    </tbody>
+                </table>
             </div>
 
             <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
@@ -283,18 +285,18 @@ const CierrePlanillaModal: React.FC<{
                 <p className="text-xs text-gray-500">Registre lo que el repartidor trae de vuelta a la planta.</p>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-hidden border dark:border-gray-700 rounded-2xl">
                 <table className="w-full text-sm">
-                    <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
+                    <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         <tr>
-                            <th className="px-4 py-2 text-left">Producto</th>
-                            <th className="px-4 py-2 text-right">Salió (Total)</th>
-                            <th className="px-4 py-2 text-right">Volvió (Lleno)</th>
-                            <th className="px-4 py-2 text-right">Entregado</th>
-                            <th className="px-4 py-2 text-right">Vacíos (Recup.)</th>
+                            <th className="px-4 py-3 text-left">Producto</th>
+                            <th className="px-4 py-3 text-right">Salió (Total)</th>
+                            <th className="px-4 py-3 text-right text-orange-600">Volvió (Lleno)</th>
+                            <th className="px-4 py-3 text-right text-blue-600">Entregado</th>
+                            <th className="px-4 py-3 text-right text-green-600">Vacíos (Recup.)</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y dark:divide-gray-700">
                         {devolucion.map((item, idx) => {
                             const pId = item.productoId;
                             let salio = planilla.cargaInicial.find(i => i.productoId === pId)?.cantidad || 0;
@@ -304,28 +306,30 @@ const CierrePlanillaModal: React.FC<{
                             const entregado = salio - item.cantidadLlenos;
 
                             return (
-                                <tr key={item.productoId} className="border-b dark:border-gray-700">
-                                    <td className="px-4 py-3">
-                                        <p className="font-bold text-gray-800 dark:text-white">{productos.find(p => p.id === item.productoId)?.nombre}</p>
+                                <tr key={item.productoId} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                    <td className="px-4 py-4">
+                                        <p className="font-bold text-gray-800 dark:text-white uppercase tracking-tighter">{productos.find(p => p.id === item.productoId)?.nombre}</p>
                                     </td>
-                                    <td className="px-4 py-3 text-right font-mono text-gray-500">{salio}</td>
-                                    <td className="px-4 py-3">
-                                        <input 
+                                    <td className="px-4 py-4 text-right font-mono text-gray-400 font-bold">{salio}</td>
+                                    <td className="px-4 py-4">
+                                        <AppInput 
                                             type="number" 
                                             value={item.cantidadLlenos || ''} 
                                             onChange={e => handleItemChange(idx, 'cantidadLlenos', parseInt(e.target.value) || 0)}
-                                            className="w-full p-2 bg-white dark:bg-gray-600 border dark:border-gray-500 rounded text-right font-bold text-orange-600"
+                                            className="text-right font-black text-orange-600"
+                                            placeholder="0"
                                         />
                                     </td>
-                                    <td className="px-4 py-3 text-right font-black text-blue-600 text-lg">
-                                        {entregado}
+                                    <td className="px-4 py-4 text-right">
+                                        <span className="font-black text-blue-600 text-lg">{entregado}</span>
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <input 
+                                    <td className="px-4 py-4">
+                                        <AppInput 
                                             type="number" 
                                             value={item.cantidadVacios || ''} 
                                             onChange={e => handleItemChange(idx, 'cantidadVacios', parseInt(e.target.value) || 0)}
-                                            className="w-full p-2 bg-white dark:bg-gray-600 border dark:border-gray-500 rounded text-right font-bold text-green-600"
+                                            className="text-right font-black text-green-600"
+                                            placeholder="0"
                                         />
                                     </td>
                                 </tr>
@@ -507,14 +511,19 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b dark:border-gray-700 pb-6">
                 <div>
                     <h1 className="text-4xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic leading-none">Control de Planta</h1>
-                    <div className="flex items-center gap-2 mt-2">
-                        <input 
-                            type="date" 
-                            value={selectedDate} 
-                            onChange={e => setSelectedDate(e.target.value)} 
-                            className="p-0 bg-transparent border-none text-sm font-black text-primary-600 focus:ring-0 cursor-pointer uppercase tracking-widest"
-                        />
-                        <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">• Sesión Diaria</span>
+                    <div className="flex items-center gap-4 mt-4">
+                        <div className="w-48">
+                            <AppInput 
+                                type="date" 
+                                value={selectedDate} 
+                                onChange={e => setSelectedDate(e.target.value)} 
+                                className="font-black text-primary-600"
+                            />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-lg font-black text-gray-800 dark:text-white">{formatDate(selectedDate)}</span>
+                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">Sesión Diaria</span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -563,6 +572,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                             <div className="flex flex-col items-end">
                                                 <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-blue-100 text-blue-700 mb-2 tracking-widest">En Viaje</span>
                                                 <span className="text-[10px] font-mono font-bold text-gray-400">{p.recargas?.length || 0} Recargas</span>
+                                                <span className="text-[10px] font-bold text-gray-400 mt-1">{formatDate(p.fecha)}</span>
                                             </div>
                                         </div>
                                         <div className="flex gap-3 pt-4 border-t dark:border-gray-700 relative z-10">
@@ -584,20 +594,30 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
 
             {/* SECCIÓN 2: BALANCE DE PLANTA (AUDITORÍA) */}
             <section className="space-y-6">
-                <div className="flex items-center justify-between px-1">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
                     <div className="flex items-center gap-3">
-                        <ChartBarIcon className="h-5 w-5 text-primary-600" />
+                        <ChartBarIcon className="h-5 w-5 text-gray-400" />
                         <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em]">Balance de Planta / Auditoría</h2>
                     </div>
-                    <AppButton 
-                        variant="success" 
-                        size="sm"
-                        onClick={handleSaveBalance}
-                        isLoading={isSavingCierre}
-                        className="shadow-xl shadow-green-500/20 px-6 font-black uppercase tracking-widest text-[10px]"
-                    >
-                        Guardar Cierre de Planta
-                    </AppButton>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-gray-200"></div>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Stock Inicial</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-100"></div>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Producción (Llenado)</span>
+                        </div>
+                        <AppButton 
+                            variant="success" 
+                            size="sm"
+                            onClick={handleSaveBalance}
+                            isLoading={isSavingCierre}
+                            className="shadow-xl shadow-green-500/20 px-6 font-black uppercase tracking-widest text-[10px]"
+                        >
+                            Guardar Cierre de Planta
+                        </AppButton>
+                    </div>
                 </div>
 
                 <Card className="overflow-hidden border-none shadow-2xl">
@@ -607,10 +627,15 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                 <tr>
                                     <th className="px-6 py-5">Producto</th>
                                     <th className="px-6 py-5 text-right">Inicial</th>
-                                    <th className="px-6 py-5 text-right bg-blue-50/30 dark:bg-blue-900/5">+ Producción</th>
+                                    <th className="px-6 py-5 text-center bg-blue-50/30 dark:bg-blue-900/5">
+                                        <div className="flex flex-col items-center">
+                                            <span>+ Producción</span>
+                                            <span className="text-[8px] font-normal lowercase">(Llenado del día)</span>
+                                        </div>
+                                    </th>
                                     <th className="px-6 py-5 text-right">- Salidas</th>
                                     <th className="px-6 py-5 text-right">= Teórico</th>
-                                    <th className="px-6 py-5 text-right bg-yellow-50/30 dark:bg-yellow-900/5">Físico</th>
+                                    <th className="px-6 py-5 text-center bg-yellow-50/30 dark:bg-yellow-900/5">Físico (Recuento)</th>
                                     <th className="px-6 py-5 text-right">Dif.</th>
                                 </tr>
                             </thead>
@@ -628,18 +653,21 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                         <tr key={d.producto.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
                                             <td className="px-6 py-5">
                                                 <p className="font-black text-gray-800 dark:text-white group-hover:text-primary-600 transition-colors uppercase tracking-tighter">{d.producto.nombre}</p>
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{d.producto.tipo}</p>
                                             </td>
                                             <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.inicial}</td>
-                                            <td className="px-6 py-5 text-right bg-blue-50/10 dark:bg-blue-900/5">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {d.produccionHistorica > 0 && <span className="text-[10px] text-gray-400 font-black">({d.produccionHistorica}) +</span>}
-                                                    <input 
+                                            <td className="px-6 py-5 bg-blue-50/10 dark:bg-blue-900/5">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <AppInput 
                                                         type="number" 
                                                         placeholder="0"
                                                         value={productionInput[d.producto.id] || ''}
                                                         onChange={e => setProductionInput(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
-                                                        className="w-20 p-2 text-right bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 font-black rounded-xl border-2 border-blue-50 dark:border-blue-900 focus:border-blue-500 outline-none transition-all shadow-sm"
+                                                        className="w-24 text-center font-black text-blue-700 dark:text-blue-400"
                                                     />
+                                                    {d.produccionHistorica > 0 && (
+                                                        <span className="text-[9px] font-bold text-gray-400">Ya cargado: {d.produccionHistorica}</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right">
@@ -649,12 +677,13 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right font-black text-gray-800 dark:text-white text-xl tracking-tighter">{d.teorico}</td>
-                                            <td className="px-6 py-5 text-right bg-yellow-50/10 dark:bg-yellow-900/5">
-                                                <input 
+                                            <td className="px-6 py-5 bg-yellow-50/10 dark:bg-yellow-900/5">
+                                                <AppInput 
                                                     type="number" 
                                                     value={fisico}
                                                     onChange={e => setPhysicalStock(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
-                                                    className="w-24 p-2.5 text-right font-black bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-100 dark:border-gray-700 focus:border-primary-500 focus:ring-0 outline-none shadow-md transition-all"
+                                                    className="w-24 mx-auto text-center font-black"
+                                                    placeholder={d.teorico.toString()}
                                                 />
                                             </td>
                                             <td className={`px-6 py-5 text-right font-black text-xl ${diferencia === 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -715,7 +744,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${selectedPlanilla.estado === EstadoPlanilla.ABIERTA ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                                         {selectedPlanilla.estado}
                                     </span>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(selectedPlanilla.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</span>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{formatDate(selectedPlanilla.fecha)}</span>
                                 </div>
                                 <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">
                                     Reparto: {usuariosMap.get(selectedPlanilla.repartidorId)?.nombre}
