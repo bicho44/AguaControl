@@ -766,6 +766,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const monthObj: any = { name: monthLabel, sortKey: monthKey };
         
         monthObj["Total General"] = 0;
+        monthObj["Internos"] = 0;
+        monthObj["Externos"] = 0;
 
         consumableProductNames.forEach(pName => {
             monthObj[pName] = 0;
@@ -779,6 +781,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     if (prod && consumableProductNames.includes(prod.nombre)) {
                         const cant = Number(m.entregados) || 0;
                         monthObj["Total General"] += cant;
+                        monthObj["Internos"] += cant;
                         monthObj[prod.nombre] += cant;
                     }
                 });
@@ -787,11 +790,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         ventasVendedor.forEach(v => {
             const d = parseLocalDate(v.fecha);
             if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()) {
+                const vendor = usuariosMap.get(v.vendedorId);
+                const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                 v.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
                     if (prod && consumableProductNames.includes(prod.nombre)) {
                         const cant = Number(m.cantidad) || 0;
                         monthObj["Total General"] += cant;
+                        if (isExterno) monthObj["Externos"] += cant;
+                        else monthObj["Internos"] += cant;
                         monthObj[prod.nombre] += cant;
                     }
                 });
@@ -810,7 +817,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const dayObj: any = { name: dayLabel };
         
         dayObj["Total Mes Actual"] = 0;
+        dayObj["Internos Mes Actual"] = 0;
+        dayObj["Externos Mes Actual"] = 0;
         dayObj["Total Mes Anterior"] = 0;
+        dayObj["Internos Mes Anterior"] = 0;
+        dayObj["Externos Mes Anterior"] = 0;
 
         consumableProductNames.forEach(pName => {
             dayObj[pName] = 0;
@@ -826,6 +837,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         if (prod && consumableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.entregados) || 0;
                             dayObj["Total Mes Actual"] += cant;
+                            dayObj["Internos Mes Actual"] += cant;
                             dayObj[prod.nombre] += cant;
                         }
                     });
@@ -833,11 +845,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             });
             monthlyVentas.forEach(v => {
                 if (parseLocalDate(v.fecha).getDate() === d) {
+                    const vendor = usuariosMap.get(v.vendedorId);
+                    const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                     v.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
                         if (prod && consumableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.cantidad) || 0;
                             dayObj["Total Mes Actual"] += cant;
+                            if (isExterno) dayObj["Externos Mes Actual"] += cant;
+                            else dayObj["Internos Mes Actual"] += cant;
                             dayObj[prod.nombre] += cant;
                         }
                     });
@@ -854,6 +870,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         if (prod && consumableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.entregados) || 0;
                             dayObj["Total Mes Anterior"] += cant;
+                            dayObj["Internos Mes Anterior"] += cant;
                             dayObj[`${prod.nombre} Mes Ant`] += cant;
                         }
                     });
@@ -861,11 +878,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             });
             lastMonthVentas.forEach(v => {
                 if (parseLocalDate(v.fecha).getDate() === d) {
+                    const vendor = usuariosMap.get(v.vendedorId);
+                    const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                     v.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
                         if (prod && consumableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.cantidad) || 0;
                             dayObj["Total Mes Anterior"] += cant;
+                            if (isExterno) dayObj["Externos Mes Anterior"] += cant;
+                            else dayObj["Internos Mes Anterior"] += cant;
                             dayObj[`${prod.nombre} Mes Ant`] += cant;
                         }
                     });
@@ -1149,8 +1170,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                               
                               {/* Líneas de Totales Generales */}
-                              <Line type="monotone" dataKey="Total Mes Actual" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 MES ACTUAL" />
-                              <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="⏮ MES ANTERIOR" opacity={0.5} />
+                              <Line type="monotone" dataKey="Total Mes Actual" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 TOTAL ACTUAL" />
+                              <Line type="monotone" dataKey="Internos Mes Actual" stroke="#10b981" strokeWidth={2} dot={false} name="👤 INTERNOS ACTUAL" />
+                              <Line type="monotone" dataKey="Externos Mes Actual" stroke="#f59e0b" strokeWidth={2} dot={false} name="🤝 EXTERNOS ACTUAL" />
+                              
+                              <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
+                              <Line type="monotone" dataKey="Internos Mes Anterior" stroke="#10b981" strokeWidth={1} strokeDasharray="5 5" dot={false} name="👤 INTERNOS ANTERIOR" opacity={0.5} />
+                              <Line type="monotone" dataKey="Externos Mes Anterior" stroke="#f59e0b" strokeWidth={1} strokeDasharray="5 5" dot={false} name="🤝 EXTERNOS ANTERIOR" opacity={0.5} />
 
                               {/* Líneas por Producto */}
                               {consumableProductNames.map(name => visibleProducts.includes(name) && (
@@ -1236,6 +1262,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               
                               {/* Líneas de Totales Generales */}
                               <Line type="monotone" dataKey="Total General" stroke="#111827" strokeWidth={4} dot={{ r: 5 }} name="📈 TOTAL VENTAS" />
+                              <Line type="monotone" dataKey="Internos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="👤 INTERNOS" />
+                              <Line type="monotone" dataKey="Externos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="🤝 EXTERNOS" />
 
                               {consumableProductNames.map(name => {
                                   if (!visibleProducts.includes(name)) return null;
