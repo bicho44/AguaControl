@@ -481,6 +481,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
   const usuariosMap = useMemo(() => new Map<string, Usuario>(usuarios.map(u => [u.id, u])), [usuarios]);
   
+  const shortName = (name: string) => {
+    const prod = productos.find(p => p.nombre === name);
+    if (prod?.abreviatura) return prod.abreviatura;
+    return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
+  };
+  
   // FILTRADO DE CLIENTES POR TIPO DE VENDEDOR
   const visibleClientes = useMemo(() => {
       if (user?.tipo === TipoVendedor.EXTERNO) {
@@ -634,11 +640,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       try {
           const saved = localStorage.getItem('dashboard_visible_products');
           const savedList = saved ? JSON.parse(saved) : [];
-          if (savedList.length === 0) {
+          if (!Array.isArray(savedList) || savedList.length === 0) {
               setVisibleProducts(returnableProductNames);
               return;
           }
-          setVisibleProducts(savedList.filter(name => returnableProductNames.includes(name)));
+          setVisibleProducts(savedList.filter(name => typeof name === 'string' && returnableProductNames.includes(name)));
       } catch (e) {
           setVisibleProducts(returnableProductNames);
       }
@@ -1059,11 +1065,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-  const shortName = (name: string) => {
-    const prod = productos.find(p => p.nombre === name);
-    if (prod?.abreviatura) return prod.abreviatura;
-    return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
-  };
 
   // ----------------------------------------------------------------------
   // RENDER PRINCIPAL CON SWITCH SEGÚN ROL
@@ -1236,11 +1237,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
 
                               {/* Líneas por Producto */}
-                              {returnableProductNames.map(name => visibleProducts.includes(name) && (
+                              {returnableProductNames.map(name => visibleProducts.includes(name) ? (
                                   <React.Fragment key={name}>
                                       <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={false} name={shortName(name)} />
                                   </React.Fragment>
-                              ))}
+                              ) : null)}
                           </LineChart>
                       </ResponsiveContainer>
                   </div>
@@ -1265,7 +1266,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     .filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE)
                                     .map(p => (
                                       <tr key={p.id} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{p.nombre}</td>
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{p.abreviatura || p.nombre}</td>
                                           <td className="py-3 text-right font-black text-blue-600 dark:text-blue-400 text-base">{p.stockPlanta || 0}</td>
                                           <td className="py-3 text-right font-black text-yellow-600 dark:text-yellow-400 text-base">{p.tipo === TipoProducto.RETORNABLE ? (p.stockEnvases || 0) : '-'}</td>
                                       </tr>
@@ -1290,7 +1291,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <tbody>
                                   {stockEnCalle.map(([name, count]) => (
                                       <tr key={name} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{name}</td>
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{shortName(name)}</td>
                                           <td className="py-3 text-right font-black text-primary-600 dark:text-primary-400 text-base">{count.toLocaleString()}</td>
                                       </tr>
                                   ))}
