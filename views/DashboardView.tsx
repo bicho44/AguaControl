@@ -39,27 +39,36 @@ interface DashboardViewProps {
 const StatsCard: React.FC<{
   title: string;
   stats: { byProduct: { [key: string]: number } };
-}> = ({ title, stats }) => (
-  <Card title={title}>
-    <div className="space-y-2 min-h-[120px]">
-      {Object.keys(stats.byProduct).length > 0 ? (
-        Object.entries(stats.byProduct)
-        .sort(([, valueA], [, valueB]) => (valueB as number) - (valueA as number))
-        .map(([name, value]) => (
-          <div key={name} className="flex justify-between items-center text-base">
-            <span className="text-gray-600 dark:text-gray-300 truncate pr-2 font-medium">{name}</span>
-            <span className="font-black text-lg text-primary-600 dark:text-primary-400">{value}</span>
+  productos: Producto[];
+}> = ({ title, stats, productos }) => {
+  const shortName = (name: string) => {
+    const prod = productos.find(p => p.nombre === name);
+    if (prod?.abreviatura) return prod.abreviatura;
+    return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
+  };
+
+  return (
+    <Card title={title}>
+      <div className="space-y-2 min-h-[120px]">
+        {Object.keys(stats.byProduct).length > 0 ? (
+          Object.entries(stats.byProduct)
+          .sort(([, valueA], [, valueB]) => (valueB as number) - (valueA as number))
+          .map(([name, value]) => (
+            <div key={name} className="flex justify-between items-center text-base">
+              <span className="text-gray-600 dark:text-gray-300 truncate pr-2 font-medium">{shortName(name)}</span>
+              <span className="font-black text-lg text-primary-600 dark:text-primary-400">{value}</span>
+            </div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center h-[120px] opacity-40">
+             <svg className="w-8 h-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-3.586 3.586a2 2 0 01-2.828 0L7 14m10 0v1a2 2 0 01-2 2H9a2 2 0 01-2-2v-1" /></svg>
+            <p className="text-center text-[10px] uppercase font-black tracking-tighter">Sin movimientos</p>
           </div>
-        ))
-      ) : (
-        <div className="flex flex-col items-center justify-center h-[120px] opacity-40">
-           <svg className="w-8 h-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-3.586 3.586a2 2 0 01-2.828 0L7 14m10 0v1a2 2 0 01-2 2H9a2 2 0 01-2-2v-1" /></svg>
-          <p className="text-center text-[10px] uppercase font-black tracking-tighter">Sin movimientos</p>
-        </div>
-      )}
-    </div>
-  </Card>
-);
+        )}
+      </div>
+    </Card>
+  );
+};
 
 const lightTooltipStyle = {
     backgroundColor: '#f3f4f6', // Gris muy claro (Slate 50)
@@ -595,23 +604,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }
 
   // --- LÓGICA COMPARTIDA PARA ADMIN DASHBOARD ---
-  // ... (Lógica de gráficos se mantiene igual)
-  const consumableProductNames = useMemo(() => {
+  const returnableProductNames = useMemo(() => {
     return [...new Set(
         productos
-        .filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE)
+        .filter(p => p.tipo === TipoProducto.RETORNABLE)
+        .map(p => p.nombre)
+    )].sort();
+  }, [productos]);
+
+  const nonReturnableProductNames = useMemo(() => {
+    return [...new Set(
+        productos
+        .filter(p => p.tipo === TipoProducto.DESCARTABLE)
         .map(p => p.nombre)
     )].sort();
   }, [productos]);
 
   const productColors = useMemo(() => {
     const colors: { [key: string]: string } = {};
-    consumableProductNames.forEach((name) => {
-        const product = productos.find(p => p.nombre === name);
-        colors[name] = product?.color || "#9ca3af";
+    productos.forEach((p) => {
+        colors[p.nombre] = p.color || "#9ca3af";
     });
     return colors;
-  }, [consumableProductNames, productos]);
+  }, [productos]);
 
   const [visibleProducts, setVisibleProducts] = useState<string[]>([]);
 
@@ -620,14 +635,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const saved = localStorage.getItem('dashboard_visible_products');
           const savedList = saved ? JSON.parse(saved) : [];
           if (savedList.length === 0) {
-              setVisibleProducts(consumableProductNames);
+              setVisibleProducts(returnableProductNames);
               return;
           }
-          setVisibleProducts(savedList.filter(name => consumableProductNames.includes(name)));
+          setVisibleProducts(savedList.filter(name => returnableProductNames.includes(name)));
       } catch (e) {
-          setVisibleProducts(consumableProductNames);
+          setVisibleProducts(returnableProductNames);
       }
-  }, [consumableProductNames]);
+  }, [returnableProductNames]);
 
   const toggleProductVisibility = (productName: string) => {
       setVisibleProducts(prev => {
@@ -684,6 +699,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     saldoOtros,
     monthlySalesVolumeChartData,
     currentMonthDailySalesData,
+    nonReturnableMonthlyData,
     externalVendorsPieData,
     stockEnCalle,
     vendedoresComisiones
@@ -769,7 +785,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         monthObj["Internos"] = 0;
         monthObj["Externos"] = 0;
 
-        consumableProductNames.forEach(pName => {
+        returnableProductNames.forEach(pName => {
             monthObj[pName] = 0;
         });
 
@@ -778,7 +794,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()) {
                 r.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
-                    if (prod && consumableProductNames.includes(prod.nombre)) {
+                    if (prod && returnableProductNames.includes(prod.nombre)) {
                         const cant = Number(m.entregados) || 0;
                         monthObj["Total General"] += cant;
                         monthObj["Internos"] += cant;
@@ -794,7 +810,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                 v.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
-                    if (prod && consumableProductNames.includes(prod.nombre)) {
+                    if (prod && returnableProductNames.includes(prod.nombre)) {
                         const cant = Number(m.cantidad) || 0;
                         monthObj["Total General"] += cant;
                         if (isExterno) monthObj["Externos"] += cant;
@@ -823,7 +839,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         dayObj["Internos Mes Anterior"] = 0;
         dayObj["Externos Mes Anterior"] = 0;
 
-        consumableProductNames.forEach(pName => {
+        returnableProductNames.forEach(pName => {
             dayObj[pName] = 0;
             dayObj[`${pName} Mes Ant`] = 0;
         });
@@ -834,7 +850,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 if (parseLocalDate(r.fecha).getDate() === d) {
                     r.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
-                        if (prod && consumableProductNames.includes(prod.nombre)) {
+                        if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.entregados) || 0;
                             dayObj["Total Mes Actual"] += cant;
                             dayObj["Internos Mes Actual"] += cant;
@@ -849,7 +865,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                     v.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
-                        if (prod && consumableProductNames.includes(prod.nombre)) {
+                        if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.cantidad) || 0;
                             dayObj["Total Mes Actual"] += cant;
                             if (isExterno) dayObj["Externos Mes Actual"] += cant;
@@ -867,7 +883,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 if (parseLocalDate(r.fecha).getDate() === d) {
                     r.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
-                        if (prod && consumableProductNames.includes(prod.nombre)) {
+                        if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.entregados) || 0;
                             dayObj["Total Mes Anterior"] += cant;
                             dayObj["Internos Mes Anterior"] += cant;
@@ -882,7 +898,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                     v.movimientos.forEach(m => {
                         const prod = productosMap.get(m.productoId);
-                        if (prod && consumableProductNames.includes(prod.nombre)) {
+                        if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.cantidad) || 0;
                             dayObj["Total Mes Anterior"] += cant;
                             if (isExterno) dayObj["Externos Mes Anterior"] += cant;
@@ -898,6 +914,44 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             dailyEvolutionData.push(dayObj);
         }
     }
+
+    // LÓGICA PARA PRODUCTOS DESCARTABLES (TOTALES MES ACTUAL VS ANTERIOR)
+    const nonReturnableMonthlyData = nonReturnableProductNames.map(pName => {
+        const prod = productos.find(p => p.nombre === pName);
+        let totalActual = 0;
+        let totalAnterior = 0;
+
+        // Mes Actual
+        monthlyRemitos.forEach(r => {
+            r.movimientos.forEach(m => {
+                if (m.productoId === prod?.id) totalActual += m.entregados;
+            });
+        });
+        monthlyVentas.forEach(v => {
+            v.movimientos.forEach(m => {
+                if (m.productoId === prod?.id) totalActual += m.cantidad;
+            });
+        });
+
+        // Mes Anterior
+        lastMonthRemitos.forEach(r => {
+            r.movimientos.forEach(m => {
+                if (m.productoId === prod?.id) totalAnterior += m.entregados;
+            });
+        });
+        lastMonthVentas.forEach(v => {
+            v.movimientos.forEach(m => {
+                if (m.productoId === prod?.id) totalAnterior += m.cantidad;
+            });
+        });
+
+        return {
+            name: shortName(pName),
+            actual: totalActual,
+            anterior: totalAnterior,
+            color: prod?.color || '#3b82f6'
+        };
+    }).filter(d => d.actual > 0 || d.anterior > 0);
 
     const externalSalesMap = new Map<string, number>();
     monthlyVentas.forEach(v => {
@@ -937,11 +991,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         saldoOtros: sOtros,
         monthlySalesVolumeChartData: monthlyHistoryData,
         currentMonthDailySalesData: dailyEvolutionData,
+        nonReturnableMonthlyData,
         externalVendorsPieData,
         stockEnCalle,
         vendedoresComisiones: comisiones
     }
-  }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, consumableProductNames, usuarios, movimientosPlanta]);
+  }, [remitos, productos, registrosPago, gastos, ventasVendedor, productosMap, usuariosMap, returnableProductNames, nonReturnableProductNames, usuarios, movimientosPlanta]);
 
   const [mapMarkers, setMapMarkers] = useState<{ lat: number, lng: number, title: string }[]>([]);
   const [todayName, setTodayName] = useState<string>('');
@@ -996,15 +1051,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const metricsOrder = ['hoy', 'ayer', 'semana', 'mes', 'mes_anterior'];
   const metricsComponents: Record<string, React.ReactNode> = {
-    'hoy': <StatsCard title="Hoy" stats={dailyStats} />,
-    'ayer': <StatsCard title="Ayer" stats={yesterdayStats} />,
-    'semana': <StatsCard title="Esta Semana" stats={weeklyStats} />,
-    'mes': <StatsCard title="Este Mes" stats={monthlyStats} />,
-    'mes_anterior': <StatsCard title="Mes Anterior" stats={lastMonthStats} />
+    'hoy': <StatsCard title="Hoy" stats={dailyStats} productos={productos} />,
+    'ayer': <StatsCard title="Ayer" stats={yesterdayStats} productos={productos} />,
+    'semana': <StatsCard title="Esta Semana" stats={weeklyStats} productos={productos} />,
+    'mes': <StatsCard title="Este Mes" stats={monthlyStats} productos={productos} />,
+    'mes_anterior': <StatsCard title="Mes Anterior" stats={lastMonthStats} productos={productos} />
   };
 
   const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-  const shortName = (name: string) => name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
+  const shortName = (name: string) => {
+    const prod = productos.find(p => p.nombre === name);
+    if (prod?.abreviatura) return prod.abreviatura;
+    return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
+  };
 
   // ----------------------------------------------------------------------
   // RENDER PRINCIPAL CON SWITCH SEGÚN ROL
@@ -1137,7 +1196,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {consumableProductNames.map(name => {
+                            {returnableProductNames.map(name => {
                                 const isVisible = visibleProducts.includes(name);
                                 return (
                                     <button
@@ -1154,7 +1213,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         }}
                                     >
                                         <div className="w-2 h-2 rounded-full bg-white/40"></div>
-                                        {name.toUpperCase()}
+                                        {shortName(name).toUpperCase()}
                                     </button>
                                 );
                             })}
@@ -1175,14 +1234,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <Line type="monotone" dataKey="Externos Mes Actual" stroke="#f59e0b" strokeWidth={2} dot={false} name="🤝 EXTERNOS ACTUAL" />
                               
                               <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
-                              <Line type="monotone" dataKey="Internos Mes Anterior" stroke="#10b981" strokeWidth={1} strokeDasharray="5 5" dot={false} name="👤 INTERNOS ANTERIOR" opacity={0.5} />
-                              <Line type="monotone" dataKey="Externos Mes Anterior" stroke="#f59e0b" strokeWidth={1} strokeDasharray="5 5" dot={false} name="🤝 EXTERNOS ANTERIOR" opacity={0.5} />
 
                               {/* Líneas por Producto */}
-                              {consumableProductNames.map(name => visibleProducts.includes(name) && (
+                              {returnableProductNames.map(name => visibleProducts.includes(name) && (
                                   <React.Fragment key={name}>
                                       <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={false} name={shortName(name)} />
-                                      <Line type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={1} strokeDasharray="3 3" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.3} />
                                   </React.Fragment>
                               ))}
                           </LineChart>
@@ -1265,12 +1321,34 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               <Line type="monotone" dataKey="Internos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="👤 INTERNOS" />
                               <Line type="monotone" dataKey="Externos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="🤝 EXTERNOS" />
 
-                              {consumableProductNames.map(name => {
+                              {returnableProductNames.map(name => {
                                   if (!visibleProducts.includes(name)) return null;
                                   return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
                               })}
                           </LineChart>
                       </ResponsiveContainer>
+                  </div>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-1">
+              <Card title="Ventas Productos Descartables">
+                  <div className="h-80 px-2">
+                      {nonReturnableMonthlyData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={nonReturnableMonthlyData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(128, 128, 128, 0.1)" />
+                                  <XAxis type="number" hide />
+                                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} width={80} />
+                                  <Tooltip contentStyle={lightTooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                                  <Legend verticalAlign="top" height={36} />
+                                  <Area dataKey="actual" name="Mes Actual" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+                                  <Area dataKey="anterior" name="Mes Anterior" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
+                              </AreaChart>
+                          </ResponsiveContainer>
+                      ) : (
+                          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas descartables</div>
+                      )}
                   </div>
               </Card>
           </div>

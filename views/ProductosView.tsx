@@ -51,7 +51,12 @@ const ProductoForm: React.FC<{
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Ficha de Producto</h2>
       <div className="space-y-4">
-        <AppInput label="Nombre del Producto" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+                <AppInput label="Nombre del Producto" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
+            </div>
+            <AppInput label="Abreviatura (Gráficos)" name="abreviatura" value={formData.abreviatura || ''} onChange={handleChange} placeholder="Ej: B20L" />
+        </div>
         <div className="grid grid-cols-2 gap-4">
             <AppSelect label="Tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} options={Object.values(TipoProducto).map(t=>({value:t, label:t}))} required />
             <AppInput label="Capacidad (Litros)" type="number" name="litros" value={formData.litros ?? ''} onChange={handleChange} required />

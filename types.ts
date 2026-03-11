@@ -163,6 +163,7 @@ export interface Usuario {
 export interface Producto {
     id: string;
     nombre: string;
+    abreviatura?: string;
     tipo: TipoProducto;
     estado: EstadoProducto;
     litros?: number;
