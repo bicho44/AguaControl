@@ -44,18 +44,22 @@ const mainNavItems: NavItem[] = [
   { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] },
  ];
 
-// Grupo 2: Gestión / Catálogos
+// Grupo 2: Gestión
 const managementNavItems: NavItem[] = [
   // Clientes: Solo para Admins o Repartidores INTERNOS (Externos gestionan su propia cartera en otro lado si quieren)
   { view: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'cuentacorriente', label: 'Cta. Corriente', icon: <BookOpenIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'facturas', label: 'Facturas', icon: <ReceiptIcon />, roles: [Rol.ADMINISTRADOR] },
  { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
+ ];
+
+// Grupo 3: Catálogos
+const catalogNavItems: NavItem[] = [
+{ view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'productos', label: 'Productos', icon: <CubeIcon />, roles: [Rol.ADMINISTRADOR] },
 ];
 
-// Grupo 3: Sistema
+// Grupo 4: Sistema
 const systemNavItems: NavItem[] = [
   { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
@@ -81,7 +85,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
 
   const group1 = filterItems(mainNavItems);
   const group2 = filterItems(managementNavItems);
-  const group3 = filterItems(systemNavItems);
+  const group3 = filterItems(catalogNavItems);
+  const group4 = filterItems(systemNavItems);
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
@@ -147,6 +152,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
                 <>
                     <hr className="border-gray-200 dark:border-gray-700" />
                     {renderNavList(group3)}
+                </>
+            )}
+            
+            {group4.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group4)}
                 </>
             )}
         </div>
