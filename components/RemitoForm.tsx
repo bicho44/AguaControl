@@ -373,9 +373,13 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 )}
             </div>
             
-            <div className="grid grid-cols-2 gap-2 mt-3">
-                <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
-                <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+            <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3">
+                <div className="flex-1 min-w-[80px]">
+                    <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                    <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                </div>
             </div>
             {isAdmin && (
                 <div className="mt-2">

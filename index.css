@@ -1,0 +1,70 @@
+
+/* Global CSS Fixes for Aguas Puras */
+
+/* Ensure all elements use border-box */
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
+/* Prevent date inputs from being too small to read */
+input[type="date"] {
+  min-width: 130px;
+}
+
+/* Fix for mobile scrolling and layout */
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ensure cards don't cut off content that needs to be visible (like dropdowns) */
+.card-overflow-visible {
+  overflow: visible !important;
+}
+
+/* Custom scrollbar for better UX in dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Fix for Leaflet maps in modals */
+.leaflet-container {
+  z-index: 1;
+}
+
+/* Responsive adjustments for filter bars */
+@media (max-width: 1024px) {
+  .filter-bar-responsive {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+  }
+  
+  .filter-item-responsive {
+    flex: 1 1 200px !important;
+  }
+}

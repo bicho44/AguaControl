@@ -99,9 +99,9 @@ const UsuarioForm: React.FC<{
                   <legend className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest px-2 mb-2">Comisiones por Producto</legend>
                   <div className="space-y-2">
                     {(formData.comisiones || []).map((comision, index) => (
-                        <div key={index} className="flex gap-2 items-end">
-                            <div className="flex-1"><SearchableSelect options={productosActivos.map(p=>({value:p.id, label:p.nombre}))} value={comision.productoId} onChange={(v) => handleComisionChange(index, 'productoId', v)} /></div>
-                            <div className="w-32"><AppInput type="number" value={comision.monto} onChange={(e) => handleComisionChange(index, 'monto', e.target.value)} step="0.01" placeholder="$ Comision" /></div>
+                        <div key={index} className="flex flex-wrap sm:flex-nowrap gap-2 items-end">
+                            <div className="flex-1 min-w-[150px]"><SearchableSelect options={productosActivos.map(p=>({value:p.id, label:p.nombre}))} value={comision.productoId} onChange={(v) => handleComisionChange(index, 'productoId', v)} /></div>
+                            <div className="w-full sm:w-32"><AppInput type="number" value={comision.monto} onChange={(e) => handleComisionChange(index, 'monto', e.target.value)} step="0.01" placeholder="$ Comision" /></div>
                             <AppButton variant="danger" size="sm" onClick={() => setFormData({...formData, comisiones: formData.comisiones?.filter((_,i)=>i!==index)})} className="!p-2"><TrashIcon/></AppButton>
                         </div>
                     ))}
@@ -116,9 +116,9 @@ const UsuarioForm: React.FC<{
             <legend className="text-xs font-black text-gray-400 uppercase tracking-widest px-2 mb-2">Precios de Reventa Especiales</legend>
             <div className="space-y-2">
             {(formData.preciosEspeciales || []).map((precio, index) => (
-                <div key={index} className="flex gap-2 items-end">
-                    <div className="flex-1"><SearchableSelect options={productosActivos.map(p=>({value:p.id, label:p.nombre}))} value={precio.productoId} onChange={(v) => handlePrecioEspecialChange(index, 'productoId', v)} /></div>
-                    <div className="w-32"><AppInput type="number" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} step="0.01" /></div>
+                <div key={index} className="flex flex-wrap sm:flex-nowrap gap-2 items-end">
+                    <div className="flex-1 min-w-[150px]"><SearchableSelect options={productosActivos.map(p=>({value:p.id, label:p.nombre}))} value={precio.productoId} onChange={(v) => handlePrecioEspecialChange(index, 'productoId', v)} /></div>
+                    <div className="w-full sm:w-32"><AppInput type="number" value={precio.precio} onChange={(e) => handlePrecioEspecialChange(index, 'precio', e.target.value)} step="0.01" /></div>
                     <AppButton variant="danger" size="sm" onClick={() => setFormData({...formData, preciosEspeciales: formData.preciosEspeciales?.filter((_,i)=>i!==index)})} className="!p-2"><TrashIcon/></AppButton>
                 </div>
             ))}

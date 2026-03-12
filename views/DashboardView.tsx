@@ -194,11 +194,11 @@ const InternalVendorDashboard: React.FC<{
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center pr-12">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pr-0 md:pr-12">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
                     Rendimiento: <span className="text-primary-600">{user.nombre}</span>
                 </h2>
-                <AppButton onClick={() => onOpenRemito()} className="shadow-lg transform active:scale-95">
+                <AppButton onClick={() => onOpenRemito()} className="shadow-lg transform active:scale-95 w-full sm:w-auto">
                     + Nuevo Remito Rápido
                 </AppButton>
             </div>
@@ -206,12 +206,12 @@ const InternalVendorDashboard: React.FC<{
             {/* CLIENTES A VISITAR HOY */}
             {visitasDelDia.length > 0 && (
                 <Card title={`Ruta del Día (${currentDay})`} compact>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                         {visitasDelDia.map(cliente => (
                             <button 
                                 key={cliente.id} 
                                 onClick={() => !cliente.visitado && onOpenRemito(cliente.id)}
-                                className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between gap-2 ${
+                                className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between gap-2 h-full ${
                                     cliente.visitado 
                                     ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800 opacity-60 cursor-default' 
                                     : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:border-primary-300 active:scale-[0.98]'
@@ -247,15 +247,15 @@ const InternalVendorDashboard: React.FC<{
                             const disponible = carga - entregado;
                             
                             return (
-                                <div key={prodId} className="bg-gray-50 dark:bg-gray-700/30 px-3 py-1.5 rounded-xl border dark:border-gray-700 flex items-center gap-2">
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-black text-gray-400 uppercase truncate max-w-[70px] leading-tight">{prod?.nombre}</span>
+                                <div key={prodId} className="bg-gray-50 dark:bg-gray-700/30 px-3 py-1.5 rounded-xl border dark:border-gray-700 flex items-center gap-2 min-w-[140px] flex-1 sm:flex-none">
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                        <span className="text-[9px] font-black text-gray-400 uppercase truncate leading-tight">{prod?.nombre}</span>
                                         <div className="flex items-baseline gap-1">
                                             <span className="text-sm font-black leading-none">{entregado}</span>
                                             <span className="text-[9px] text-gray-400">/ {carga}</span>
                                         </div>
                                     </div>
-                                    <div className={`flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg border ${disponible <= 5 ? 'bg-red-50 border-red-100 text-red-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                                    <div className={`flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg border flex-shrink-0 ${disponible <= 5 ? 'bg-red-50 border-red-100 text-red-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
                                         <span className="text-[8px] font-black uppercase leading-none">Disp.</span>
                                         <span className="text-xs font-black leading-none">{disponible}</span>
                                     </div>
@@ -392,16 +392,16 @@ const ExternalVendorDashboard: React.FC<{
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center flex-wrap gap-2 pr-12">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pr-0 md:pr-12">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
                     Cuenta Corriente: <span className="text-primary-600">{user.nombre}</span>
                 </h2>
-                <div className="flex gap-2">
-                    <AppButton onClick={onOpenPago} variant="success" className="shadow-lg">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <AppButton onClick={onOpenPago} variant="success" className="shadow-lg flex-1 sm:flex-none">
                         $ Cargar Pago
                     </AppButton>
-                    <AppButton onClick={onOpenStockPurchase} className="shadow-lg">
-                        + Registrar Retiro de Mercadería
+                    <AppButton onClick={onOpenStockPurchase} className="shadow-lg flex-1 sm:flex-none">
+                        + Registrar Retiro
                     </AppButton>
                 </div>
             </div>
@@ -409,7 +409,7 @@ const ExternalVendorDashboard: React.FC<{
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className={`p-6 rounded-2xl border-2 shadow-xl flex flex-col items-center justify-center transition-all md:col-span-2 ${saldoPendiente > 0 ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'}`}>
                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${saldoPendiente > 0 ? 'text-red-600' : 'text-green-600'}`}>Saldo Pendiente (Deuda)</p>
-                    <p className={`text-4xl font-black tracking-tighter ${saldoPendiente > 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>${saldoPendiente.toLocaleString()}</p>
+                    <p className={`text-3xl md:text-4xl font-black tracking-tighter ${saldoPendiente > 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>${saldoPendiente.toLocaleString()}</p>
                 </div>
 
                 {/* CARD DE RETIROS HOY/AYER (EXTERNO) */}
@@ -1165,22 +1165,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // 3. DASHBOARD ADMINISTRADOR
   return (
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
-      <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
+      <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+          <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
               <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
-              <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoEfectivo.toLocaleString('es-AR')}</p>
+              <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoEfectivo.toLocaleString('es-AR')}</p>
           </div>
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-blue-100 dark:border-blue-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+          <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-blue-100 dark:border-blue-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Caja Virtual / Bancos</p>
-              <p className="text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
+              <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
           </div>
       </div>
 
       <div>
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Entregas Consolidadas</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6">
             {metricsOrder.map(key => <div key={key}>{metricsComponents[key]}</div>)}
         </div>
       </div>

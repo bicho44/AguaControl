@@ -313,16 +313,16 @@ const CajaView: React.FC<CajaViewProps> = ({
               <button onClick={() => setActiveTab('caja')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'caja' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-white' : 'text-gray-500'}`}>Movimientos de Caja</button>
               <button onClick={() => setActiveTab('ventas')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'ventas' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-white' : 'text-gray-500'}`}>Operaciones con Vendedores</button>
           </div>
-          <div className="flex gap-2 items-center w-full md:w-auto">
-              <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">Desde</span>
-                  <input type="date" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} className="p-2 text-xs rounded border dark:border-gray-600 dark:bg-gray-700" />
+          <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+              <div className="flex flex-col flex-1 min-w-[140px]">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Desde</span>
+                  <input type="date" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none" />
               </div>
-              <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">Hasta</span>
-                  <input type="date" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} className="p-2 text-xs rounded border dark:border-gray-600 dark:bg-gray-700" />
+              <div className="flex flex-col flex-1 min-w-[140px]">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Hasta</span>
+                  <input type="date" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none" />
               </div>
-              <button onClick={() => setDateFilter({from: '', to: ''})} className="mt-4 p-2 text-gray-400 hover:text-red-500" title="Limpiar Filtros">✕</button>
+              <button onClick={() => setDateFilter({from: '', to: ''})} className="mt-4 p-2 text-gray-400 hover:text-red-500 transition-colors" title="Limpiar Filtros">✕</button>
           </div>
       </div>
 

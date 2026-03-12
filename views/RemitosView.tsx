@@ -421,20 +421,26 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           </div>
       </div>
       <Card>
-        <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-            <div className="lg:col-span-2">
+        <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-[200px]">
                 <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
             </div>
-            <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
-            <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
-            <div className="flex gap-2 w-full">
-                <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-                    <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm" />
-                </div>
-                <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
-                    <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm" />
+            <div className="flex-1 min-w-[150px]">
+                <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
+            </div>
+            <div className="flex-1 min-w-[120px]">
+                <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
+            </div>
+            <div className="flex-1 min-w-[280px]">
+                <div className="flex gap-2 w-full">
+                    <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
+                        <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+                        <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                    </div>
                 </div>
             </div>
         </div>

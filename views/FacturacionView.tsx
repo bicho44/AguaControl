@@ -82,9 +82,13 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
                 <legend className="text-sm font-black text-gray-400 uppercase tracking-widest px-2 mb-4">Medios de Pago</legend>
                 <div className="space-y-3">
                     {pagos.map((pago, index) => (
-                        <div key={index} className="grid grid-cols-[2fr,1fr,auto] gap-2 items-center">
-                            <AppInput type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} placeholder="Monto" step="0.01" required className="font-bold text-green-600" />
-                            <AppSelect value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
+                        <div key={index} className="flex flex-wrap md:flex-nowrap gap-2 items-center">
+                            <div className="flex-1 min-w-[120px]">
+                                <AppInput type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} placeholder="Monto" step="0.01" required className="font-bold text-green-600" />
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                                <AppSelect value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} />
+                            </div>
                             <AppButton variant="danger" size="sm" onClick={() => removePago(index)} className="!p-2"><TrashIcon className="h-5 w-5" /></AppButton>
                         </div>
                     ))}

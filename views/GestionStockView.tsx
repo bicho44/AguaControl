@@ -142,8 +142,8 @@ const PlanillaForm: React.FC<{
                 
                 <div className="space-y-3">
                     {items.map((item, index) => (
-                        <div key={index} className="flex gap-3 items-end bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 shadow-sm">
-                            <div className="flex-1">
+                        <div key={index} className="flex flex-wrap sm:flex-nowrap gap-3 items-end bg-white dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700 shadow-sm">
+                            <div className="flex-1 min-w-[150px]">
                                 <SearchableSelect 
                                     options={productosOptions} 
                                     value={item.productoId} 
@@ -151,7 +151,7 @@ const PlanillaForm: React.FC<{
                                     placeholder="Seleccionar Producto"
                                 />
                             </div>
-                            <div className="w-32">
+                            <div className="w-full sm:w-32">
                                 <AppInput 
                                     type="number" 
                                     value={item.cantidad || ''} 
