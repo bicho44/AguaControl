@@ -175,6 +175,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRemito, setEditingRemito] = useState<any>(null);
   const [clienteFilter, setClienteFilter] = useState('');
+  const [remitoNumberFilter, setRemitoNumberFilter] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
@@ -252,6 +253,13 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
         if (fromDate && remitoDate < fromDate) return false;
         if (toDate && remitoDate > toDate) return false;
+
+        if (remitoNumberFilter) {
+            const search = remitoNumberFilter.toLowerCase().replace(/-/g, '').trim();
+            const fullNumber = `${r.puntoVenta.padStart(4, '0')}${r.numero.padStart(8, '0')}`.toLowerCase();
+            const simpleNumber = r.numero.toLowerCase();
+            if (!fullNumber.includes(search) && !simpleNumber.includes(search)) return false;
+        }
         
         return true;
     }).sort((a, b) => {
@@ -410,10 +418,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           </div>
       </div>
       <Card>
-        <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div className="lg:col-span-2">
                 <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
             </div>
+            <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
             <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
             <div className="flex gap-2 w-full">
                 <div className="flex-1">
