@@ -256,9 +256,12 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
         if (remitoNumberFilter) {
             const search = remitoNumberFilter.toLowerCase().replace(/-/g, '').trim();
-            const fullNumber = `${r.puntoVenta.padStart(4, '0')}${r.numero.padStart(8, '0')}`.toLowerCase();
-            const simpleNumber = r.numero.toLowerCase();
-            if (!fullNumber.includes(search) && !simpleNumber.includes(search)) return false;
+            const pto = (r.puntoVenta || '').toString().toLowerCase();
+            const num = (r.numero || '').toString().toLowerCase();
+            const fullPadded = `${pto.padStart(4, '0')}${num.padStart(8, '0')}`;
+            const rawCombined = `${pto}${num}`;
+            
+            if (!fullPadded.includes(search) && !rawCombined.includes(search) && !num.includes(search)) return false;
         }
         
         return true;
@@ -273,7 +276,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         const numB = parseInt(b.numero) || 0;
         return numB - numA;
     });
-  }, [processedRemitos, clienteFilter, paymentStatusFilter, dateFilter, currentUser]);
+  }, [processedRemitos, clienteFilter, remitoNumberFilter, paymentStatusFilter, dateFilter, currentUser]);
 
   const handleSave = async (r: any) => {
     try {
