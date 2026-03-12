@@ -55,7 +55,6 @@ const CajaView: React.FC<CajaViewProps> = ({
     registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos,
     addPagoManual, addGasto, addVentaVendedor, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor
 }) => {
-  const [activeTab, setActiveTab] = useState<'caja' | 'ventas'>('caja');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -308,11 +307,7 @@ const CajaView: React.FC<CajaViewProps> = ({
       {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString('es-AR')})`, true)}
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-          <div className="flex space-x-1 bg-white dark:bg-gray-700 p-1 rounded-lg w-fit shadow-sm">
-              <button onClick={() => setActiveTab('caja')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'caja' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-white' : 'text-gray-500'}`}>Movimientos de Caja</button>
-              <button onClick={() => setActiveTab('ventas')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'ventas' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-white' : 'text-gray-500'}`}>Operaciones con Vendedores</button>
-          </div>
+      <div className="flex flex-col md:flex-row justify-end items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
           <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
               <div className="flex flex-col flex-1 min-w-[140px]">
                   <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Desde</span>
@@ -328,87 +323,81 @@ const CajaView: React.FC<CajaViewProps> = ({
 
       <Card>
         <div className="overflow-x-auto p-2">
-            {activeTab === 'caja' ? (
-                <>
-                <table className="w-full text-sm text-left">
-                    <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <tr><th className="px-4 py-3 w-24">Fecha</th><th className="px-4 py-3">Referencia</th><th className="px-4 py-3 text-right">Monto</th><th className="px-4 py-3 text-right">Acciones</th></tr>
-                    </thead>
-                    <tbody>
-                        {displayedMovements.map(mov => {
-                            const isExpanded = expandedRowId === mov.id;
-                            // Deshabilitar edición si es un pago de factura (se debe hacer desde la vista de facturas)
-                            const isEditDisabled = mov.type === 'ingreso' && Array.isArray(mov.original) && mov.original[0].origen.tipo === 'factura';
-                            const linkedVenta = mov.ventaId ? ventasVendedorMap.get(mov.ventaId) : null;
-                            const isPureCredit = mov.isCtaCtePura;
+            <table className="w-full text-sm text-left">
+                <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <tr><th className="px-4 py-3 w-24">Fecha</th><th className="px-4 py-3">Referencia</th><th className="px-4 py-3 text-right">Monto</th><th className="px-4 py-3 text-right">Acciones</th></tr>
+                </thead>
+                <tbody>
+                    {displayedMovements.map(mov => {
+                        const isExpanded = expandedRowId === mov.id;
+                        // Deshabilitar edición si es un pago de factura (se debe hacer desde la vista de facturas)
+                        const isEditDisabled = mov.type === 'ingreso' && Array.isArray(mov.original) && mov.original[0].origen.tipo === 'factura';
+                        const linkedVenta = mov.ventaId ? ventasVendedorMap.get(mov.ventaId) : null;
+                        const isPureCredit = mov.isCtaCtePura;
 
-                            return (
-                                <React.Fragment key={mov.id}>
-                                    <tr className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : mov.id)}>
-                                        <td className="px-4 py-4">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
-                                        <td className="px-4 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-gray-900 dark:text-white text-sm">{mov.concepto}</span>
-                                            {linkedVenta && <span className="text-[9px] font-black text-primary-600 uppercase">Venta Directa de Stock</span>}
-                                        </div>
-                                        </td>
-                                        <td className={`px-4 py-4 text-right font-black ${isPureCredit ? 'text-gray-400' : (mov.type === 'ingreso' ? 'text-green-600' : 'text-red-600')}`}>
-                                            {isPureCredit ? '(Crédito)' : (mov.type === 'ingreso' ? '+' : '-')}${mov.total.toLocaleString()}
-                                        </td>
-                                        <td className="px-4 py-4 text-right flex justify-end items-center gap-2">
-                                            {!isEditDisabled && (
-                                                <button type="button" onClick={(e) => { 
-                                                    e.stopPropagation(); 
-                                                    if(mov.type==='gasto') {
-                                                        setModalConfig({type:'gasto', isEdit:true, data:mov.original}); 
-                                                    } else if (isPureCredit) {
-                                                        // Si es crédito puro, editamos la venta original
-                                                        setModalConfig({type:'ingreso', isEdit:true, data: mov.original});
-                                                    } else { 
-                                                        const original=mov.original as RegistroPago[]; 
-                                                        const p1=original[0]; 
-                                                        setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
-                                                    } 
-                                                    setIsModalOpen(true); 
-                                                }} className="text-blue-500 p-1"><PencilIcon /></button>
-                                            )}
-                                            <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        return (
+                            <React.Fragment key={mov.id}>
+                                <tr className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 cursor-pointer" onClick={() => setExpandedRowId(isExpanded ? null : mov.id)}>
+                                    <td className="px-4 py-4">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
+                                    <td className="px-4 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-gray-900 dark:text-white text-sm">{mov.concepto}</span>
+                                        {linkedVenta && <span className="text-[9px] font-black text-primary-600 uppercase">Venta Directa de Stock</span>}
+                                    </div>
+                                    </td>
+                                    <td className={`px-4 py-4 text-right font-black ${isPureCredit ? 'text-gray-400' : (mov.type === 'ingreso' ? 'text-green-600' : 'text-red-600')}`}>
+                                        {isPureCredit ? '(Crédito)' : (mov.type === 'ingreso' ? '+' : '-')}${mov.total.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-4 text-right flex justify-end items-center gap-2">
+                                        {!isEditDisabled && (
+                                            <button type="button" onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if(mov.type==='gasto') {
+                                                    setModalConfig({type:'gasto', isEdit:true, data:mov.original}); 
+                                                } else if (isPureCredit) {
+                                                    // Si es crédito puro, editamos la venta original
+                                                    setModalConfig({type:'ingreso', isEdit:true, data: mov.original});
+                                                } else { 
+                                                    const original=mov.original as RegistroPago[]; 
+                                                    const p1=original[0]; 
+                                                    setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
+                                                } 
+                                                setIsModalOpen(true); 
+                                            }} className="text-blue-500 p-1"><PencilIcon /></button>
+                                        )}
+                                        <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </td>
+                                </tr>
+                                {isExpanded && (
+                                    <tr className="bg-gray-100/50 dark:bg-gray-900/50">
+                                        <td colSpan={4} className="p-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Detalle de Medios</p>
+                                                    {mov.pagos.map((p, idx) => (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs font-bold shadow-sm"><span>{p.metodo}</span><span className={p.metodo === MetodoPago.CTA_CTE ? 'text-gray-500' : 'text-green-600'}>${p.monto.toLocaleString()}</span></div>))}
+                                                </div>
+                                                {(linkedVenta || isPureCredit) && (
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Productos Entregados</p>
+                                                    {(linkedVenta || (mov.original as VentaVendedor)).movimientos.map((m, idx) => {const p = productosMap.get(m.productoId); return (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs shadow-sm"><span>{p?.nombre} x {m.cantidad}</span><span className="font-mono text-gray-400">${(m.precioUnitario || p?.precio || 0).toLocaleString()} c/u</span></div>);})}
+                                                </div>
+                                                )}
+                                                <div className="md:col-span-2 flex justify-end">
+                                                    {!isEditDisabled && <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }} className="!py-1 shadow-sm">Eliminar Registro</AppButton>}
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>
-                                    {isExpanded && (
-                                        <tr className="bg-gray-100/50 dark:bg-gray-900/50">
-                                            <td colSpan={4} className="p-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                                                    <div className="space-y-2">
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Detalle de Medios</p>
-                                                        {mov.pagos.map((p, idx) => (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs font-bold shadow-sm"><span>{p.metodo}</span><span className={p.metodo === MetodoPago.CTA_CTE ? 'text-gray-500' : 'text-green-600'}>${p.monto.toLocaleString()}</span></div>))}
-                                                    </div>
-                                                    {(linkedVenta || isPureCredit) && (
-                                                    <div className="space-y-2">
-                                                        <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Productos Entregados</p>
-                                                        {(linkedVenta || (mov.original as VentaVendedor)).movimientos.map((m, idx) => {const p = productosMap.get(m.productoId); return (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs shadow-sm"><span>{p?.nombre} x {m.cantidad}</span><span className="font-mono text-gray-400">${(m.precioUnitario || p?.precio || 0).toLocaleString()} c/u</span></div>);})}
-                                                    </div>
-                                                    )}
-                                                    <div className="md:col-span-2 flex justify-end">
-                                                        {!isEditDisabled && <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }} className="!py-1 shadow-sm">Eliminar Registro</AppButton>}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
-                            );
-                        })}
-                    </tbody>
-                </table>
-                {displayedMovements.length < combinedMovements.length && (
-                    <div className="text-center p-4">
-                        <button onClick={() => setItemsLimit(prev => prev + 50)} className="text-primary-600 text-sm font-bold hover:underline">Cargar más movimientos...</button>
-                    </div>
-                )}
-                </>
-            ) : (
-                <div className="p-4 text-center text-gray-500 italic">Funcionalidad de vendedores movida a la vista de "Usuarios" por solicitud.</div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </tbody>
+            </table>
+            {displayedMovements.length < combinedMovements.length && (
+                <div className="text-center p-4">
+                    <button onClick={() => setItemsLimit(prev => prev + 50)} className="text-primary-600 text-sm font-bold hover:underline">Cargar más movimientos...</button>
+                </div>
             )}
         </div>
       </Card>
