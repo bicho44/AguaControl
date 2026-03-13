@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio } from '../types';
+import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio, TipoProducto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -172,6 +172,7 @@ const PaymentStatusBadge: React.FC<{ remito: any }> = ({ remito }) => {
 }
 
 const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente, causasRecambio }) => {
+  const [activeTab, setActiveTab] = useState<'listado' | 'balance'>('listado');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRemito, setEditingRemito] = useState<any>(null);
   const [clienteFilter, setClienteFilter] = useState('');
@@ -277,6 +278,41 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         return numB - numA;
     });
   }, [processedRemitos, clienteFilter, remitoNumberFilter, paymentStatusFilter, dateFilter, currentUser]);
+
+  const returnableProducts = useMemo(() => productos.filter(p => p.tipo === TipoProducto.RETORNABLE), [productos]);
+  const returnableProductIds = useMemo(() => new Set(returnableProducts.map(p => p.id)), [returnableProducts]);
+
+  const balanceData = useMemo(() => {
+    const stats: Record<string, { entregados: number; recibidos: number; remitosCount: number }> = {};
+    
+    filteredRemitos.forEach(r => {
+        if (!stats[r.clienteId]) {
+            stats[r.clienteId] = { entregados: 0, recibidos: 0, remitosCount: 0 };
+        }
+        
+        let hasReturnable = false;
+        r.movimientos.forEach(m => {
+            if (returnableProductIds.has(m.productoId)) {
+                stats[r.clienteId].entregados += m.entregados;
+                stats[r.clienteId].recibidos += m.recibidos;
+                hasReturnable = true;
+            }
+        });
+        if (hasReturnable) {
+            stats[r.clienteId].remitosCount++;
+        }
+    });
+
+    return Object.entries(stats)
+        .map(([clienteId, data]) => ({
+            clienteId,
+            cliente: clientesMap.get(clienteId),
+            ...data,
+            balance: data.entregados - data.recibidos
+        }))
+        .filter(item => item.entregados > 0 || item.recibidos > 0)
+        .sort((a, b) => b.balance - a.balance);
+  }, [filteredRemitos, returnableProductIds, clientesMap]);
 
   const handleSave = async (r: any) => {
     try {
@@ -400,14 +436,30 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   return (
     <div className="space-y-6 pt-12 md:pt-0 relative">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
             <button onClick={() => setShowShortcuts(true)} className="text-gray-400 hover:text-primary-600 transition-colors p-1" title="Atajos de teclado">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </button>
           </div>
-          <div className="flex gap-2">
+          
+          <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl self-start">
+              <button 
+                onClick={() => setActiveTab('listado')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'listado' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                  Listado
+              </button>
+              <button 
+                onClick={() => setActiveTab('balance')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'balance' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                  Balance de Envases
+              </button>
+          </div>
+
+          <div className="flex gap-2 self-end md:self-auto">
               {currentUser.rol === Rol.ADMINISTRADOR && (
                   <button 
                     onClick={() => setShowReassignModal(true)} 
@@ -420,77 +472,180 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
               <AppButton onClick={openNewModal}>+ Nuevo Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
           </div>
       </div>
-      <Card>
-        <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-                <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
-            </div>
-            <div className="flex-1 min-w-[150px]">
-                <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
-            </div>
-            <div className="flex-1 min-w-[120px]">
-                <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
-            </div>
-            <div className="flex-1 min-w-[280px]">
-                <div className="flex gap-2 w-full">
-                    <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-                        <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
-                    </div>
-                    <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
-                        <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
-                    </div>
+
+      {activeTab === 'listado' ? (
+        <>
+          <Card>
+            <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                    <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                 </div>
-            </div>
-        </div>
-        <div className="space-y-2 p-2">
-          {filteredRemitos.map(remito => (
-            <div key={remito.id} className="bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700 overflow-hidden">
-                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
-                    <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
-                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Fecha</p><p className="font-medium text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p></div>
-                        <div>
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p>
-                            <p className="font-bold text-sm truncate">
-                                {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
-                                {remito.sucursalId && (
-                                    <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
-                                        {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
-                                    </span>
-                                )}
-                            </p>
+                <div className="flex-1 min-w-[150px]">
+                    <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                    <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
+                </div>
+                <div className="flex-1 min-w-[280px]">
+                    <div className="flex gap-2 w-full">
+                        <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
+                            <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
                         </div>
-                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Número</p><p className="font-medium text-sm font-mono">{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
-                        <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2 hover:bg-blue-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeEdited}><PencilIcon/></button>
-                        {currentUser.rol === Rol.ADMINISTRADOR && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
-                                className="text-red-500 p-2 hover:bg-red-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
-                                disabled={!remito.canBeDeleted}
-                                title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
-                            >
-                                <TrashIcon />
-                            </button>
-                        )}
-                        <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
+                        <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+                            <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                        </div>
                     </div>
                 </div>
-                {expandedRemitoId === remito.id && (
-                    <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
-                        <table className="w-full text-xs text-left">
-                            <thead className="text-gray-400 uppercase font-black"><tr><th className="py-2">Producto</th><th className="py-2 text-center">Entregados</th><th className="py-2 text-center">Retirados</th></tr></thead>
-                            <tbody>{remito.movimientos.map((m, i)=>(<tr key={i} className="border-t dark:border-gray-700"><td className="py-2">{productosMap.get(m.productoId)?.nombre}</td><td className="py-2 text-center font-bold text-blue-600">{m.entregados}</td><td className="py-2 text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
-                        </table>
-                    </div>
-                )}
             </div>
-          ))}
+            <div className="space-y-2 p-2">
+              {filteredRemitos.map(remito => (
+                <div key={remito.id} className="bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700 overflow-hidden">
+                    <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
+                        <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
+                            <div><p className="text-[10px] text-gray-500 uppercase font-bold">Fecha</p><p className="font-medium text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p></div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p>
+                                <p className="font-bold text-sm truncate">
+                                    {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
+                                    {remito.sucursalId && (
+                                        <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                                            {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <div><p className="text-[10px] text-gray-500 uppercase font-bold">Número</p><p className="font-medium text-sm font-mono">{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
+                            <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2 hover:bg-blue-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeEdited}><PencilIcon/></button>
+                            {currentUser.rol === Rol.ADMINISTRADOR && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
+                                    className="text-red-500 p-2 hover:bg-red-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
+                                    disabled={!remito.canBeDeleted}
+                                    title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
+                                >
+                                    <TrashIcon />
+                                </button>
+                            )}
+                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
+                        </div>
+                    </div>
+                    {expandedRemitoId === remito.id && (
+                        <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+                            <table className="w-full text-xs text-left">
+                                <thead className="text-gray-400 uppercase font-black"><tr><th className="py-2">Producto</th><th className="py-2 text-center">Entregados</th><th className="py-2 text-center">Retirados</th></tr></thead>
+                                <tbody>{remito.movimientos.map((m, i)=>(<tr key={i} className="border-t dark:border-gray-700"><td className="py-2">{productosMap.get(m.productoId)?.nombre}</td><td className="py-2 text-center font-bold text-blue-600">{m.entregados}</td><td className="py-2 text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      ) : (
+        <div className="space-y-4">
+            <Card>
+                <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[200px]">
+                        <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
+                    </div>
+                    <div className="flex-1 min-w-[280px]">
+                        <div className="flex gap-2 w-full">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
+                                <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+                                <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                            </div>
+                        </div>
+                    </div>
+                    <AppButton variant="secondary" onClick={() => {
+                        const csv = [
+                            ['Cliente', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
+                            ...balanceData.map(d => [
+                                `"${d.cliente?.nombre || 'N/A'}"`,
+                                d.remitosCount,
+                                d.entregados,
+                                d.recibidos,
+                                d.balance
+                            ].join(','))
+                        ].join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
+                        link.click();
+                    }}>Exportar CSV</AppButton>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-[10px] text-gray-400 uppercase font-black bg-gray-50 dark:bg-gray-800/50">
+                            <tr>
+                                <th className="px-4 py-3">Cliente</th>
+                                <th className="px-4 py-3 text-center">Remitos</th>
+                                <th className="px-4 py-3 text-center">Entregados</th>
+                                <th className="px-4 py-3 text-center">Recibidos</th>
+                                <th className="px-4 py-3 text-center">Balance Neto</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-gray-700">
+                            {balanceData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 italic">No hay movimientos de envases retornables en este período.</td>
+                                </tr>
+                            ) : (
+                                balanceData.map((item) => (
+                                    <tr key={item.clienteId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                        <td className="px-4 py-3">
+                                            <p className="font-bold text-gray-800 dark:text-white">{item.cliente?.nombre}</p>
+                                            <p className="text-[10px] text-gray-500">{item.cliente?.sucursales[0]?.direccion}</p>
+                                        </td>
+                                        <td className="px-4 py-3 text-center font-mono">{item.remitosCount}</td>
+                                        <td className="px-4 py-3 text-center text-blue-600 font-bold">{item.entregados}</td>
+                                        <td className="px-4 py-3 text-center text-gray-500">{item.recibidos}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`inline-block px-3 py-1 rounded-full font-black text-xs ${
+                                                item.balance > 0 
+                                                    ? 'bg-red-100 text-red-700' 
+                                                    : item.balance < 0 
+                                                        ? 'bg-green-100 text-green-700' 
+                                                        : 'bg-gray-100 text-gray-600'
+                                            }`}>
+                                                {item.balance > 0 ? `+${item.balance}` : item.balance}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-4 bg-blue-50 border-blue-100">
+                    <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Total Entregados</p>
+                    <p className="text-2xl font-black text-blue-800">{balanceData.reduce((sum, d) => sum + d.entregados, 0)}</p>
+                </Card>
+                <Card className="p-4 bg-gray-50 border-gray-100">
+                    <p className="text-[10px] font-black uppercase text-gray-600 mb-1">Total Recibidos</p>
+                    <p className="text-2xl font-black text-gray-800">{balanceData.reduce((sum, d) => sum + d.recibidos, 0)}</p>
+                </Card>
+                <Card className="p-4 bg-red-50 border-red-100">
+                    <p className="text-[10px] font-black uppercase text-red-600 mb-1">Balance Total (En Calle)</p>
+                    <p className="text-2xl font-black text-red-800">{balanceData.reduce((sum, d) => sum + d.balance, 0)}</p>
+                </Card>
+            </div>
         </div>
-      </Card>
+      )}
 
       {remitoParaBorrar && (
         <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
