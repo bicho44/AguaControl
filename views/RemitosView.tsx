@@ -609,7 +609,20 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             
                             if (empresaSettings.logo) {
                                 try {
-                                    doc.addImage(empresaSettings.logo, 'PNG', 160, 10, 35, 35);
+                                    const imgProps = doc.getImageProperties(empresaSettings.logo);
+                                    const maxWidth = 40;
+                                    const maxHeight = 25;
+                                    const ratio = imgProps.width / imgProps.height;
+                                    
+                                    let imgWidth = maxWidth;
+                                    let imgHeight = maxWidth / ratio;
+                                    
+                                    if (imgHeight > maxHeight) {
+                                        imgHeight = maxHeight;
+                                        imgWidth = maxHeight * ratio;
+                                    }
+                                    
+                                    doc.addImage(empresaSettings.logo, 'PNG', 196 - imgWidth, 10, imgWidth, imgHeight);
                                 } catch (e) {
                                     console.error("Error adding logo to PDF", e);
                                 }
