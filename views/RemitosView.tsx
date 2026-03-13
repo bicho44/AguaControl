@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio, TipoProducto, DiaSemana } from '../types';
+import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio, TipoProducto, DiaSemana, EmpresaSettings } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Card from '../components/Card';
@@ -32,6 +32,7 @@ interface RemitosViewProps {
   deleteRemito: (remitoId: string) => Promise<void>;
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; 
   causasRecambio: CausaRecambio[];
+  empresaSettings: EmpresaSettings;
 }
 
 const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -173,7 +174,7 @@ const PaymentStatusBadge: React.FC<{ remito: any }> = ({ remito }) => {
     }
 }
 
-const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente, causasRecambio }) => {
+const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente, causasRecambio, empresaSettings }) => {
   const [activeTab, setActiveTab] = useState<'listado' | 'balance'>('listado');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRemito, setEditingRemito] = useState<any>(null);
@@ -181,6 +182,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [remitoNumberFilter, setRemitoNumberFilter] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
+  const [onlyLostFilter, setOnlyLostFilter] = useState(false);
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const [formInstanceId, setFormInstanceId] = useState(0);
@@ -312,9 +314,14 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
             ...data,
             balance: data.entregados - data.recibidos
         }))
-        .filter(item => item.entregados > 0 || item.recibidos > 0)
+        .filter(item => {
+            const hasActivity = item.entregados > 0 || item.recibidos > 0;
+            if (!hasActivity) return false;
+            if (onlyLostFilter) return item.balance > 0;
+            return true;
+        })
         .sort((a, b) => b.balance - a.balance);
-  }, [filteredRemitos, returnableProductIds, clientesMap]);
+}, [filteredRemitos, returnableProductIds, clientesMap, onlyLostFilter]);
 
   const getNextAvailableNumber = useCallback((pto: string, startNum: number) => {
     let current = startNum;
@@ -579,6 +586,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             </div>
                         </div>
                     </div>
+                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700">
+                        <input 
+                            type="checkbox" 
+                            id="onlyLost" 
+                            checked={onlyLostFilter} 
+                            onChange={e => setOnlyLostFilter(e.target.checked)}
+                            className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                        />
+                        <label htmlFor="onlyLost" className="text-xs font-bold text-gray-600 dark:text-gray-300 cursor-pointer">
+                            Solo "Perdidos"
+                        </label>
+                    </div>
                     <div className="flex gap-2">
                         <AppButton variant="secondary" onClick={() => {
                             const doc = new jsPDF();
@@ -587,6 +606,14 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             doc.setFontSize(20);
                             doc.setTextColor(0, 102, 204);
                             doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
+                            
+                            if (empresaSettings.logo) {
+                                try {
+                                    doc.addImage(empresaSettings.logo, 'PNG', 160, 10, 35, 35);
+                                } catch (e) {
+                                    console.error("Error adding logo to PDF", e);
+                                }
+                            }
                             
                             doc.setFontSize(10);
                             doc.setTextColor(100, 100, 100);
