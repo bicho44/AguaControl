@@ -1,6 +1,8 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio, TipoProducto } from '../types';
+import { Remito, Cliente, Usuario, PagoDetalle, RegistroPago, Rol, TipoVendedor, CausaRecambio, TipoProducto, DiaSemana } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -314,6 +316,17 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         .sort((a, b) => b.balance - a.balance);
   }, [filteredRemitos, returnableProductIds, clientesMap]);
 
+  const getNextAvailableNumber = useCallback((pto: string, startNum: number) => {
+    let current = startNum;
+    const ptoRemitos = remitos.filter(r => r.puntoVenta === pto);
+    const usedNumbers = new Set(ptoRemitos.map(r => parseInt(r.numero) || 0));
+    
+    while (usedNumbers.has(current)) {
+        current++;
+    }
+    return current;
+  }, [remitos]);
+
   const handleSave = async (r: any) => {
     try {
       // Guardamos el vendedor seleccionado para la próxima carga
@@ -330,7 +343,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           showNotification('Guardado.', 'success');
           
           if (currentUser.rol === Rol.ADMINISTRADOR) {
-              const nextNum = (parseInt(r.numero) || 0) + 1;
+              const nextNum = getNextAvailableNumber(r.puntoVenta, (parseInt(r.numero) || 0) + 1);
               setEditingRemito({ 
                 fecha: r.fecha,
                 puntoVenta: r.puntoVenta, 
@@ -566,23 +579,120 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             </div>
                         </div>
                     </div>
-                    <AppButton variant="secondary" onClick={() => {
-                        const csv = [
-                            ['Cliente', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
-                            ...balanceData.map(d => [
-                                `"${d.cliente?.nombre || 'N/A'}"`,
-                                d.remitosCount,
-                                d.entregados,
-                                d.recibidos,
-                                d.balance
-                            ].join(','))
-                        ].join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
-                        link.click();
-                    }}>Exportar CSV</AppButton>
+                    <div className="flex gap-2">
+                        <AppButton variant="secondary" onClick={() => {
+                            const doc = new jsPDF();
+                            const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
+                            
+                            doc.setFontSize(20);
+                            doc.setTextColor(0, 102, 204);
+                            doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
+                            
+                            doc.setFontSize(10);
+                            doc.setTextColor(100, 100, 100);
+                            doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, 14, 27);
+                            doc.text(`Período: ${dateFilter.from || 'Inicio'} al ${dateFilter.to || 'Hoy'}`, 14, 32);
+                            
+                            let currentY = 40;
+
+                            days.forEach(day => {
+                                const clientsForDay = balanceData.filter(d => {
+                                    return d.cliente?.sucursales.some(suc => suc.diasReparto?.includes(day));
+                                });
+
+                                if (clientsForDay.length > 0) {
+                                    if (currentY > 230) {
+                                        doc.addPage();
+                                        currentY = 20;
+                                    }
+                                    
+                                    doc.setFontSize(14);
+                                    doc.setTextColor(0, 102, 204);
+                                    doc.text(`REPARTO: ${day.toUpperCase()}`, 14, currentY);
+                                    doc.setTextColor(0, 0, 0);
+                                    
+                                    autoTable(doc, {
+                                        startY: currentY + 5,
+                                        head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
+                                        body: clientsForDay.map(d => [
+                                            d.cliente?.nombre || 'N/A',
+                                            d.cliente?.sucursales[0]?.direccion || '',
+                                            d.entregados,
+                                            d.recibidos,
+                                            { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
+                                        ]),
+                                        theme: 'grid',
+                                        headStyles: { fillColor: [0, 102, 204], fontSize: 9 },
+                                        bodyStyles: { fontSize: 8 },
+                                        columnStyles: {
+                                            2: { halign: 'center' },
+                                            3: { halign: 'center' },
+                                            4: { halign: 'center' }
+                                        },
+                                        margin: { left: 14, right: 14 }
+                                    });
+                                    
+                                    currentY = (doc as any).lastAutoTable.finalY + 15;
+                                }
+                            });
+
+                            // Clientes sin día asignado
+                            const clientsNoDay = balanceData.filter(d => {
+                                return !d.cliente?.sucursales.some(suc => suc.diasReparto && suc.diasReparto.length > 0);
+                            });
+
+                            if (clientsNoDay.length > 0) {
+                                if (currentY > 230) {
+                                    doc.addPage();
+                                    currentY = 20;
+                                }
+                                doc.setFontSize(14);
+                                doc.setTextColor(100, 100, 100);
+                                doc.text('CLIENTES SIN DÍA ASIGNADO', 14, currentY);
+                                doc.setTextColor(0, 0, 0);
+
+                                autoTable(doc, {
+                                    startY: currentY + 5,
+                                    head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
+                                    body: clientsNoDay.map(d => [
+                                        d.cliente?.nombre || 'N/A',
+                                        d.cliente?.sucursales[0]?.direccion || '',
+                                        d.entregados,
+                                        d.recibidos,
+                                        { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
+                                    ]),
+                                    theme: 'grid',
+                                    headStyles: { fillColor: [100, 100, 100], fontSize: 9 },
+                                    bodyStyles: { fontSize: 8 },
+                                    columnStyles: {
+                                        2: { halign: 'center' },
+                                        3: { halign: 'center' },
+                                        4: { halign: 'center' }
+                                    },
+                                    margin: { left: 14, right: 14 }
+                                });
+                            }
+
+                            doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
+                        }}>Generar PDF</AppButton>
+                        <AppButton variant="secondary" onClick={() => {
+                            const csv = [
+                                ['Cliente', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
+                                ...balanceData.map(d => [
+                                    `"${d.cliente?.nombre || 'N/A'}"`,
+                                    d.remitosCount,
+                                    d.entregados,
+                                    d.recibidos,
+                                    d.balance
+                                ].join(','))
+                            ].join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
+                            link.click();
+                        }}>Exportar CSV</AppButton>
+                    </div>
                 </div>
                 
                 <div className="overflow-x-auto">

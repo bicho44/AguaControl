@@ -86,17 +86,25 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   }, [remito, pagosMap]);
 
   useEffect(() => {
-    if (isNew && formData.puntoVenta) {
+    if (isNew && formData.puntoVenta && !formData.numero) {
       const pto = formData.puntoVenta;
       const remitosMismoPto = remitos.filter(r => r.puntoVenta === pto);
-      if (remitosMismoPto.length > 0) {
-        const lastNum = Math.max(...remitosMismoPto.map(r => parseInt(r.numero) || 0));
-        setFormData(prev => ({ ...prev, numero: (lastNum + 1).toString() }));
-      } else {
-        setFormData(prev => ({ ...prev, numero: '1' }));
+      const usedNumbers = new Set<number>(remitosMismoPto.map(r => parseInt(r.numero) || 0));
+      
+      let nextNum = 1;
+      if (usedNumbers.size > 0) {
+        const nums: number[] = Array.from(usedNumbers);
+        const maxNum = Math.max(...nums);
+        nextNum = maxNum + 1;
       }
+      
+      while (usedNumbers.has(nextNum)) {
+        nextNum++;
+      }
+      
+      setFormData(prev => ({ ...prev, numero: nextNum.toString() }));
     }
-  }, [formData.puntoVenta, isNew, remitos]);
+  }, [formData.puntoVenta, isNew, remitos, formData.numero]);
 
   useEffect(() => {
     if (formData.clienteId) {
