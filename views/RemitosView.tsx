@@ -603,6 +603,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             const doc = new jsPDF();
                             const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
                             
+                            const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
+                            const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
+                            const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
+
                             doc.setFontSize(20);
                             doc.setTextColor(0, 102, 204);
                             doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
@@ -633,7 +637,25 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, 14, 27);
                             doc.text(`Período: ${dateFilter.from || 'Inicio'} al ${dateFilter.to || 'Hoy'}`, 14, 32);
                             
-                            let currentY = 40;
+                            // Resumen de Totales
+                            doc.setDrawColor(200, 200, 200);
+                            doc.line(14, 38, 196, 38);
+                            
+                            doc.setFontSize(11);
+                            doc.setTextColor(0, 0, 0);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('RESUMEN GENERAL:', 14, 45);
+                            
+                            doc.setFont('helvetica', 'normal');
+                            doc.text(`Total Entregados: ${totalEntregados}`, 14, 52);
+                            doc.text(`Total Recibidos: ${totalRecibidos}`, 70, 52);
+                            doc.setTextColor(totalBalance > 0 ? 200 : 0, totalBalance < 0 ? 150 : 0, 0);
+                            doc.text(`Balance Neto (En Calle): ${totalBalance > 0 ? '+' : ''}${totalBalance}`, 130, 52);
+                            
+                            doc.setTextColor(0, 0, 0);
+                            doc.line(14, 58, 196, 58);
+
+                            let currentY = 68;
 
                             days.forEach(day => {
                                 const clientsForDay = balanceData.filter(d => {
@@ -716,7 +738,16 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
                         }}>Generar PDF</AppButton>
                         <AppButton variant="secondary" onClick={() => {
+                            const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
+                            const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
+                            const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
+
                             const csv = [
+                                ['RESUMEN GENERAL'].join(','),
+                                ['Total Entregados', totalEntregados].join(','),
+                                ['Total Recibidos', totalRecibidos].join(','),
+                                ['Balance Neto (En Calle)', totalBalance].join(','),
+                                [],
                                 ['Cliente', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
                                 ...balanceData.map(d => [
                                     `"${d.cliente?.nombre || 'N/A'}"`,
