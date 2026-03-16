@@ -775,7 +775,23 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                         <h3 className="font-black text-sm text-gray-700 dark:text-gray-300 truncate uppercase tracking-tighter">{usuariosMap.get(p.repartidorId)?.nombre || 'S/N'}</h3>
                                         <span className="text-[8px] font-black px-2 py-0.5 rounded-full uppercase bg-green-100 text-green-700 tracking-widest">OK</span>
                                     </div>
-                                    <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="text-[9px] font-black uppercase tracking-widest py-1">Ver Resumen</AppButton>
+                                    <div className="flex gap-2">
+                                        <AppButton size="sm" variant="secondary" fullWidth onClick={() => setSelectedPlanilla(p)} className="text-[9px] font-black uppercase tracking-widest py-1">Ver</AppButton>
+                                        <AppButton 
+                                            size="sm" 
+                                            variant="secondary" 
+                                            fullWidth 
+                                            onClick={() => {
+                                                if(window.confirm('¿Reabrir este reparto?')) {
+                                                    updatePlanilla({ ...p, estado: EstadoPlanilla.ABIERTA, devolucion: [] });
+                                                    showNotification('Reparto reabierto', 'success');
+                                                }
+                                            }} 
+                                            className="text-[9px] font-black uppercase tracking-widest py-1 border-dashed"
+                                        >
+                                            Reabrir
+                                        </AppButton>
+                                    </div>
                                 </Card>
                             </div>
                         ))}
@@ -818,6 +834,25 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                         <AppButton size="sm" variant="secondary" onClick={() => setIsRecargaOpen(true)}>+ Recarga</AppButton>
                                         <AppButton size="sm" variant="success" onClick={() => handleClosePlanilla(selectedPlanilla)}>Cerrar Reparto</AppButton>
                                     </>
+                                )}
+                                {selectedPlanilla.estado === EstadoPlanilla.CERRADA && (
+                                    <AppButton 
+                                        size="sm" 
+                                        variant="secondary" 
+                                        onClick={() => {
+                                            if(window.confirm('¿Reabrir este reparto? Se revertirá el ingreso de stock a planta.')) {
+                                                updatePlanilla({
+                                                    ...selectedPlanilla,
+                                                    estado: EstadoPlanilla.ABIERTA,
+                                                    devolucion: []
+                                                });
+                                                setSelectedPlanilla(null);
+                                                showNotification('Reparto reabierto', 'success');
+                                            }
+                                        }}
+                                    >
+                                        Reabrir
+                                    </AppButton>
                                 )}
                                 <AppButton size="sm" variant="danger" onClick={() => {
                                     if(window.confirm('¿Eliminar este reparto?')) {

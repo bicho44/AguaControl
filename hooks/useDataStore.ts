@@ -504,6 +504,29 @@ export const useDataStore = () => {
                 route: 'planillas'
             });
         } 
+
+        // 1.5 Lógica de REAPERTURA
+        if (data.estado === EstadoPlanilla.ABIERTA && oldPlanilla.estado === EstadoPlanilla.CERRADA) {
+            // Al reabrir, restar lo que se había sumado al stock de planta (revertir cierre)
+            oldPlanilla.devolucion?.forEach((item: any) => {
+                const prod = productos.find(pr => pr.id === item.productoId);
+                if (prod) {
+                    const newStockLlenos = (prod.stockPlanta || 0) - (item.cantidadLlenos || 0);
+                    const newStockVacios = (prod.stockEnvases || 0) - (item.cantidadVacios || 0);
+                    batch.update(doc(db, 'productos', prod.id), { 
+                        stockPlanta: newStockLlenos,
+                        stockEnvases: newStockVacios
+                    });
+                    hasChanges = true;
+                }
+            });
+            addLog({
+                level: LogLevel.WARNING,
+                message: `Planilla reabierta: ${usuarios.find(u => u.id === oldPlanilla.repartidorId)?.nombre}`,
+                details: `Se revirtió la devolución de stock`,
+                route: 'planillas'
+            });
+        }
         
         // 2. Lógica de RECARGAS (Detección de nuevas recargas)
         const oldRecargasCount = oldPlanilla.recargas?.length || 0;
