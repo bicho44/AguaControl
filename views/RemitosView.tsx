@@ -182,7 +182,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [remitoNumberFilter, setRemitoNumberFilter] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
-  const [onlyLostFilter, setOnlyLostFilter] = useState(false);
+  const [balanceFilter, setBalanceFilter] = useState<'todos' | 'perdidos' | 'recuperados' | 'ambos'>('todos');
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const [formInstanceId, setFormInstanceId] = useState(0);
@@ -317,11 +317,39 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         .filter(item => {
             const hasActivity = item.entregados > 0 || item.recibidos > 0;
             if (!hasActivity) return false;
-            if (onlyLostFilter) return item.balance > 0;
+            
+            if (balanceFilter === 'perdidos') return item.balance > 0;
+            if (balanceFilter === 'recuperados') return item.balance < 0;
+            if (balanceFilter === 'ambos') return item.balance !== 0;
             return true;
         })
         .sort((a, b) => b.balance - a.balance);
-}, [filteredRemitos, returnableProductIds, clientesMap, onlyLostFilter]);
+}, [filteredRemitos, returnableProductIds, clientesMap, balanceFilter]);
+
+  const stockPlantaSummary = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const remitosToday = remitos.filter(r => r.fecha === today);
+    const todayStats: Record<string, { entregados: number; recibidos: number }> = {};
+    
+    remitosToday.forEach(r => {
+        r.movimientos.forEach(m => {
+            if (returnableProductIds.has(m.productoId)) {
+                if (!todayStats[m.productoId]) todayStats[m.productoId] = { entregados: 0, recibidos: 0 };
+                todayStats[m.productoId].entregados += m.entregados;
+                todayStats[m.productoId].recibidos += m.recibidos;
+            }
+        });
+    });
+
+    return returnableProducts.map(p => ({
+      id: p.id,
+      nombre: p.nombre,
+      stock: p.stockPlanta || 0,
+      envases: p.stockEnvases || 0,
+      hoyEntregados: todayStats[p.id]?.entregados || 0,
+      hoyRecibidos: todayStats[p.id]?.recibidos || 0
+    }));
+  }, [returnableProducts, remitos, returnableProductIds]);
 
   const getNextAvailableNumber = useCallback((pto: string, startNum: number) => {
     let current = startNum;
@@ -586,17 +614,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700">
-                        <input 
-                            type="checkbox" 
-                            id="onlyLost" 
-                            checked={onlyLostFilter} 
-                            onChange={e => setOnlyLostFilter(e.target.checked)}
-                            className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                    <div className="w-48">
+                        <AppSelect 
+                            label="Filtrar Balance"
+                            value={balanceFilter}
+                            onChange={(e) => setBalanceFilter(e.target.value as any)}
+                            options={[
+                                { value: 'todos', label: 'Todos' },
+                                { value: 'perdidos', label: 'Solo Perdidos' },
+                                { value: 'recuperados', label: 'Solo Recuperados' },
+                                { value: 'ambos', label: 'Perdidos y Recuperados' }
+                            ]}
                         />
-                        <label htmlFor="onlyLost" className="text-xs font-bold text-gray-600 dark:text-gray-300 cursor-pointer">
-                            Solo "Perdidos"
-                        </label>
                     </div>
                     <div className="flex gap-2">
                         <AppButton variant="secondary" onClick={() => {
@@ -766,6 +795,31 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     </div>
                 </div>
                 
+                {/* Stock en Planta Legend */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 border-b dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/10">
+                    {stockPlantaSummary.map(s => (
+                        <div key={s.id} className="flex flex-col p-3 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate">{s.nombre}</span>
+                            <div className="flex justify-between items-end">
+                                <div className="flex flex-col">
+                                    <span className="text-xl font-black text-blue-600 leading-none">{s.stock}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Llenos</span>
+                                        {s.hoyEntregados > 0 && <span className="text-[8px] font-black text-red-500">(-{s.hoyEntregados})</span>}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-lg font-black text-gray-500 leading-none">{s.envases}</span>
+                                    <div className="flex items-center gap-1">
+                                        {s.hoyRecibidos > 0 && <span className="text-[8px] font-black text-green-600">(+{s.hoyRecibidos})</span>}
+                                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Vacíos</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="text-[10px] text-gray-400 uppercase font-black bg-gray-50 dark:bg-gray-800/50">
