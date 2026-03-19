@@ -275,6 +275,7 @@ export interface Servicio {
 
 export interface Contrato {
     id: string;
+    tempId?: string;
     servicioId: string;
     clienteId: string;
     sucursalId?: string;

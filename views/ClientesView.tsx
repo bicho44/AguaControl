@@ -62,12 +62,14 @@ const ClienteForm: React.FC<{
   onSave: (data: { cliente: (Omit<Cliente, 'id' | 'estado'> | Cliente) & { stockInicial?: any[], contratosIniciales?: any[] }, contratosAEliminar: string[] }) => void;
   onClose: () => void;
   addContrato?: (contrato: Omit<Contrato, 'id'>) => void;
-}> = ({ cliente, productos, servicios, contratos, clientes, remitos, usuarios, onSave, onClose, addContrato }) => {
+  updateContrato?: (contrato: Contrato) => void;
+}> = ({ cliente, productos, servicios, contratos, clientes, remitos, usuarios, onSave, onClose, addContrato, updateContrato }) => {
   const [formData, setFormData] = useState<Partial<Cliente>>(cliente);
   const [contratosIniciales, setContratosIniciales] = useState<Omit<Contrato, 'id'|'clienteId'>[]>([]);
   const [mapIndex, setMapIndex] = useState<number | null>(null);
   const [contratosAEliminar, setContratosAEliminar] = useState<Set<string>>(new Set());
   const [isContratoModalOpen, setIsContratoModalOpen] = useState(false);
+  const [editingContrato, setEditingContrato] = useState<Partial<Contrato> | null>(null);
   const [isSearchingCuit, setIsSearchingCuit] = useState(false);
   const { showNotification } = useNotification();
   const { empresaSettings } = useDataStore();
@@ -246,15 +248,39 @@ const ClienteForm: React.FC<{
 
   const handleSaveContrato = (nuevoContrato: any) => {
       if (isNew) {
-          setContratosIniciales(prev => [...prev, nuevoContrato]);
-          showNotification('Contrato agregado a la lista (Pendiente de guardar cliente).', 'success');
+          if (editingContrato && 'tempId' in editingContrato) {
+              setContratosIniciales(prev => prev.map((c: any) => c.tempId === (editingContrato as any).tempId ? nuevoContrato : c));
+              showNotification('Contrato actualizado en la lista.', 'success');
+          } else {
+              const tempId = Date.now();
+              setContratosIniciales(prev => [...prev, { ...nuevoContrato, tempId }]);
+              showNotification('Contrato agregado a la lista (Pendiente de guardar cliente).', 'success');
+          }
       } else {
-          if (addContrato) {
-              addContrato({ ...nuevoContrato, clienteId: cliente.id });
-              showNotification('Contrato creado exitosamente.', 'success');
+          if (nuevoContrato.id) {
+              if (updateContrato) {
+                  updateContrato(nuevoContrato as Contrato);
+                  showNotification('Contrato actualizado exitosamente.', 'success');
+              }
+          } else {
+              if (addContrato) {
+                  addContrato({ ...nuevoContrato, clienteId: cliente.id });
+                  showNotification('Contrato creado exitosamente.', 'success');
+              }
           }
       }
       setIsContratoModalOpen(false);
+      setEditingContrato(null);
+  };
+
+  const openNewContratoModal = () => {
+      setEditingContrato({ fechaInicio: getLocalDateString() });
+      setIsContratoModalOpen(true);
+  };
+
+  const openEditContratoModal = (c: Partial<Contrato>) => {
+      setEditingContrato(c);
+      setIsContratoModalOpen(true);
   };
 
   const removeContratoInicial = (index: number) => {
@@ -296,7 +322,7 @@ const ClienteForm: React.FC<{
         cliente: { 
             ...formData as Cliente, 
             stockInicial: stockDeltas, 
-            contratosIniciales: contratosIniciales.filter(c => c.servicioId),
+            contratosIniciales: contratosIniciales.filter(c => c.servicioId).map(({ tempId, ...c }) => c),
             preciosEspeciales: formData.preciosEspeciales?.filter(p => p.productoId && p.precio > 0)
         },
         contratosAEliminar: Array.from(contratosAEliminar)
@@ -558,11 +584,34 @@ const ClienteForm: React.FC<{
           <Card title="Gestión de Servicios y Contratos">
               <div className="space-y-6">
                   <div className="flex justify-end">
-                      <AppButton onClick={() => setIsContratoModalOpen(true)}>
+                      <AppButton onClick={openNewContratoModal}>
                           + Agregar Contrato
                       </AppButton>
                   </div>
-                  {/* ... (Lógica de contratos se mantiene igual) ... */}
+                  
+                  {contratosIniciales.length > 0 && (
+                      <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
+                          <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest px-1">Nuevos Contratos (A guardar)</label>
+                          <div className="grid grid-cols-1 gap-3">
+                              {contratosIniciales.map((c, idx) => (
+                                  <div key={idx} className="flex justify-between items-center p-3 border rounded-xl shadow-sm bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-900/50 border-l-4 border-l-blue-500">
+                                      <div>
+                                          <p className="font-bold text-sm text-gray-800 dark:text-white">
+                                              {serviciosMap.get(c.servicioId)?.nombre || 'Servicio Personalizado'}
+                                          </p>
+                                          <p className="text-xs text-gray-500">Inicio: {new Date(c.fechaInicio).toLocaleDateString('es-AR')} • ${c.montoMensual?.toLocaleString() || 0}/mes</p>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                          <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{c.tipo}</span>
+                                          <button type="button" onClick={() => openEditContratoModal(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon className="w-4 h-4" /></button>
+                                          <button type="button" onClick={() => removeContratoInicial(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4" /></button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
                   {contratosVigentes.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
                           <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Activos</label>
@@ -577,6 +626,7 @@ const ClienteForm: React.FC<{
                                       </div>
                                       <div className="flex items-center gap-3">
                                           <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>
+                                          <button type="button" onClick={() => openEditContratoModal(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon className="w-4 h-4" /></button>
                                           <button type="button" onClick={() => toggleDeleteContrato(c.id)} className={`p-2 rounded-full transition-colors ${contratosAEliminar.has(c.id) ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}><TrashIcon className="w-4 h-4" /></button>
                                       </div>
                                   </div>
@@ -610,14 +660,14 @@ const ClienteForm: React.FC<{
     )}
 
     {isContratoModalOpen && (
-        <Modal isOpen={isContratoModalOpen} onClose={() => setIsContratoModalOpen(false)}>
+        <Modal isOpen={isContratoModalOpen} onClose={() => { setIsContratoModalOpen(false); setEditingContrato(null); }}>
             <ContratoForm
-                contrato={{ fechaInicio: getLocalDateString() }}
+                contrato={editingContrato || { fechaInicio: getLocalDateString() }}
                 clientes={clientes}
                 productos={productos}
                 servicios={servicios}
                 onSave={handleSaveContrato}
-                onClose={() => setIsContratoModalOpen(false)}
+                onClose={() => { setIsContratoModalOpen(false); setEditingContrato(null); }}
                 fixedClienteId={!isNew ? cliente.id : undefined}
                 overrideSucursales={isNew ? formData.sucursales : undefined}
             />
@@ -754,6 +804,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             onSave={handleSave} 
             onClose={() => setIsModalOpen(false)} 
             addContrato={addContrato}
+            updateContrato={updateContrato}
         />
     </div>
   );
