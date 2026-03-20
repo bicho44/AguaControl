@@ -157,6 +157,24 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 
+  const prevPagosLength = React.useRef(formData.pagos?.length || 0);
+  useEffect(() => {
+    const currentLength = formData.pagos?.length || 0;
+    if (currentLength > prevPagosLength.current && !isReadOnly) {
+      const lastIndex = currentLength - 1;
+      setTimeout(() => {
+        const input = document.getElementById(`pago-monto-${lastIndex}`);
+        if (input) {
+          input.focus();
+          if (input instanceof HTMLInputElement) {
+            input.select();
+          }
+        }
+      }, 100);
+    }
+    prevPagosLength.current = currentLength;
+  }, [formData.pagos?.length, isReadOnly]);
+
   // Focus on the first quantity input when opening a pre-filled remito
   useEffect(() => {
     if (remito.clienteId && !isReadOnly) {
@@ -497,7 +515,16 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 <div className="space-y-3 bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl border border-primary-100 dark:border-primary-800">
                     {(formData.pagos || []).map((pago, index) => (
                         <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3 items-end">
-                            <AppInput label={index === 0 ? "Monto Pagado" : ""} type="number" value={pago.monto} onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} step="0.01" className="font-black text-green-600" disabled={isReadOnly} />
+                            <AppInput 
+                                id={`pago-monto-${index}`}
+                                label={index === 0 ? "Monto Pagado" : ""} 
+                                type="number" 
+                                value={pago.monto} 
+                                onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} 
+                                step="0.01" 
+                                className="font-black text-green-600" 
+                                disabled={isReadOnly} 
+                            />
                             <AppSelect label={index === 0 ? "Método" : ""} value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} disabled={isReadOnly} />
                             <AppButton variant="danger" size="sm" onClick={() => removePago(index)} disabled={isReadOnly} className="!p-2 mb-1"><TrashIcon className="w-5 h-5"/></AppButton>
                         </div>
