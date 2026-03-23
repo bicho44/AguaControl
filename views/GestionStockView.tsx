@@ -484,43 +484,71 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
         const movsDia = movimientosPlanta.filter(m => m.fecha === date);
 
         return productos.filter(p => p.tipo !== TipoProducto.EQUIPO).map(p => {
-            // 1. Stock Inicial
-            const stockInicial = lastCierre?.saldos.find(s => s.productoId === p.id)?.cantidadFisica ?? (p.stockPlanta || 0);
+            // --- LLENOS ---
+            const stockInicialLlenos = lastCierre?.saldos.find(s => s.productoId === p.id)?.cantidadFisica ?? (p.stockPlanta || 0);
             
-            // 2. Producción Histórica (si ya se guardó antes)
             const produccionHistorica = movsDia
-                .filter(m => m.productoId === p.id && m.tipo === 'entrada' && m.concepto.toLowerCase().includes('producción'))
+                .filter(m => m.productoId === p.id && m.tipo === 'entrada' && !m.esEnvase && m.concepto.toLowerCase().includes('producción'))
                 .reduce((sum, m) => sum + m.cantidad, 0);
 
-            // 3. Salidas Internas (Planillas)
-            let salidasInternas = 0;
+            let salidasInternasLlenos = 0;
             planillasDia.forEach(pl => {
-                salidasInternas += pl.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
+                salidasInternasLlenos += pl.cargaInicial.find(i => i.productoId === p.id)?.cantidad || 0;
                 pl.recargas?.forEach(rec => {
-                    salidasInternas += rec.items.find(i => i.productoId === p.id)?.cantidad || 0;
+                    salidasInternasLlenos += rec.items.find(i => i.productoId === p.id)?.cantidad || 0;
                 });
                 if (pl.estado === EstadoPlanilla.CERRADA) {
-                    salidasInternas -= pl.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
+                    salidasInternasLlenos -= pl.devolucion?.find(d => d.productoId === p.id)?.cantidadLlenos || 0;
                 }
             });
 
-            // 4. Salidas Externas (Ventas a revendedores)
-            const salidasExternas = ventasDia.reduce((sum, v) => {
+            const salidasExternasLlenos = ventasDia.reduce((sum, v) => {
                 return sum + (v.movimientos.find(m => m.productoId === p.id)?.cantidad || 0);
             }, 0);
 
-            // Teórico = Inicial + Producción Histórica + Producción Nueva (input) - Salidas
             const prodNueva = productionInput[p.id] || 0;
-            const teorico = stockInicial + produccionHistorica + prodNueva - salidasInternas - salidasExternas;
+            const teoricoLlenos = stockInicialLlenos + produccionHistorica + prodNueva - salidasInternasLlenos - salidasExternasLlenos;
+
+            // --- VACÍOS ---
+            // El stock inicial de vacíos no se guarda en el cierre físico actual (TODO: agregarlo), así que usamos el del producto
+            const stockInicialVacios = p.stockEnvases || 0; 
+            
+            // Los vacíos se CONSUMEN en la producción
+            const consumoProduccion = (produccionHistorica + prodNueva);
+
+            let recuperosInternosVacios = 0;
+            planillasDia.forEach(pl => {
+                pl.recargas?.forEach(rec => {
+                    recuperosInternosVacios += rec.vaciosDescargados?.find(i => i.productoId === p.id)?.cantidad || 0;
+                });
+                if (pl.estado === EstadoPlanilla.CERRADA) {
+                    recuperosInternosVacios += pl.devolucion?.find(d => d.productoId === p.id)?.cantidadVacios || 0;
+                }
+            });
+
+            const recuperosExternosVacios = ventasDia.reduce((sum, v) => {
+                return sum + (v.movimientos.find(m => m.productoId === p.id)?.recibidos || 0);
+            }, 0);
+
+            const teoricoVacios = stockInicialVacios - consumoProduccion + recuperosInternosVacios + recuperosExternosVacios;
 
             return {
                 producto: p,
-                inicial: stockInicial,
-                produccionHistorica,
-                produccionNueva: prodNueva,
-                salidasInternas,
-                salidasExternas,
-                teorico
+                llenos: {
+                    inicial: stockInicialLlenos,
+                    produccionHistorica,
+                    produccionNueva: prodNueva,
+                    salidasInternas: salidasInternasLlenos,
+                    salidasExternas: salidasExternasLlenos,
+                    teorico: teoricoLlenos
+                },
+                vacios: {
+                    inicial: stockInicialVacios,
+                    consumo: consumoProduccion,
+                    recuperosInternos: recuperosInternosVacios,
+                    recuperosExternos: recuperosExternosVacios,
+                    teorico: teoricoVacios
+                }
             };
         });
     }, [selectedDate, cierresPlanta, planillas, ventasVendedor, movimientosPlanta, productos, productionInput]);
@@ -531,14 +559,24 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
         try {
             // 1. Guardar movimientos de producción nuevos
             for (const d of balanceData) {
-                if (d.produccionNueva > 0) {
+                if (d.llenos.produccionNueva > 0) {
+                    // Entrada de Llenos
                     await addMovimientoPlanta({
                         fecha: selectedDate,
                         productoId: d.producto.id,
-                        cantidad: d.produccionNueva,
+                        cantidad: d.llenos.produccionNueva,
                         tipo: 'entrada',
                         concepto: 'Producción Diaria',
                         esEnvase: false
+                    });
+                    // Salida de Vacíos (Consumo)
+                    await addMovimientoPlanta({
+                        fecha: selectedDate,
+                        productoId: d.producto.id,
+                        cantidad: d.llenos.produccionNueva,
+                        tipo: 'salida',
+                        concepto: 'Consumo por Producción',
+                        esEnvase: true
                     });
                 }
             }
@@ -546,9 +584,9 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
             // 2. Guardar Cierre
             const saldos = balanceData.map(d => ({
                 productoId: d.producto.id,
-                cantidadFisica: physicalStock[d.producto.id] ?? d.teorico,
-                cantidadTeorica: d.teorico,
-                produccionDia: d.produccionHistorica + d.produccionNueva
+                cantidadFisica: physicalStock[d.producto.id] ?? d.llenos.teorico,
+                cantidadTeorica: d.llenos.teorico,
+                produccionDia: d.llenos.produccionHistorica + d.llenos.produccionNueva
             }));
 
             await addCierrePlanta({
@@ -703,11 +741,11 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                             </thead>
                             <tbody className="divide-y dark:divide-gray-700">
                                 {balanceData.map(d => {
-                                    const fisico = physicalStock[d.producto.id] ?? d.teorico;
-                                    const diferencia = fisico - d.teorico;
-                                    const totalSalidas = d.salidasInternas + d.salidasExternas;
+                                    const fisico = physicalStock[d.producto.id] ?? d.llenos.teorico;
+                                    const diferencia = fisico - d.llenos.teorico;
+                                    const totalSalidas = d.llenos.salidasInternas + d.llenos.salidasExternas;
                                     
-                                    if (d.inicial === 0 && d.produccionHistorica === 0 && d.produccionNueva === 0 && totalSalidas === 0 && fisico === 0) {
+                                    if (d.llenos.inicial === 0 && d.llenos.produccionHistorica === 0 && d.llenos.produccionNueva === 0 && totalSalidas === 0 && fisico === 0) {
                                         return null;
                                     }
 
@@ -715,9 +753,14 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                         <tr key={d.producto.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
                                             <td className="px-6 py-5">
                                                 <p className="font-black text-gray-800 dark:text-white group-hover:text-primary-600 transition-colors uppercase tracking-tighter">{d.producto.nombre}</p>
-                                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{d.producto.tipo}</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{d.producto.tipo}</span>
+                                                    <span className="text-[9px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+                                                        Vacíos: {d.vacios.teorico}
+                                                    </span>
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.inicial}</td>
+                                            <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.llenos.inicial}</td>
                                             <td className="px-6 py-5 bg-blue-50/10 dark:bg-blue-900/5">
                                                 <div className="flex flex-col items-center gap-1">
                                                     <AppInput 
@@ -727,25 +770,25 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                                         onChange={e => setProductionInput(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
                                                         className="w-24 text-center font-black text-blue-700 dark:text-blue-400"
                                                     />
-                                                    {d.produccionHistorica > 0 && (
-                                                        <span className="text-[9px] font-bold text-gray-400">Ya cargado: {d.produccionHistorica}</span>
+                                                    {d.llenos.produccionHistorica > 0 && (
+                                                        <span className="text-[9px] font-bold text-gray-400">Ya cargado: {d.llenos.produccionHistorica}</span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right">
                                                 <div className="flex flex-col items-end">
                                                     <span className="font-black text-red-500 text-base">-{totalSalidas}</span>
-                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">({d.salidasInternas} Int / {d.salidasExternas} Ext)</span>
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">({d.llenos.salidasInternas} Int / {d.llenos.salidasExternas} Ext)</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-right font-black text-gray-800 dark:text-white text-xl tracking-tighter">{d.teorico}</td>
+                                            <td className="px-6 py-5 text-right font-black text-gray-800 dark:text-white text-xl tracking-tighter">{d.llenos.teorico}</td>
                                             <td className="px-6 py-5 bg-yellow-50/10 dark:bg-yellow-900/5">
                                                 <AppInput 
                                                     type="number" 
                                                     value={fisico}
                                                     onChange={e => setPhysicalStock(prev => ({ ...prev, [d.producto.id]: parseInt(e.target.value) || 0 }))}
                                                     className="w-24 mx-auto text-center font-black"
-                                                    placeholder={d.teorico.toString()}
+                                                    placeholder={d.llenos.teorico.toString()}
                                                 />
                                             </td>
                                             <td className={`px-6 py-5 text-right font-black text-xl ${diferencia === 0 ? 'text-green-500' : 'text-red-500'}`}>
