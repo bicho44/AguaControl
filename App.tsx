@@ -18,6 +18,7 @@ import GestionStockView from './views/GestionStockView';
 import SystemLogsView from './views/SystemLogsView'; // Nueva vista
 import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
+import plugins from './plugins';
 import { useDataStore } from './hooks/useDataStore';
 import { View, Rol, LogLevel } from './types';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
@@ -127,6 +128,17 @@ function AppContent() {
     if (user.rol === Rol.REPARTIDOR && !allowedViewsForRepartidor.includes(currentView)) {
       return <DashboardView {...dashboardProps} />;
     }
+
+    // --- Soporte para Plugins ---
+    if (currentView.startsWith('plugin_')) {
+      const pluginId = currentView.replace('plugin_', '');
+      const plugin = plugins.find(p => p.id === pluginId);
+      if (plugin && plugin.roles.includes(user.rol)) {
+        const PluginComponent = plugin.component;
+        return <PluginComponent />;
+      }
+    }
+    // ----------------------------
 
     switch (currentView) {
       case 'dashboard':

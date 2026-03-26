@@ -15,6 +15,7 @@ import { ClipboardListIcon } from './icons/ClipboardListIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 import { MapIcon } from './icons/MapIcon';
 import { View, Usuario, Rol, EmpresaSettings, TipoVendedor } from '../types';
+import plugins from '../plugins';
 
 interface SidebarProps {
   currentView: View;
@@ -87,6 +88,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   const group2 = filterItems(managementNavItems);
   const group3 = filterItems(catalogNavItems);
   const group4 = filterItems(systemNavItems);
+  
+  // Plugins filtrados por rol
+  const pluginItems = plugins.filter(p => p.roles.includes(currentUser.rol));
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
@@ -159,6 +163,34 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
                 <>
                     <hr className="border-gray-200 dark:border-gray-700" />
                     {renderNavList(group4)}
+                </>
+            )}
+
+            {pluginItems.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    <div className="px-3 py-2">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-2">Accesorios</h3>
+                        <ul className="space-y-2 font-medium">
+                            {pluginItems.map(plugin => (
+                                <li key={plugin.id}>
+                                    <a
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            handleNavClick(`plugin_${plugin.id}`);
+                                        }}
+                                        className={`flex items-center p-2 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group ${
+                                            currentView === `plugin_${plugin.id}` ? 'bg-gray-200 dark:bg-gray-700' : ''
+                                        }`}
+                                    >
+                                        <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white">{plugin.icon}</span>
+                                        <span className="ms-3">{plugin.label}</span>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </>
             )}
         </div>
