@@ -1,6 +1,9 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { Calendar, AlertTriangle } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
@@ -12,6 +15,8 @@ import { getLocalDateString } from '../utils/dateUtils';
 // Importamos formularios
 import RemitoForm from '../components/RemitoForm';
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import SopladoDashboardWidget from '../plugins/soplado/SopladoDashboardWidget';
+import { Preforma, Molde, ProduccionSoplado, EntregaSoplado } from '../plugins/soplado/types';
 
 interface DashboardViewProps {
   remitos: Remito[];
@@ -25,6 +30,11 @@ interface DashboardViewProps {
   causasRecambio: CausaRecambio[];
   planillas: PlanillaDiaria[];
   movimientosPlanta: MovimientoStockPlanta[];
+  // Soplado props
+  preformas?: Preforma[];
+  moldes?: Molde[];
+  produccionSoplado?: ProduccionSoplado[];
+  entregasSoplado?: EntregaSoplado[];
   // New props for actions
   addRemito?: (remito: any) => Promise<void>;
   addPagoManual?: (pago: any) => Promise<void>;
@@ -461,10 +471,17 @@ const ExternalVendorDashboard: React.FC<{
 
 const DashboardView: React.FC<DashboardViewProps> = ({ 
     remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio, planillas, movimientosPlanta,
-    addRemito, addPagoManual, addVentaVendedor, addCliente
+    preformas, moldes, produccionSoplado, entregasSoplado,
+    addRemito, addPagoManual, addVentaVendedor, addCliente, setCurrentView
 }) => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
+
+  const handleSopladoAction = (type: 'produccion' | 'entrega') => {
+    if (setCurrentView) {
+      setCurrentView('plugin_soplado');
+    }
+  };
   
   // States for Modals
   const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
@@ -1160,6 +1177,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </>
   );
 
+  if (user.rol === Rol.SOPLADOR) {
+    return (
+      <div className="space-y-6 pt-12 md:pt-0 pb-12">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Panel de Soplado</h1>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">Bienvenido, {user.nombre}</p>
+          </div>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-2xl shadow-sm border-2 border-primary-100 dark:border-primary-900/30">
+            <Calendar className="h-5 w-5 text-primary-600" />
+            <span className="font-bold text-sm uppercase tracking-tighter">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</span>
+          </div>
+        </header>
+
+        {empresaSettings?.sopladoConfig?.enabled ? (
+          <SopladoDashboardWidget 
+            preformas={preformas || []}
+            moldes={moldes || []}
+            produccion={produccionSoplado || []}
+            entregas={entregasSoplado || []}
+            settings={empresaSettings.sopladoConfig}
+            onAction={handleSopladoAction}
+          />
+        ) : (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-6 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              <p className="text-sm font-bold text-yellow-700 dark:text-yellow-400 uppercase tracking-tight">
+                El plugin de soplado está desactivado. Contacte al administrador para habilitarlo.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (user.rol === Rol.REPARTIDOR) return vendorDashboard;
 
   // 3. DASHBOARD ADMINISTRADOR
@@ -1167,6 +1221,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
       <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
       
+      {/* Widget de Soplado (Solo si está habilitado) */}
+      {empresaSettings?.sopladoConfig?.enabled && (
+        <div className="mb-2">
+          <SopladoDashboardWidget 
+            preformas={preformas || []}
+            moldes={moldes || []}
+            produccion={produccionSoplado || []}
+            entregas={entregasSoplado || []}
+            settings={empresaSettings.sopladoConfig}
+            onAction={handleSopladoAction}
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
           <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
               <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>

@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (getUserData().rol == 'Administrador' || 
+         (request.auth.token.email == "johnkingbear@gmail.com" && request.auth.token.email_verified == true));
+    }
+    
+    function isSoplador() {
+      return isAuthenticated() && getUserData().rol == 'Soplador';
+    }
+    
+    function isRepartidor() {
+      return isAuthenticated() && getUserData().rol == 'Repartidor';
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Admins have full access to everything
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Soplador access
+    match /preformas/{preformaId} {
+      allow read, write: if isSoplador();
+    }
+    match /moldes/{moldeId} {
+      allow read, write: if isSoplador();
+    }
+    match /produccion_soplado/{prodId} {
+      allow read, write: if isSoplador();
+    }
+    match /entregas_soplado/{entregaId} {
+      allow read, write: if isSoplador();
+    }
+    match /productos/{prodId} {
+      allow read: if isSoplador();
+      allow update: if isSoplador() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockEnvases']);
+    }
+
+    // Repartidor access (existing logic)
+    match /remitos/{remitoId} {
+      allow read, write: if isRepartidor();
+    }
+    match /clientes/{clienteId} {
+      allow read: if isRepartidor();
+    }
+    match /productos/{prodId} {
+      allow read: if isRepartidor();
+    }
+    match /planillas/{planillaId} {
+      allow read, write: if isRepartidor();
+    }
+    match /registrosPago/{pagoId} {
+      allow read, write: if isRepartidor();
+    }
+    match /ventasVendedor/{ventaId} {
+      allow read, write: if isRepartidor();
+    }
+
+    // System logs
+    match /system_logs/{logId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+    }
+
+    // Settings
+    match /settings/empresa {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Usuarios
+    match /usuarios/{userId} {
+      allow read: if isAuthenticated();
+    }
+  }
+}

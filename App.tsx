@@ -102,8 +102,9 @@ function AppContent() {
   }
 
   const renderView = () => {
-    // Seguridad: Permitir 'dashboard' también a los repartidores
+    // Seguridad: Permitir 'dashboard' también a los repartidores y sopladores
     const allowedViewsForRepartidor: View[] = ['dashboard', 'remitos', 'clientes'];
+    const allowedViewsForSoplador: View[] = ['dashboard'];
     
     // Props comunes para Dashboard (ahora incluye funciones de acción)
     const dashboardProps = {
@@ -118,14 +119,24 @@ function AppContent() {
         causasRecambio: dataStore.causasRecambio,
         planillas: dataStore.planillas,
         movimientosPlanta: dataStore.movimientosStockPlanta,
+        // Soplado data
+        preformas: dataStore.preformas,
+        moldes: dataStore.moldes,
+        produccionSoplado: dataStore.produccionSoplado,
+        entregasSoplado: dataStore.entregasSoplado,
         // Acciones para botones rápidos
         addRemito: dataStore.addRemito,
         addPagoManual: dataStore.addPagoManual,
         addVentaVendedor: dataStore.addVentaVendedor,
-        addCliente: dataStore.addCliente
+        addCliente: dataStore.addCliente,
+        setCurrentView: setCurrentView
     };
 
     if (user.rol === Rol.REPARTIDOR && !allowedViewsForRepartidor.includes(currentView)) {
+      return <DashboardView {...dashboardProps} />;
+    }
+
+    if (user.rol === Rol.SOPLADOR && !allowedViewsForSoplador.includes(currentView) && !currentView.startsWith('plugin_')) {
       return <DashboardView {...dashboardProps} />;
     }
 

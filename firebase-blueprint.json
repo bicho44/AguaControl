@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "preformas": {
+      "title": "Preforma",
+      "description": "Materia prima para el soplado de bidones",
+      "type": "object",
+      "properties": {
+        "color": { "type": "string" },
+        "peso": { "type": "number", "description": "Peso en gramos" },
+        "material": { "type": "string" },
+        "stockActual": { "type": "number" },
+        "puntoReposicion": { "type": "number" }
+      },
+      "required": ["color", "peso", "material", "stockActual"]
+    },
+    "moldes": {
+      "title": "Molde",
+      "description": "Molde utilizado para soplar bidones de diferentes capacidades",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string" },
+        "litros": { "type": "number" },
+        "preformaId": { "type": "string", "description": "ID de la preforma que utiliza" }
+      },
+      "required": ["nombre", "litros", "preformaId"]
+    },
+    "produccion_soplado": {
+      "title": "Producción de Soplado",
+      "description": "Registro de la producción diaria de soplado",
+      "type": "object",
+      "properties": {
+        "fecha": { "type": "string", "format": "date" },
+        "moldeId": { "type": "string" },
+        "cantidadProducida": { "type": "number" },
+        "merma": { "type": "number" },
+        "operadorId": { "type": "string" }
+      },
+      "required": ["fecha", "moldeId", "cantidadProducida", "operadorId"]
+    },
+    "entregas_soplado": {
+      "title": "Entrega de Soplado",
+      "description": "Registro de entregas de bidones soplados a planta o clientes",
+      "type": "object",
+      "properties": {
+        "fecha": { "type": "string", "format": "date" },
+        "moldeId": { "type": "string" },
+        "destino": { "type": "string", "description": "ID del cliente o 'PLANTA'" },
+        "cantidad": { "type": "number" }
+      },
+      "required": ["fecha", "moldeId", "destino", "cantidad"]
+    }
+  },
+  "firestore": {
+    "preformas": { "schema": "preformas", "description": "Colección de preformas" },
+    "moldes": { "schema": "moldes", "description": "Colección de moldes" },
+    "produccion_soplado": { "schema": "produccion_soplado", "description": "Colección de producción de soplado" },
+    "entregas_soplado": { "schema": "entregas_soplado", "description": "Colección de entregas de soplado" }
+  }
+}

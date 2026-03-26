@@ -46,6 +46,12 @@ import {
   MovimientoStockPlanta,
   CierrePlanta
 } from '../types';
+import { 
+  Preforma, 
+  Molde, 
+  ProduccionSoplado, 
+  EntregaSoplado 
+} from '../plugins/soplado/types';
 
 const cleanUndefineds = (obj: any): any => {
     if (obj === null || obj === undefined) return obj;
@@ -82,6 +88,10 @@ export const useDataStore = () => {
     const [cierresPlanta, setCierresPlanta] = useState<CierrePlanta[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [causasRecambio, setCausasRecambio] = useState<CausaRecambio[]>([]);
+    const [preformas, setPreformas] = useState<Preforma[]>([]);
+    const [moldes, setMoldes] = useState<Molde[]>([]);
+    const [produccionSoplado, setProduccionSoplado] = useState<ProduccionSoplado[]>([]);
+    const [entregasSoplado, setEntregasSoplado] = useState<EntregaSoplado[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
         nombre: 'Distribuidora Aguas Puras',
         nombreFantasia: 'Aguas Puras'
@@ -122,6 +132,10 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'cierres_planta'), (s) => setCierresPlanta(s.docs.map(d => ({ id: d.id, ...d.data() } as CierrePlanta)))),
             onSnapshot(collection(db, 'causasRecambio'), (s) => setCausasRecambio(s.docs.map(d => ({ id: d.id, ...d.data() } as CausaRecambio)))),
             onSnapshot(logsQuery, (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() } as LogEntry)))),
+            onSnapshot(collection(db, 'preformas'), (s) => setPreformas(s.docs.map(d => ({ id: d.id, ...d.data() } as Preforma)))),
+            onSnapshot(collection(db, 'moldes'), (s) => setMoldes(s.docs.map(d => ({ id: d.id, ...d.data() } as Molde)))),
+            onSnapshot(collection(db, 'produccion_soplado'), (s) => setProduccionSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as ProduccionSoplado)))),
+            onSnapshot(collection(db, 'entregas_soplado'), (s) => setEntregasSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as EntregaSoplado)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {
                     setEmpresaSettings(s.data() as EmpresaSettings);
@@ -703,6 +717,125 @@ export const useDataStore = () => {
         await deleteDoc(doc(db, 'causasRecambio', id));
     }, []);
 
+    // --- SOPLADO PLUGIN FUNCTIONS ---
+
+    const addPreforma = useCallback(async (p: Omit<Preforma, 'id'>) => {
+        await addDoc(collection(db, 'preformas'), cleanUndefineds(p));
+    }, []);
+
+    const updatePreforma = useCallback(async (p: Preforma) => {
+        const { id, ...data } = p;
+        await updateDoc(doc(db, 'preformas', id), cleanUndefineds(data));
+    }, []);
+
+    const deletePreforma = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'preformas', id));
+    }, []);
+
+    const addMolde = useCallback(async (m: Omit<Molde, 'id'>) => {
+        await addDoc(collection(db, 'moldes'), cleanUndefineds(m));
+    }, []);
+
+    const updateMolde = useCallback(async (m: Molde) => {
+        const { id, ...data } = m;
+        await updateDoc(doc(db, 'moldes', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteMolde = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'moldes', id));
+    }, []);
+
+    const addProduccionSoplado = useCallback(async (prod: Omit<ProduccionSoplado, 'id'>) => {
+        const batch = writeBatch(db);
+        
+        // 1. Registrar producción
+        const prodRef = doc(collection(db, 'produccion_soplado'));
+        batch.set(prodRef, cleanUndefineds(prod));
+
+        // 2. Descontar preforma
+        const molde = moldes.find(m => m.id === prod.moldeId);
+        if (molde) {
+            const preforma = preformas.find(p => p.id === molde.preformaId);
+            if (preforma) {
+                const totalConsumido = prod.cantidadProducida + prod.merma;
+                const newStock = preforma.stockActual - totalConsumido;
+                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStock });
+            }
+        }
+
+        await batch.commit();
+    }, [moldes, preformas]);
+
+    const deleteProduccionSoplado = useCallback(async (id: string) => {
+        const prod = produccionSoplado.find(p => p.id === id);
+        if (!prod) return;
+
+        const batch = writeBatch(db);
+        
+        // 1. Revertir stock de preforma
+        const molde = moldes.find(m => m.id === prod.moldeId);
+        if (molde) {
+            const preforma = preformas.find(p => p.id === molde.preformaId);
+            if (preforma) {
+                const totalConsumido = prod.cantidadProducida + prod.merma;
+                const newStock = preforma.stockActual + totalConsumido;
+                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStock });
+            }
+        }
+
+        // 2. Eliminar producción
+        batch.delete(doc(db, 'produccion_soplado', id));
+
+        await batch.commit();
+    }, [produccionSoplado, moldes, preformas]);
+
+    const addEntregaSoplado = useCallback(async (entrega: Omit<EntregaSoplado, 'id'>) => {
+        const batch = writeBatch(db);
+        
+        // 1. Registrar entrega
+        const entregaRef = doc(collection(db, 'entregas_soplado'));
+        batch.set(entregaRef, cleanUndefineds(entrega));
+
+        // 2. Integración con Planta (si está habilitada)
+        if (empresaSettings.sopladoConfig?.integratedWithPlant && entrega.destino === 'PLANTA') {
+            const molde = moldes.find(m => m.id === entrega.moldeId);
+            if (molde) {
+                // Buscar producto en la planta que coincida con los litros del molde
+                const producto = productos.find(p => p.litros === molde.litros && p.tipo === 'Descartable');
+                if (producto) {
+                    const newStockEnvases = (producto.stockEnvases || 0) + entrega.cantidad;
+                    batch.update(doc(db, 'productos', producto.id), { stockEnvases: newStockEnvases });
+                }
+            }
+        }
+
+        await batch.commit();
+    }, [empresaSettings, moldes, productos]);
+
+    const deleteEntregaSoplado = useCallback(async (id: string) => {
+        const entrega = entregasSoplado.find(e => e.id === id);
+        if (!entrega) return;
+
+        const batch = writeBatch(db);
+        
+        // 1. Revertir integración con Planta
+        if (empresaSettings.sopladoConfig?.integratedWithPlant && entrega.destino === 'PLANTA') {
+            const molde = moldes.find(m => m.id === entrega.moldeId);
+            if (molde) {
+                const producto = productos.find(p => p.litros === molde.litros && p.tipo === 'Descartable');
+                if (producto) {
+                    const newStockEnvases = (producto.stockEnvases || 0) - entrega.cantidad;
+                    batch.update(doc(db, 'productos', producto.id), { stockEnvases: newStockEnvases });
+                }
+            }
+        }
+
+        // 2. Eliminar entrega
+        batch.delete(doc(db, 'entregas_soplado', id));
+
+        await batch.commit();
+    }, [entregasSoplado, empresaSettings, moldes, productos]);
+
     const updateRutasMasivo = useCallback(async (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => {
         if (!updates.length) return;
 
@@ -755,6 +888,7 @@ export const useDataStore = () => {
 
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, movimientosStockPlanta, empresaSettings, logs, causasRecambio,
+        preformas, moldes, produccionSoplado, entregasSoplado,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
@@ -763,6 +897,10 @@ export const useDataStore = () => {
         addContrato, updateContrato, deleteContrato, addMultipleClientes, deleteAllClientes,
         addPlanilla, updatePlanilla, deletePlanilla, addMovimientoStockPlanta, addCierrePlanta, updateEmpresaSettings, updateRutasMasivo,
         addCausaRecambio, deleteCausaRecambio,
+        addPreforma, updatePreforma, deletePreforma,
+        addMolde, updateMolde, deleteMolde,
+        addProduccionSoplado, deleteProduccionSoplado,
+        addEntregaSoplado, deleteEntregaSoplado,
         cierresPlanta,
         addLog
     };

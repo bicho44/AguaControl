@@ -3,7 +3,8 @@ export type View = 'dashboard' | 'remitos' | 'clientes' | 'usuarios' | 'producto
 
 export enum Rol {
     ADMINISTRADOR = 'Administrador',
-    REPARTIDOR = 'Repartidor'
+    REPARTIDOR = 'Repartidor',
+    SOPLADOR = 'Soplador'
 }
 
 export enum LogLevel {
@@ -380,5 +381,10 @@ export interface EmpresaSettings {
         cert?: string;
         key?: string;
         production?: boolean;
+    };
+    sopladoConfig?: {
+        enabled: boolean;
+        integratedWithPlant: boolean;
+        dashboardCards?: string[];
     };
 }
