@@ -11,4 +11,9 @@ export interface AppPlugin {
   component: React.ComponentType<any>;
   // Opcional: Para el futuro podemos agregar widgets al dashboard
   dashboardWidget?: React.ComponentType<any>;
+  // Nuevo: Componente para inyectar configuración en SettingsView
+  settingsComponent?: React.ComponentType<{
+    settings: any;
+    updateSettings: (newSettings: any) => void;
+  }>;
 }
