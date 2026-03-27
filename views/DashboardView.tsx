@@ -338,8 +338,14 @@ const ExternalVendorDashboard: React.FC<{
     onOpenPago: () => void
 }> = ({ user, ventas, pagos, productosMap, onOpenStockPurchase, onOpenPago }) => {
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id && !v.clienteId), [ventas, user.id]);
+
+    const shortName = (name: string) => {
+        const prod = Array.from(productosMap.values()).find((p: any) => p.nombre === name) as Producto | undefined;
+        if (prod?.abreviatura) return prod.abreviatura;
+        return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
+    };
     
-    const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
+    const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer, hoyDetalle, ayerDetalle } = useMemo(() => {
         let comprado = 0;
         const historialCombinado: any[] = [];
         const todayStr = getLocalDateString();
@@ -349,6 +355,8 @@ const ExternalVendorDashboard: React.FC<{
 
         let hoy = 0;
         let ayer = 0;
+        const hDetalle: Record<string, number> = {};
+        const aDetalle: Record<string, number> = {};
 
         // 1. Sumar Compras (VentaVendedor)
         misVentas.forEach(v => {
@@ -364,8 +372,14 @@ const ExternalVendorDashboard: React.FC<{
 
                     // Contar envases retirados hoy/ayer (solo retornables)
                     if (prod.tipo === TipoProducto.RETORNABLE) {
-                        if (vDate === todayStr) hoy += m.cantidad;
-                        if (vDate === yesterdayStr) ayer += m.cantidad;
+                        if (vDate === todayStr) {
+                            hoy += m.cantidad;
+                            hDetalle[prod.nombre] = (hDetalle[prod.nombre] || 0) + m.cantidad;
+                        }
+                        if (vDate === yesterdayStr) {
+                            ayer += m.cantidad;
+                            aDetalle[prod.nombre] = (aDetalle[prod.nombre] || 0) + m.cantidad;
+                        }
                     }
                 }
             });
@@ -397,7 +411,16 @@ const ExternalVendorDashboard: React.FC<{
         // Ordenar historial
         historialCombinado.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        return { totalComprado: comprado, totalPagado: pagado, saldoPendiente: deuda, historial: historialCombinado, retiradosHoy: hoy, retiradosAyer: ayer };
+        return { 
+            totalComprado: comprado, 
+            totalPagado: pagado, 
+            saldoPendiente: deuda, 
+            historial: historialCombinado, 
+            retiradosHoy: hoy, 
+            retiradosAyer: ayer,
+            hoyDetalle: hDetalle,
+            ayerDetalle: aDetalle
+        };
     }, [misVentas, pagos, user.id, productosMap, user.preciosEspeciales]);
 
     return (
@@ -425,16 +448,36 @@ const ExternalVendorDashboard: React.FC<{
                 {/* CARD DE RETIROS HOY/AYER (EXTERNO) */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col md:col-span-2">
                     <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Envases Retirados</h3>
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Envases Retirados (Detalle)</h3>
                     </div>
                     <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
-                        <div className="flex flex-col items-center justify-center p-4">
-                            <span className="text-4xl font-black text-primary-600">{retiradosHoy}</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
+                        <div className="flex flex-col p-4">
+                            <div className="flex flex-col items-center mb-4">
+                                <span className="text-4xl font-black text-primary-600">{retiradosHoy}</span>
+                                <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
+                            </div>
+                            <div className="space-y-1">
+                                {Object.entries(hoyDetalle).map(([name, count]) => (
+                                    <div key={name} className="flex justify-between text-[10px] border-b dark:border-gray-700 pb-1">
+                                        <span className="text-gray-500 truncate pr-2">{shortName(name)}</span>
+                                        <span className="font-black text-primary-600">{count}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="flex flex-col items-center justify-center p-4">
-                            <span className="text-4xl font-black text-gray-400">{retiradosAyer}</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
+                        <div className="flex flex-col p-4">
+                            <div className="flex flex-col items-center mb-4">
+                                <span className="text-4xl font-black text-gray-400">{retiradosAyer}</span>
+                                <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
+                            </div>
+                            <div className="space-y-1">
+                                {Object.entries(ayerDetalle).map(([name, count]) => (
+                                    <div key={name} className="flex justify-between text-[10px] border-b dark:border-gray-700 pb-1">
+                                        <span className="text-gray-500 truncate pr-2">{shortName(name)}</span>
+                                        <span className="font-black text-gray-400">{count}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

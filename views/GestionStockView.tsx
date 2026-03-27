@@ -721,6 +721,9 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                 </div>
 
                 <Card className="overflow-hidden border-none shadow-2xl">
+                    <div className="p-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                        <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-widest">Balance de Productos Llenos</h3>
+                    </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-50/50 dark:bg-gray-800/50 border-b dark:border-gray-700">
@@ -753,12 +756,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                         <tr key={d.producto.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
                                             <td className="px-6 py-5">
                                                 <p className="font-black text-gray-800 dark:text-white group-hover:text-primary-600 transition-colors uppercase tracking-tighter">{d.producto.nombre}</p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{d.producto.tipo}</span>
-                                                    <span className="text-[9px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
-                                                        Vacíos: {d.vacios.teorico}
-                                                    </span>
-                                                </div>
+                                                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{d.producto.tipo}</span>
                                             </td>
                                             <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.llenos.inicial}</td>
                                             <td className="px-6 py-5 bg-blue-50/10 dark:bg-blue-900/5">
@@ -794,6 +792,47 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                             <td className={`px-6 py-5 text-right font-black text-xl ${diferencia === 0 ? 'text-green-500' : 'text-red-500'}`}>
                                                 {diferencia > 0 ? `+${diferencia}` : diferencia}
                                             </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+
+                {/* TABLA DE ENVASES VACÍOS */}
+                <Card className="overflow-hidden border-none shadow-2xl">
+                    <div className="p-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                        <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-widest">Balance de Envases Vacíos</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-50/50 dark:bg-gray-800/50 border-b dark:border-gray-700">
+                                <tr>
+                                    <th className="px-6 py-5">Envase</th>
+                                    <th className="px-6 py-5 text-right">Inicial</th>
+                                    <th className="px-6 py-5 text-right text-red-500">- Consumo (Llenado)</th>
+                                    <th className="px-6 py-5 text-right text-green-500">+ Recup. (Clientes)</th>
+                                    <th className="px-6 py-5 text-right text-red-500">- Descargas (Vendedores)</th>
+                                    <th className="px-6 py-5 text-right">= Teórico</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y dark:divide-gray-700">
+                                {balanceData.filter(d => d.producto.tipo === TipoProducto.RETORNABLE).map(d => {
+                                    if (d.vacios.inicial === 0 && d.vacios.consumoProduccion === 0 && d.vacios.recuperadosInternos === 0 && d.vacios.descargasExternas === 0 && d.vacios.teorico === 0) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <tr key={`v-${d.producto.id}`} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
+                                            <td className="px-6 py-5">
+                                                <p className="font-black text-gray-800 dark:text-white group-hover:text-primary-600 transition-colors uppercase tracking-tighter">Envase {d.producto.nombre}</p>
+                                            </td>
+                                            <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.vacios.inicial}</td>
+                                            <td className="px-6 py-5 text-right font-black text-red-500">-{d.vacios.consumoProduccion}</td>
+                                            <td className="px-6 py-5 text-right font-black text-green-500">+{d.vacios.recuperadosInternos}</td>
+                                            <td className="px-6 py-5 text-right font-black text-red-500">-{d.vacios.descargasExternas}</td>
+                                            <td className="px-6 py-5 text-right font-black text-gray-800 dark:text-white text-xl tracking-tighter">{d.vacios.teorico}</td>
                                         </tr>
                                     );
                                 })}
