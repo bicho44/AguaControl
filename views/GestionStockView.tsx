@@ -725,24 +725,27 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                         <table className="w-full text-sm text-left">
                             <thead className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-50/50 dark:bg-gray-800/50 border-b dark:border-gray-700">
                                 <tr>
-                                    <th className="px-6 py-5">Producto / Envase</th>
-                                    <th className="px-6 py-5 text-right">Stock Inicial</th>
-                                    <th className="px-6 py-5 text-center bg-blue-50/30 dark:bg-blue-900/5">Producción</th>
-                                    <th className="px-6 py-5 text-right text-red-500">Entregados (Salidas)</th>
-                                    <th className="px-6 py-5 text-right text-green-500">Recuperados (Entradas)</th>
-                                    <th className="px-6 py-5 text-right">Teórico</th>
-                                    <th className="px-6 py-5 text-center bg-yellow-50/30 dark:bg-yellow-900/5">Físico</th>
-                                    <th className="px-6 py-5 text-right">Diferencia</th>
+                                    <th className="px-6 py-5">Producto</th>
+                                    <th className="px-6 py-5 text-right">Inicial</th>
+                                    <th className="px-6 py-5 text-center bg-blue-50/30 dark:bg-blue-900/5">
+                                        <div className="flex flex-col items-center">
+                                            <span>+ Producción</span>
+                                            <span className="text-[8px] font-normal lowercase">(Llenado del día)</span>
+                                        </div>
+                                    </th>
+                                    <th className="px-6 py-5 text-right">- Salidas</th>
+                                    <th className="px-6 py-5 text-right">= Teórico</th>
+                                    <th className="px-6 py-5 text-center bg-yellow-50/30 dark:bg-yellow-900/5">Físico (Recuento)</th>
+                                    <th className="px-6 py-5 text-right">Dif.</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y dark:divide-gray-700">
                                 {balanceData.map(d => {
                                     const fisico = physicalStock[d.producto.id] ?? d.llenos.teorico;
                                     const diferencia = fisico - d.llenos.teorico;
-                                    const entregados = d.llenos.salidasInternas + d.llenos.salidasExternas;
-                                    const recuperados = d.vacios.recuperadosInternos + d.vacios.descargasExternas;
+                                    const totalSalidas = d.llenos.salidasInternas + d.llenos.salidasExternas;
                                     
-                                    if (d.llenos.inicial === 0 && d.llenos.produccionHistorica === 0 && d.llenos.produccionNueva === 0 && entregados === 0 && fisico === 0 && recuperados === 0) {
+                                    if (d.llenos.inicial === 0 && d.llenos.produccionHistorica === 0 && d.llenos.produccionNueva === 0 && totalSalidas === 0 && fisico === 0) {
                                         return null;
                                     }
 
@@ -752,11 +755,9 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                                 <p className="font-black text-gray-800 dark:text-white group-hover:text-primary-600 transition-colors uppercase tracking-tighter">{d.producto.nombre}</p>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{d.producto.tipo}</span>
-                                                    {d.producto.tipo === TipoProducto.RETORNABLE && (
-                                                        <span className="text-[9px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">
-                                                            Vacíos en Planta: {d.vacios.teorico}
-                                                        </span>
-                                                    )}
+                                                    <span className="text-[9px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+                                                        Vacíos: {d.vacios.teorico}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right font-mono text-gray-400 font-bold">{d.llenos.inicial}</td>
@@ -775,10 +776,10 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right">
-                                                <span className="font-black text-red-500 text-base">-{entregados}</span>
-                                            </td>
-                                            <td className="px-6 py-5 text-right">
-                                                <span className="font-black text-green-500 text-base">+{recuperados}</span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-black text-red-500 text-base">-{totalSalidas}</span>
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">({d.llenos.salidasInternas} Int / {d.llenos.salidasExternas} Ext)</span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-5 text-right font-black text-gray-800 dark:text-white text-xl tracking-tighter">{d.llenos.teorico}</td>
                                             <td className="px-6 py-5 bg-yellow-50/10 dark:bg-yellow-900/5">

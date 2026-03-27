@@ -287,16 +287,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const returnableProductIds = useMemo(() => new Set(returnableProducts.map(p => p.id)), [returnableProducts]);
 
   const balanceData = useMemo(() => {
-    const stats: Record<string, { 
-        entregados: number; 
-        recibidos: number; 
-        remitosCount: number;
-        detalles: Record<string, { entregados: number; recibidos: number }> 
-    }> = {};
+    const stats: Record<string, { entregados: number; recibidos: number; remitosCount: number }> = {};
     
     filteredRemitos.forEach(r => {
         if (!stats[r.clienteId]) {
-            stats[r.clienteId] = { entregados: 0, recibidos: 0, remitosCount: 0, detalles: {} };
+            stats[r.clienteId] = { entregados: 0, recibidos: 0, remitosCount: 0 };
         }
         
         let hasReturnable = false;
@@ -304,13 +299,6 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
             if (returnableProductIds.has(m.productoId)) {
                 stats[r.clienteId].entregados += m.entregados;
                 stats[r.clienteId].recibidos += m.recibidos;
-                
-                if (!stats[r.clienteId].detalles[m.productoId]) {
-                    stats[r.clienteId].detalles[m.productoId] = { entregados: 0, recibidos: 0 };
-                }
-                stats[r.clienteId].detalles[m.productoId].entregados += m.entregados;
-                stats[r.clienteId].detalles[m.productoId].recibidos += m.recibidos;
-                
                 hasReturnable = true;
             }
         });
@@ -324,16 +312,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
             clienteId,
             cliente: clientesMap.get(clienteId),
             ...data,
-            balance: data.entregados - data.recibidos,
-            detallesArray: Object.entries(data.detalles)
-                .map(([prodId, d]) => ({
-                    productoId: prodId,
-                    nombre: productosMap.get(prodId)?.nombre || 'N/A',
-                    abreviatura: productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre || 'N/A',
-                    ...d,
-                    balance: d.entregados - d.recibidos
-                }))
-                .filter(d => d.entregados !== 0 || d.recibidos !== 0)
+            balance: data.entregados - data.recibidos
         }))
         .filter(item => {
             const hasActivity = item.entregados > 0 || item.recibidos > 0;
@@ -345,7 +324,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
             return true;
         })
         .sort((a, b) => b.balance - a.balance);
-}, [filteredRemitos, returnableProductIds, clientesMap, balanceFilter, productosMap]);
+}, [filteredRemitos, returnableProductIds, clientesMap, balanceFilter]);
 
   const stockPlantaSummary = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -725,11 +704,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                     
                                     autoTable(doc, {
                                         startY: currentY + 5,
-                                        head: [['Cliente', 'Dirección', 'Detalle por Envase', 'Entregados', 'Recibidos', 'Balance']],
+                                        head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
                                         body: clientsForDay.map(d => [
                                             d.cliente?.nombre || 'N/A',
                                             d.cliente?.sucursales[0]?.direccion || '',
-                                            d.detallesArray.map(det => `${det.abreviatura}: ${det.balance > 0 ? '+' : ''}${det.balance}`).join('\n'),
                                             d.entregados,
                                             d.recibidos,
                                             { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
@@ -766,11 +744,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
                                 autoTable(doc, {
                                     startY: currentY + 5,
-                                    head: [['Cliente', 'Dirección', 'Detalle por Envase', 'Entregados', 'Recibidos', 'Balance']],
+                                    head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
                                     body: clientsNoDay.map(d => [
                                         d.cliente?.nombre || 'N/A',
                                         d.cliente?.sucursales[0]?.direccion || '',
-                                        d.detallesArray.map(det => `${det.abreviatura}: ${det.balance > 0 ? '+' : ''}${det.balance}`).join('\n'),
                                         d.entregados,
                                         d.recibidos,
                                         { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
@@ -800,10 +777,9 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                 ['Total Recibidos', totalRecibidos].join(','),
                                 ['Balance Neto (En Calle)', totalBalance].join(','),
                                 [],
-                                ['Cliente', 'Detalle', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
+                                ['Cliente', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
                                 ...balanceData.map(d => [
                                     `"${d.cliente?.nombre || 'N/A'}"`,
-                                    `"${d.detallesArray.map(det => `${det.abreviatura}:${det.balance}`).join(' | ')}"`,
                                     d.remitosCount,
                                     d.entregados,
                                     d.recibidos,
@@ -865,18 +841,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                     <tr key={item.clienteId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                         <td className="px-4 py-3">
                                             <p className="font-bold text-gray-800 dark:text-white">{item.cliente?.nombre}</p>
-                                            <p className="text-[10px] text-gray-500 mb-2">{item.cliente?.sucursales[0]?.direccion}</p>
-                                            {item.detallesArray.length > 0 && (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {item.detallesArray.map(d => (
-                                                        <span key={d.productoId} className="text-[9px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-300 border dark:border-gray-600">
-                                                            {d.abreviatura}: <span className={d.balance > 0 ? 'text-red-500 font-bold' : d.balance < 0 ? 'text-green-500 font-bold' : ''}>
-                                                                {d.balance > 0 ? `+${d.balance}` : d.balance}
-                                                            </span>
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
+                                            <p className="text-[10px] text-gray-500">{item.cliente?.sucursales[0]?.direccion}</p>
                                         </td>
                                         <td className="px-4 py-3 text-center font-mono">{item.remitosCount}</td>
                                         <td className="px-4 py-3 text-center text-blue-600 font-bold">{item.entregados}</td>
