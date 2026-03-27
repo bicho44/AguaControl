@@ -731,8 +731,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                             return [
                                                 d.cliente?.nombre || 'N/A',
                                                 d.cliente?.sucursales[0]?.direccion || '',
-                                                { content: `${d.entregados}${entregadosDetalle ? '\n' + entregadosDetalle : ''}`, styles: { fontSize: 7 } },
-                                                { content: `${d.recibidos}${recibidosDetalle ? '\n' + recibidosDetalle : ''}`, styles: { fontSize: 7 } },
+                                                { content: entregadosDetalle || '0', styles: { fontSize: 7 } },
+                                                { content: recibidosDetalle || '0', styles: { fontSize: 7 } },
                                                 { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
                                             ];
                                         }),
@@ -783,8 +783,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                         return [
                                             d.cliente?.nombre || 'N/A',
                                             d.cliente?.sucursales[0]?.direccion || '',
-                                            { content: `${d.entregados}${entregadosDetalle ? '\n' + entregadosDetalle : ''}`, styles: { fontSize: 7 } },
-                                            { content: `${d.recibidos}${recibidosDetalle ? '\n' + recibidosDetalle : ''}`, styles: { fontSize: 7 } },
+                                            { content: entregadosDetalle || '0', styles: { fontSize: 7 } },
+                                            { content: recibidosDetalle || '0', styles: { fontSize: 7 } },
                                             { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
                                         ];
                                     }),
@@ -881,27 +881,23 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                         </td>
                                         <td className="px-4 py-3 text-center font-mono">{item.remitosCount}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-blue-600 font-bold">{item.entregados}</span>
-                                                <div className="flex flex-col gap-0.5 mt-1">
-                                                    {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.entregados > 0 && (
-                                                        <span key={prodId} className="text-[9px] text-gray-400 font-normal leading-none whitespace-nowrap">
-                                                            {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {d.entregados}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.entregados > 0 && (
+                                                    <span key={prodId} className="text-xs text-blue-600 font-bold whitespace-nowrap">
+                                                        {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {d.entregados}
+                                                    </span>
+                                                ))}
+                                                {item.entregados === 0 && <span className="text-gray-300">-</span>}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-gray-500">{item.recibidos}</span>
-                                                <div className="flex flex-col gap-0.5 mt-1">
-                                                    {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.recibidos > 0 && (
-                                                        <span key={prodId} className="text-[9px] text-gray-400 font-normal leading-none whitespace-nowrap">
-                                                            {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {d.recibidos}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.recibidos > 0 && (
+                                                    <span key={prodId} className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                                                        {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {d.recibidos}
+                                                    </span>
+                                                ))}
+                                                {item.recibidos === 0 && <span className="text-gray-300">-</span>}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-center">
