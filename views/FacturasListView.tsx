@@ -103,7 +103,7 @@ const PagoFacturaForm: React.FC<{
                         </div>
                     ))}
                 </div>
-                <button type="button" onClick={addPago} className="text-sm text-primary-600 hover:underline mt-4">+ Agregar forma de pago</button>
+                <AppButton type="button" variant="secondary" onClick={addPago} className="w-full border-dashed border-2 mt-4">+ Agregar forma de pago</AppButton>
             </fieldset>
 
             <div className="flex justify-end gap-2 pt-4">
@@ -349,24 +349,28 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
                             </div>
                             <div className="flex items-center pl-4 gap-2">
                                 {factura.estado !== EstadoFactura.PAGADO && factura.estado !== EstadoFactura.ANULADO && (
-                                    <button onClick={(e) => { e.stopPropagation(); handleOpenPagoModal(factura); }} className="px-3 py-1 text-sm rounded-md bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300">
+                                    <AppButton variant="success" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenPagoModal(factura); }}>
                                         Pagar
-                                    </button>
+                                    </AppButton>
                                 )}
-                                <button 
+                                <AppButton 
+                                    variant="secondary"
+                                    size="sm"
                                     onClick={(e) => { e.stopPropagation(); handleDownloadPDF(factura); }} 
-                                    className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                                    className="!p-2"
                                     title="Descargar PDF (Impresión)"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                                </button>
-                                <button 
+                                </AppButton>
+                                <AppButton 
+                                    variant="secondary"
+                                    size="sm"
                                     onClick={(e) => { e.stopPropagation(); handleSendEmail(factura); }} 
-                                    className={`p-2 rounded-full ${factura.enviada ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300'}`}
+                                    className={`!p-2 ${factura.enviada ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-transparent' : 'bg-primary-100 text-primary-700 hover:bg-primary-200 dark:bg-primary-900/50 dark:text-primary-300 border-transparent'}`}
                                     title="Enviar por Email"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                </button>
+                                </AppButton>
                                 <ChevronDownIcon className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                             </div>
                         </div>

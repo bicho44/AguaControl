@@ -218,7 +218,7 @@ const InternalVendorDashboard: React.FC<{
                 <Card title={`Ruta del Día (${currentDay})`} compact>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                         {visitasDelDia.map(cliente => (
-                            <button 
+                            <AppButton 
                                 key={cliente.id} 
                                 onClick={() => !cliente.visitado && onOpenRemito(cliente.id)}
                                 className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between gap-2 h-full ${
@@ -240,7 +240,7 @@ const InternalVendorDashboard: React.FC<{
                                 ) : (
                                     <span className="text-[8px] font-black text-primary-600 uppercase tracking-tighter bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded flex-shrink-0">Visitar</span>
                                 )}
-                            </button>
+                            </AppButton>
                         ))}
                     </div>
                 </Card>
@@ -1274,7 +1274,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             {returnableProductNames.map(name => {
                                 const isVisible = visibleProducts.includes(name);
                                 return (
-                                    <button
+                                    <AppButton
                                         key={name}
                                         onClick={() => toggleProductVisibility(name)}
                                         className={`px-3 py-1.5 text-[11px] font-black rounded-xl border transition-all duration-200 flex items-center gap-2 ${
@@ -1289,7 +1289,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     >
                                         <div className="w-2 h-2 rounded-full bg-white/40"></div>
                                         {shortName(name).toUpperCase()}
-                                    </button>
+                                    </AppButton>
                                 );
                             })}
                         </div>
@@ -1491,9 +1491,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <>
                         <div className="flex justify-between items-center px-2">
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{mapMarkers.length} Puntos Georeferenciados.</p>
-                            <button onClick={optimizeRoute} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full transition-all ${isOptimized ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white shadow-md'}`}>
+                            <AppButton onClick={optimizeRoute} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full transition-all ${isOptimized ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white shadow-md'}`}>
                                 {isOptimized ? 'Ruta Optimizada ✓' : 'Optimizar Recorrido'}
-                            </button>
+                            </AppButton>
                         </div>
                         <LeafletMap markers={mapMarkers} height="450px" route={routeLine} />
                     </>

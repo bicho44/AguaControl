@@ -230,22 +230,38 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
                      </span>
                    </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2">
-                    <button onClick={() => openEditModal(servicio)} className="text-blue-500 hover:text-blue-700 p-1"><PencilIcon /></button>
+                    <AppButton 
+                        variant="secondary" 
+                        size="sm" 
+                        onClick={() => openEditModal(servicio)} 
+                        className="!p-2 border-transparent bg-transparent text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-none"
+                        title="Editar Servicio"
+                    >
+                        <PencilIcon />
+                    </AppButton>
                     {isInactive ? (
-                      <button 
+                      <AppButton 
+                        variant="success" 
+                        size="sm" 
                         onClick={() => {
                           reactivarServicio(servicio.id);
                           showNotification('Servicio reactivado.', 'success');
                         }}
-                        className="text-green-500 hover:text-green-700 p-1"
+                        className="!p-2 border-transparent bg-transparent text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 shadow-none"
                         title="Reactivar Servicio"
                       >
                         <ReplyIcon />
-                      </button>
+                      </AppButton>
                     ) : (
-                      <button onClick={() => setServicioParaBaja(servicio)} className="text-red-500 hover:text-red-700 p-1" title="Dar de Baja">
+                      <AppButton 
+                        variant="danger" 
+                        size="sm" 
+                        onClick={() => setServicioParaBaja(servicio)} 
+                        className="!p-2 border-transparent bg-transparent text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"
+                        title="Dar de Baja"
+                      >
                           <TrashIcon />
-                      </button>
+                      </AppButton>
                     )}
                   </td>
                 </tr>
@@ -282,18 +298,20 @@ const ServiciosView: React.FC<ServiciosViewProps> = ({ servicios, productos, add
                     El servicio pasará a estado 'Inactivo' y no podrá ser seleccionado para nuevos contratos.
                 </p>
                 <div className="flex justify-center space-x-4">
-                    <button
+                    <AppButton
+                        variant="secondary"
                         onClick={() => setServicioParaBaja(null)}
-                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                        className="px-6"
                     >
                         Cancelar
-                    </button>
-                    <button
+                    </AppButton>
+                    <AppButton
+                        variant="danger"
                         onClick={handleBajaConfirm}
-                        className="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                        className="px-6"
                     >
                         Sí, Dar de Baja
-                    </button>
+                    </AppButton>
                 </div>
             </div>
         </Modal>

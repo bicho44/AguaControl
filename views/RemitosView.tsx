@@ -14,6 +14,8 @@ import AppButton from '../components/ui/AppButton';
 import AppSelect from '../components/ui/AppSelect';
 import AppInput from '../components/ui/AppInput'; // Requerido para ReassignModal
 import { CogIcon } from '../components/icons/CogIcon';
+import { PdfIcon } from '../components/icons/PdfIcon';
+import { CsvIcon } from '../components/icons/CsvIcon';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -487,11 +489,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   if (isFormOpen) return (
     <div className="animate-fade-in relative">
         <div className="mb-6 flex items-center gap-4">
-            <button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+            <AppButton onClick={() => setIsFormOpen(false)} variant="secondary" size="sm" className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors border-transparent shadow-none"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></AppButton>
             <h1 className="text-2xl font-black uppercase">Gestionar Remito</h1>
-            <button onClick={() => setShowShortcuts(true)} className="ml-auto text-gray-400 hover:text-primary-600 transition-colors" title="Atajos de Teclado">
+            <AppButton onClick={() => setShowShortcuts(true)} variant="secondary" size="sm" className="ml-auto text-gray-400 hover:text-primary-600 transition-colors border-transparent shadow-none" title="Atajos de Teclado">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </button>
+            </AppButton>
         </div>
         <Card>
             <RemitoForm 
@@ -519,35 +521,38 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
-            <button onClick={() => setShowShortcuts(true)} className="text-gray-400 hover:text-primary-600 transition-colors p-1" title="Atajos de teclado">
+            <AppButton onClick={() => setShowShortcuts(true)} variant="secondary" size="sm" className="text-gray-400 hover:text-primary-600 transition-colors p-1 border-transparent shadow-none" title="Atajos de teclado">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </button>
+            </AppButton>
           </div>
           
           <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl self-start">
-              <button 
+              <AppButton 
                 onClick={() => setActiveTab('listado')}
+                variant={activeTab === 'listado' ? 'primary' : 'secondary'}
                 className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'listado' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
                   Listado
-              </button>
-              <button 
+              </AppButton>
+              <AppButton 
                 onClick={() => setActiveTab('balance')}
+                variant={activeTab === 'balance' ? 'primary' : 'secondary'}
                 className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'balance' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
                   Balance de Envases
-              </button>
+              </AppButton>
           </div>
 
           <div className="flex gap-2 self-end md:self-auto">
               {currentUser.rol === Rol.ADMINISTRADOR && (
-                  <button 
+                  <AppButton 
                     onClick={() => setShowReassignModal(true)} 
-                    className="p-2 bg-yellow-100 text-yellow-800 rounded-xl hover:bg-yellow-200 transition-colors flex items-center gap-2"
+                    variant="secondary"
+                    className="p-2 bg-yellow-100 text-yellow-800 rounded-xl hover:bg-yellow-200 transition-colors flex items-center gap-2 border-transparent shadow-none"
                     title="Corrección Masiva de Asignación"
                   >
                       <CogIcon className="w-5 h-5" />
-                  </button>
+                  </AppButton>
               )}
               <AppButton onClick={openNewModal}>+ Nuevo Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
           </div>
@@ -598,16 +603,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2 hover:bg-blue-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeEdited}><PencilIcon/></button>
+                            <AppButton onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} variant="secondary" size="sm" className="!p-2 border-transparent bg-transparent text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-none" disabled={!remito.canBeEdited} title="Editar"><PencilIcon/></AppButton>
                             {currentUser.rol === Rol.ADMINISTRADOR && (
-                                <button
+                                <AppButton
                                     onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
-                                    className="text-red-500 p-2 hover:bg-red-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
+                                    variant="danger"
+                                    size="sm"
+                                    className="!p-2 border-transparent bg-transparent text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"
                                     disabled={!remito.canBeDeleted}
                                     title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
                                 >
                                     <TrashIcon />
-                                </button>
+                                </AppButton>
                             )}
                             <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
                         </div>
@@ -841,7 +848,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             }
 
                             doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
-                        }}>Generar PDF</AppButton>
+                        }} title="Generar PDF" className="!px-3"><PdfIcon className="w-5 h-5"/></AppButton>
                         <AppButton variant="secondary" onClick={() => {
                             const csvRows = [
                                 ['RESUMEN DEL PERÍODO POR PRODUCTO'],
@@ -886,7 +893,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             link.href = URL.createObjectURL(blob);
                             link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
                             link.click();
-                        }}>Exportar CSV</AppButton>
+                        }} title="Exportar CSV" className="!px-3"><CsvIcon className="w-5 h-5"/></AppButton>
                     </div>
                 </div>
                 

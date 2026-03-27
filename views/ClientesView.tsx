@@ -363,11 +363,11 @@ const ClienteForm: React.FC<{
                         <div className="flex-1">
                             <AppInput label="CUIT (Sin guiones)" name="cuit" value={formData.cuit || ''} onChange={handleChange} error={cuitExistente ? `CUIT de ${cuitExistente}` : undefined} placeholder="20123456789" />
                         </div>
-                        <button 
+                        <AppButton 
                             type="button" 
                             onClick={handleSearchCuit} 
                             disabled={isSearchingCuit || !formData.cuit || formData.cuit.length < 11}
-                            className="bg-primary-600 text-white p-3 rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all active:scale-95 mb-0.5"
+                            className="!p-3 mb-0.5"
                             title="Buscar datos Oficiales (Requiere API)"
                         >
                             {isSearchingCuit ? (
@@ -375,7 +375,7 @@ const ClienteForm: React.FC<{
                             ) : (
                                 <SearchIcon className="h-5 w-5" />
                             )}
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
                 
@@ -414,7 +414,7 @@ const ClienteForm: React.FC<{
                   {(formData.sucursales || []).map((suc, index) => (
                       <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1.5 h-full bg-primary-500"></div>
-                          <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2"><TrashIcon className="w-5 h-5"/></button>
+                          <AppButton variant="danger" size="sm" type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 !p-2 border-transparent bg-transparent text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"><TrashIcon className="w-5 h-5"/></AppButton>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
                               <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
@@ -425,8 +425,8 @@ const ClienteForm: React.FC<{
                                           <AppInput label="Dirección de Entrega" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} required={isInternal} />
                                       </div>
                                       <div className="flex gap-1 mb-1">
-                                          <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg"><SearchIcon className="w-5 h-5"/></button>
-                                          <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-2 rounded-lg transition-colors ${suc.lat ? 'text-white bg-green-600 hover:bg-green-700' : 'text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}><MapIcon className="w-5 h-5"/></button>
+                                          <AppButton variant="secondary" size="sm" type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="!p-2 border-transparent"><SearchIcon className="w-5 h-5"/></AppButton>
+                                          <AppButton variant={suc.lat ? 'success' : 'secondary'} size="sm" type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className="!p-2 border-transparent"><MapIcon className="w-5 h-5"/></AppButton>
                                       </div>
                                   </div>
                               </div>
@@ -514,14 +514,16 @@ const ClienteForm: React.FC<{
                                                   onChange={(e) => handleAuditChange(suc.id, item.productoId, e.target.value)} 
                                                   className="w-20 p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:ring-1 focus:ring-primary-500 outline-none text-sm"
                                               />
-                                              <button 
+                                              <AppButton 
                                                   type="button" 
+                                                  variant="danger"
+                                                  size="sm"
                                                   onClick={() => removeStockItem(suc.id, item.productoId)}
-                                                  className="p-2 text-red-400 hover:text-red-600"
+                                                  className="!p-2 border-transparent bg-transparent text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"
                                                   title="Quitar de la lista"
                                               >
                                                   <TrashIcon className="w-4 h-4" />
-                                              </button>
+                                              </AppButton>
                                           </div>
                                       ))}
                                   </div>
@@ -538,9 +540,9 @@ const ClienteForm: React.FC<{
                           </div>
                       </div>
                   ))}
-                  <button type="button" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 transition-all font-bold text-sm">
+                  <AppButton type="button" variant="secondary" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 transition-all font-bold text-sm bg-transparent">
                       + Agregar Sucursal <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span>
-                  </button>
+                  </AppButton>
               </div>
           </Card>
 
@@ -603,8 +605,8 @@ const ClienteForm: React.FC<{
                                       </div>
                                       <div className="flex items-center gap-3">
                                           <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{c.tipo}</span>
-                                          <button type="button" onClick={() => openEditContratoModal(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon className="w-4 h-4" /></button>
-                                          <button type="button" onClick={() => removeContratoInicial(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4" /></button>
+                                          <AppButton variant="secondary" size="sm" type="button" onClick={() => openEditContratoModal(c)} className="!p-2 text-blue-500 hover:bg-blue-50 rounded-full border-transparent"><PencilIcon className="w-4 h-4" /></AppButton>
+                                          <AppButton variant="danger" size="sm" type="button" onClick={() => removeContratoInicial(idx)} className="!p-2 text-red-500 hover:bg-red-50 rounded-full border-transparent bg-transparent shadow-none"><TrashIcon className="w-4 h-4" /></AppButton>
                                       </div>
                                   </div>
                               ))}
@@ -626,8 +628,8 @@ const ClienteForm: React.FC<{
                                       </div>
                                       <div className="flex items-center gap-3">
                                           <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>
-                                          <button type="button" onClick={() => openEditContratoModal(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon className="w-4 h-4" /></button>
-                                          <button type="button" onClick={() => toggleDeleteContrato(c.id)} className={`p-2 rounded-full transition-colors ${contratosAEliminar.has(c.id) ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}><TrashIcon className="w-4 h-4" /></button>
+                                          <AppButton variant="secondary" size="sm" type="button" onClick={() => openEditContratoModal(c)} className="!p-2 text-blue-500 hover:bg-blue-50 rounded-full border-transparent"><PencilIcon className="w-4 h-4" /></AppButton>
+                                          <AppButton variant={contratosAEliminar.has(c.id) ? 'danger' : 'secondary'} size="sm" type="button" onClick={() => toggleDeleteContrato(c.id)} className={`!p-2 rounded-full transition-colors border-transparent ${contratosAEliminar.has(c.id) ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}><TrashIcon className="w-4 h-4" /></AppButton>
                                       </div>
                                   </div>
                               ))}
@@ -790,7 +792,16 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   if (isModalOpen) return (
     <div className="animate-fade-in">
         <div className="mb-6 flex items-center gap-4">
-            <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+            <AppButton 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => setIsModalOpen(false)} 
+                className="!p-2 -ml-2 border-transparent bg-transparent text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full shadow-none"
+            >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
+            </AppButton>
             <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
         </div>
         <ClienteForm 
@@ -837,13 +848,13 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
                     {['Activo', 'Inactivo', 'todos'].map(s => (
-                        <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>{s === 'todos' ? 'TODOS' : s}</button>
+                        <AppButton key={s} variant={statusFilter === s ? 'primary' : 'secondary'} size="sm" onClick={() => setStatusFilter(s as any)} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">{s === 'todos' ? 'TODOS' : s}</AppButton>
                     ))}
                 </div>
                 <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
-                    <button onClick={() => setPaymentFilter('todos')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'todos' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>TODOS</button>
-                    <button onClick={() => setPaymentFilter('cta_cte')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'cta_cte' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>CTA. CTE.</button>
-                    <button onClick={() => setPaymentFilter('contado')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'contado' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>CONTADO</button>
+                    <AppButton variant={paymentFilter === 'todos' ? 'primary' : 'secondary'} size="sm" onClick={() => setPaymentFilter('todos')} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">TODOS</AppButton>
+                    <AppButton variant={paymentFilter === 'cta_cte' ? 'primary' : 'secondary'} size="sm" onClick={() => setPaymentFilter('cta_cte')} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">CTA. CTE.</AppButton>
+                    <AppButton variant={paymentFilter === 'contado' ? 'primary' : 'secondary'} size="sm" onClick={() => setPaymentFilter('contado')} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">CONTADO</AppButton>
                 </div>
             </div>
       </div>
@@ -890,7 +901,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                         <div className="flex items-center gap-1">
                             {/* Ahora los Externos también pueden editar SUS clientes */}
                             {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO || (currentUser?.tipo === TipoVendedor.EXTERNO && cliente.creadoPor === currentUser.id)) && 
-                                <button onClick={(e) => { e.stopPropagation(); setEditingCliente(cliente); setIsModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon /></button>
+                                <AppButton variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); setEditingCliente(cliente); setIsModalOpen(true); }} className="!p-2 text-blue-500 hover:bg-blue-50 rounded-full border-transparent"><PencilIcon /></AppButton>
                             }
                             <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         </div>
