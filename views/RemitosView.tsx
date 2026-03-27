@@ -183,6 +183,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
   const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
   const [balanceFilter, setBalanceFilter] = useState<'todos' | 'perdidos' | 'recuperados' | 'ambos'>('todos');
+  const [showRemitosColumn, setShowRemitosColumn] = useState(true);
   const [expandedRemitoId, setExpandedRemitoId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const [formInstanceId, setFormInstanceId] = useState(0);
@@ -295,6 +296,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
     }> = {};
     
     filteredRemitos.forEach(r => {
+        // Ignorar remitos que son de actualización de stock o carga inicial
+        const isAdjustment = !!r.esAjuste || (r.numero && r.numero.toString().startsWith('INI'));
+        if (isAdjustment) return;
+
         if (!stats[r.clienteId]) {
             stats[r.clienteId] = { entregados: 0, recibidos: 0, remitosCount: 0, detalles: {} };
         }
@@ -337,6 +342,21 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
         })
         .sort((a, b) => b.balance - a.balance);
 }, [filteredRemitos, returnableProductIds, clientesMap, balanceFilter]);
+
+  const periodTotalsByProduct = useMemo(() => {
+    const totals: Record<string, { entregados: number; recibidos: number; balance: number }> = {};
+    
+    balanceData.forEach(d => {
+        (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][]).forEach(([prodId, det]) => {
+            if (!totals[prodId]) totals[prodId] = { entregados: 0, recibidos: 0, balance: 0 };
+            totals[prodId].entregados += det.entregados;
+            totals[prodId].recibidos += det.recibidos;
+            totals[prodId].balance += (det.entregados - det.recibidos);
+        });
+    });
+    
+    return totals;
+  }, [balanceData]);
 
   const stockPlantaSummary = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -639,6 +659,17 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             ]}
                         />
                     </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-bold uppercase text-gray-400">Columnas</label>
+                        <AppButton 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => setShowRemitosColumn(!showRemitosColumn)}
+                            className={showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-700' : ''}
+                        >
+                            {showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
+                        </AppButton>
+                    </div>
                     <div className="flex gap-2">
                         <AppButton variant="secondary" onClick={() => {
                             const doc = new jsPDF();
@@ -685,18 +716,32 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             doc.setFontSize(11);
                             doc.setTextColor(0, 0, 0);
                             doc.setFont('helvetica', 'bold');
-                            doc.text('RESUMEN GENERAL:', 14, 45);
+                            doc.text('RESUMEN DEL PERÍODO POR PRODUCTO:', 14, 45);
                             
+                            doc.setFontSize(9);
                             doc.setFont('helvetica', 'normal');
-                            doc.text(`Total Entregados: ${totalEntregados}`, 14, 52);
-                            doc.text(`Total Recibidos: ${totalRecibidos}`, 70, 52);
-                            doc.setTextColor(totalBalance > 0 ? 200 : 0, totalBalance < 0 ? 150 : 0, 0);
-                            doc.text(`Balance Neto (En Calle): ${totalBalance > 0 ? '+' : ''}${totalBalance}`, 130, 52);
+                            let summaryY = 52;
+                                (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
+                                    const prod = productosMap.get(prodId);
+                                    if (summaryY > 260) {
+                                        doc.addPage();
+                                        summaryY = 20;
+                                    }
+                                    doc.setTextColor(0, 0, 0);
+                                    doc.text(`${prod?.nombre || 'N/A'}:`, 14, summaryY);
+                                    doc.setTextColor(0, 102, 204);
+                                    doc.text(`Entregados: ${totals.entregados}`, 70, summaryY);
+                                    doc.setTextColor(100, 100, 100);
+                                    doc.text(`Recibidos: ${totals.recibidos}`, 110, summaryY);
+                                    doc.setTextColor(totals.balance > 0 ? 200 : 0, totals.balance < 0 ? 150 : 0, 0);
+                                    doc.text(`Balance: ${totals.balance > 0 ? '+' : ''}${totals.balance}`, 150, summaryY);
+                                    summaryY += 6;
+                                });
                             
                             doc.setTextColor(0, 0, 0);
-                            doc.line(14, 58, 196, 58);
+                            doc.line(14, summaryY + 2, 196, summaryY + 2);
 
-                            let currentY = 68;
+                            let currentY = summaryY + 12;
 
                             days.forEach(day => {
                                 const clientsForDay = balanceData.filter(d => {
@@ -803,25 +848,44 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
                         }}>Generar PDF</AppButton>
                         <AppButton variant="secondary" onClick={() => {
-                            const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
-                            const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
-                            const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
+                            const csvRows = [
+                                ['RESUMEN DEL PERÍODO POR PRODUCTO'],
+                                ['Producto', 'Entregados', 'Recibidos', 'Balance Neto']
+                            ];
 
-                            const csv = [
-                                ['RESUMEN GENERAL'].join(','),
-                                ['Total Entregados', totalEntregados].join(','),
-                                ['Total Recibidos', totalRecibidos].join(','),
-                                ['Balance Neto (En Calle)', totalBalance].join(','),
-                                [],
-                                ['Cliente', 'Remitos', 'Entregados', 'Recibidos', 'Balance'].join(','),
-                                ...balanceData.map(d => [
+                            (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
+                                const prod = productosMap.get(prodId);
+                                csvRows.push([
+                                    `"${prod?.nombre || 'N/A'}"`,
+                                    totals.entregados.toString(),
+                                    totals.recibidos.toString(),
+                                    totals.balance.toString()
+                                ]);
+                            });
+
+                            csvRows.push([]);
+                            csvRows.push(['DETALLE POR CLIENTE']);
+                            
+                            const headers = ['Cliente', 'Dirección'];
+                            if (showRemitosColumn) headers.push('Remitos');
+                            headers.push('Entregados', 'Recibidos', 'Balance');
+                            csvRows.push(headers);
+
+                            balanceData.forEach(d => {
+                                const row = [
                                     `"${d.cliente?.nombre || 'N/A'}"`,
-                                    d.remitosCount,
-                                    d.entregados,
-                                    d.recibidos,
-                                    d.balance
-                                ].join(','))
-                            ].join('\n');
+                                    `"${d.cliente?.sucursales[0]?.direccion || ''}"`
+                                ];
+                                if (showRemitosColumn) row.push(d.remitosCount.toString());
+                                row.push(
+                                    d.entregados.toString(),
+                                    d.recibidos.toString(),
+                                    d.balance.toString()
+                                );
+                                csvRows.push(row);
+                            });
+
+                            const csv = csvRows.map(row => row.join(',')).join('\n');
                             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                             const link = document.createElement('a');
                             link.href = URL.createObjectURL(blob);
@@ -861,7 +925,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                         <thead className="text-[10px] text-gray-400 uppercase font-black bg-gray-50 dark:bg-gray-800/50">
                             <tr>
                                 <th className="px-4 py-3">Cliente</th>
-                                <th className="px-4 py-3 text-center">Remitos</th>
+                                {showRemitosColumn && <th className="px-4 py-3 text-center">Remitos</th>}
                                 <th className="px-4 py-3 text-center">Entregados</th>
                                 <th className="px-4 py-3 text-center">Recibidos</th>
                                 <th className="px-4 py-3 text-center">Balance Neto</th>
@@ -870,7 +934,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                         <tbody className="divide-y dark:divide-gray-700">
                             {balanceData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 italic">No hay movimientos de envases retornables en este período.</td>
+                                    <td colSpan={showRemitosColumn ? 5 : 4} className="px-4 py-8 text-center text-gray-500 italic">No hay movimientos de envases retornables en este período.</td>
                                 </tr>
                             ) : (
                                 balanceData.map((item) => (
@@ -879,7 +943,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                             <p className="font-bold text-gray-800 dark:text-white">{item.cliente?.nombre}</p>
                                             <p className="text-[10px] text-gray-500">{item.cliente?.sucursales[0]?.direccion}</p>
                                         </td>
-                                        <td className="px-4 py-3 text-center font-mono">{item.remitosCount}</td>
+                                        {showRemitosColumn && <td className="px-4 py-3 text-center font-mono">{item.remitosCount}</td>}
                                         <td className="px-4 py-3 text-center">
                                             <div className="flex flex-col items-center gap-0.5">
                                                 {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.entregados > 0 && (
@@ -919,19 +983,40 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 </div>
             </Card>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4 bg-blue-50 border-blue-100">
-                    <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Total Entregados</p>
-                    <p className="text-2xl font-black text-blue-800">{balanceData.reduce((sum, d) => sum + d.entregados, 0)}</p>
-                </Card>
-                <Card className="p-4 bg-gray-50 border-gray-100">
-                    <p className="text-[10px] font-black uppercase text-gray-600 mb-1">Total Recibidos</p>
-                    <p className="text-2xl font-black text-gray-800">{balanceData.reduce((sum, d) => sum + d.recibidos, 0)}</p>
-                </Card>
-                <Card className="p-4 bg-red-50 border-red-100">
-                    <p className="text-[10px] font-black uppercase text-red-600 mb-1">Balance Total (En Calle)</p>
-                    <p className="text-2xl font-black text-red-800">{balanceData.reduce((sum, d) => sum + d.balance, 0)}</p>
-                </Card>
+            <div className="space-y-4">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Resumen del Período por Producto</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {(Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).map(([prodId, totals]) => {
+                        const prod = productosMap.get(prodId);
+                        return (
+                            <Card key={prodId} className="p-4 overflow-hidden relative">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-primary-500"></div>
+                                <p className="text-[10px] font-black uppercase text-gray-400 mb-2 truncate">{prod?.nombre || 'N/A'}</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-bold text-blue-500 uppercase">Entregados</span>
+                                        <span className="text-xl font-black text-blue-700">{totals.entregados}</span>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[9px] font-bold text-gray-400 uppercase">Recibidos</span>
+                                        <span className="text-xl font-black text-gray-600">{totals.recibidos}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-2 pt-2 border-t dark:border-gray-700 flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Balance Neto</span>
+                                    <span className={`text-sm font-black ${totals.balance > 0 ? 'text-red-600' : totals.balance < 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {totals.balance > 0 ? `+${totals.balance}` : totals.balance}
+                                    </span>
+                                </div>
+                            </Card>
+                        );
+                    })}
+                    {Object.keys(periodTotalsByProduct).length === 0 && (
+                        <div className="col-span-full p-8 text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                            <p className="text-gray-400 text-sm italic">No hay datos para el período seleccionado.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
       )}
