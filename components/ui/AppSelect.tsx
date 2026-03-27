@@ -17,7 +17,7 @@ const AppSelect: React.FC<AppSelectProps> = ({ label, options, className = '', .
       <div className="relative">
         <select
           className={`
-            w-full px-4 py-2.5 pr-10
+            w-full h-[46px] px-4 py-2.5 pr-10
             bg-gray-50 dark:bg-gray-700/50 
             border border-gray-300 dark:border-gray-600 
             rounded-xl 

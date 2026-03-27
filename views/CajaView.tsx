@@ -308,16 +308,16 @@ const CajaView: React.FC<CajaViewProps> = ({
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
       <div className="flex flex-col md:flex-row justify-end items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-          <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
-              <div className="flex flex-col flex-1 min-w-[140px]">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Desde</span>
-                  <input type="date" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none" />
+          <div className="flex flex-wrap gap-2 items-end w-full md:w-auto">
+              <div className="flex-1 min-w-[140px]">
+                  <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} />
               </div>
-              <div className="flex flex-col flex-1 min-w-[140px]">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Hasta</span>
-                  <input type="date" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none" />
+              <div className="flex-1 min-w-[140px]">
+                  <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} />
               </div>
-              <button onClick={() => setDateFilter({from: '', to: ''})} className="mt-4 p-2 text-gray-400 hover:text-red-500 transition-colors" title="Limpiar Filtros">✕</button>
+              <div>
+                  <AppButton variant="secondary" onClick={() => setDateFilter({from: '', to: ''})} title="Limpiar Filtros">Limpiar</AppButton>
+              </div>
           </div>
       </div>
 

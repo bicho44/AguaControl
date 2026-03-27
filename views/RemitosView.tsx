@@ -569,12 +569,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 <div className="flex-1 min-w-[280px]">
                     <div className="flex gap-2 w-full">
                         <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-                            <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                            <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
                         </div>
                         <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
-                            <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                            <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
                         </div>
                     </div>
                 </div>
@@ -637,12 +635,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                     <div className="flex-1 min-w-[280px]">
                         <div className="flex gap-2 w-full">
                             <div className="flex-1">
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-                                <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                                <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
                             </div>
                             <div className="flex-1">
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
-                                <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                                <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
                             </div>
                         </div>
                     </div>
@@ -659,11 +655,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             ]}
                         />
                     </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold uppercase text-gray-400">Columnas</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Columnas</label>
                         <AppButton 
                             variant="secondary" 
-                            size="sm"
                             onClick={() => setShowRemitosColumn(!showRemitosColumn)}
                             className={showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-700' : ''}
                         >

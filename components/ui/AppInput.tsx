@@ -16,7 +16,7 @@ const AppInput: React.FC<AppInputProps> = ({ label, error, className = '', ...pr
       )}
       <input
         className={`
-          w-full px-4 py-2.5 
+          w-full h-[46px] px-4 py-2.5 
           bg-gray-50 dark:bg-gray-700/50 
           border border-gray-300 dark:border-gray-600 
           rounded-xl 

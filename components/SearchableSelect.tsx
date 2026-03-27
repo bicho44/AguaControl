@@ -157,7 +157,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         <input
             ref={inputRef}
             type="text"
-            className="w-full px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
+            className="w-full h-[46px] px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
             value={displayValue}
             onChange={(e) => {
                 setSearchTerm(e.target.value);

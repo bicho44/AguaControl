@@ -566,10 +566,10 @@ const ClienteForm: React.FC<{
                                       className="font-black text-green-600"
                                   />
                               </div>
-                              <div className="pb-3 text-xs text-gray-500">
+                              <div className="text-xs text-gray-500">
                                   Ref. Lista: <span className="font-bold">${precioLista.toLocaleString()}</span>
                               </div>
-                              <div className="pb-1">
+                              <div>
                                   <AppButton variant="danger" size="sm" onClick={() => handleRemovePrecioEspecial(index)} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
                               </div>
                           </div>

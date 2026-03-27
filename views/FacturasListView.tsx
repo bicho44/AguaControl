@@ -4,6 +4,9 @@ import { Factura, Cliente, RegistroPago, EstadoFactura, PagoDetalle, MetodoPago,
 import Card from '../components/Card';
 import SearchableSelect from '../components/SearchableSelect';
 import Modal from '../components/Modal';
+import AppInput from '../components/ui/AppInput';
+import AppSelect from '../components/ui/AppSelect';
+import AppButton from '../components/ui/AppButton';
 import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
@@ -59,27 +62,53 @@ const PagoFacturaForm: React.FC<{
                     <span>Saldo Restante: <strong>${montoRestante.toLocaleString('es-AR')}</strong></span>
                 </div>
             </div>
-            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+            
+            <AppInput 
+                type="date" 
+                label="Fecha de Pago" 
+                value={fecha} 
+                onChange={e => setFecha(e.target.value)} 
+                required 
+            />
             
             <fieldset className="border-t dark:border-gray-600 pt-4">
                 <legend className="text-lg font-medium text-gray-800 dark:text-white px-2">Detalle de Pago</legend>
-                <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2">
+                <div className="space-y-4 mt-2 max-h-60 overflow-y-auto pr-2">
                     {pagos.map((pago, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                            <input type="number" value={pago.monto} onChange={e => handlePagoChange(index, 'monto', e.target.value)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" placeholder="Monto" step="0.01" required />
-                            <select value={pago.metodo} onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                                {Object.values(MetodoPago).map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                            <button type="button" onClick={() => removePago(index)} className="text-red-500 p-2 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full"><TrashIcon className="h-5 w-5" /></button>
+                        <div key={index} className="flex gap-4 items-end">
+                            <div className="flex-1">
+                                <AppInput 
+                                    type="number" 
+                                    label="Monto"
+                                    value={pago.monto} 
+                                    onChange={e => handlePagoChange(index, 'monto', e.target.value)} 
+                                    placeholder="Monto" 
+                                    step="0.01" 
+                                    required 
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <AppSelect 
+                                    label="Método de Pago"
+                                    value={pago.metodo} 
+                                    onChange={e => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)}
+                                    options={Object.values(MetodoPago).map(m => ({ value: m, label: m }))}
+                                />
+                            </div>
+                            <div>
+                                <AppButton type="button" variant="danger" onClick={() => removePago(index)} title="Eliminar pago">
+                                    <TrashIcon className="h-5 w-5" />
+                                </AppButton>
+                            </div>
                         </div>
                     ))}
                 </div>
-                <button type="button" onClick={addPago} className="text-sm text-primary-600 hover:underline mt-2">+ Agregar forma de pago</button>
+                <button type="button" onClick={addPago} className="text-sm text-primary-600 hover:underline mt-4">+ Agregar forma de pago</button>
             </fieldset>
 
             <div className="flex justify-end gap-2 pt-4">
-                <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600">Cancelar</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white">Guardar Pago</button>
+                <AppButton type="button" variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                <AppButton type="submit" variant="primary">Guardar Pago</AppButton>
             </div>
         </form>
     );
@@ -252,24 +281,25 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
       <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Listado de Facturas</h1>
 
       <Card>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4 md:space-y-0 md:flex md:items-center md:gap-4 flex-wrap">
-          <div className="w-full md:w-auto md:flex-1">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-end">
+          <div className="flex-1 min-w-[200px]">
             <SearchableSelect
+              label="Cliente"
               options={clienteOptions}
               value={clienteFilter}
               onChange={setClienteFilter}
               placeholder="Todos los Clientes"
             />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <label className="text-sm font-medium">Desde:</label>
-            <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+          <div className="flex-1 min-w-[140px]">
+            <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <label className="text-sm font-medium">Hasta:</label>
-            <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+          <div className="flex-1 min-w-[140px]">
+            <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
           </div>
-          <button onClick={() => { setClienteFilter(''); setDateFilter({ from: '', to: '' }); }} className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 w-full md:w-auto">Limpiar</button>
+          <div>
+            <AppButton variant="secondary" onClick={() => { setClienteFilter(''); setDateFilter({ from: '', to: '' }); }}>Limpiar</AppButton>
+          </div>
         </div>
         <div className="space-y-2 p-2">
             {filteredFacturas.map(factura => {

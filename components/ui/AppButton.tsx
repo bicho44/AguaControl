@@ -27,9 +27,9 @@ const AppButton: React.FC<AppButtonProps> = ({
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-5 py-2.5 text-sm",
-    lg: "px-8 py-4 text-base"
+    sm: "px-3 py-1.5 text-xs h-[32px]",
+    md: "px-5 py-2.5 text-sm h-[46px]",
+    lg: "px-8 py-4 text-base h-[56px]"
   };
 
   return (
