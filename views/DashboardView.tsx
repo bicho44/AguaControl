@@ -338,6 +338,12 @@ const ExternalVendorDashboard: React.FC<{
     onOpenPago: () => void
 }> = ({ user, ventas, pagos, productosMap, onOpenStockPurchase, onOpenPago }) => {
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id && !v.clienteId), [ventas, user.id]);
+
+    const shortName = (name: string) => {
+        const prod = Array.from(productosMap.values()).find((p: any) => p.nombre === name) as Producto | undefined;
+        if (prod?.abreviatura) return prod.abreviatura;
+        return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
+    };
     
     const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
         let comprado = 0;
