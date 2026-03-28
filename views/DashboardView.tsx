@@ -5,6 +5,7 @@ import { Calendar, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Card from '../components/Card';
+import DaisyCard from '../components/ui/daisy/DaisyCard';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
 import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente, CausaRecambio, PlanillaDiaria, MovimientoStockPlanta } from '../types';
@@ -294,16 +295,16 @@ const InternalVendorDashboard: React.FC<{
                     </div>
                 </div>
 
-                <Card>
+                <DaisyCard>
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Mensual</p>
                         <p className="text-5xl font-black text-blue-600">{entregasTotal}</p>
                         <p className="text-xs text-gray-400 mt-2">Productos Retornables</p>
                     </div>
-                </Card>
+                </DaisyCard>
             </div>
 
-            <Card title="Progreso Diario de Entregas">
+            <DaisyCard title="Progreso Diario de Entregas">
                 <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
@@ -321,7 +322,7 @@ const InternalVendorDashboard: React.FC<{
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-            </Card>
+            </DaisyCard>
         </div>
     );
 };
