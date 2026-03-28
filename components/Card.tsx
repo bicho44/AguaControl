@@ -4,17 +4,18 @@ import React from 'react';
 interface CardProps {
   title?: string;
   children: React.ReactNode;
+  compact?: boolean;
 }
 
-const Card: React.FC<CardProps> = ({ title, children }) => {
+const Card: React.FC<CardProps> = ({ title, children, compact }) => {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
-      {title && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">{title}</h2>
-        </div>
-      )}
-      <div className="p-4">
+    <div className={`card bg-white dark:bg-gray-800 shadow-md ${compact ? 'card-compact' : ''}`}>
+      <div className="card-body p-4">
+        {title && (
+          <h2 className="card-title text-xl font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
+            {title}
+          </h2>
+        )}
         {children}
       </div>
     </div>
