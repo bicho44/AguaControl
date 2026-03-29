@@ -14,6 +14,6 @@ export default {
   },
   plugins: [daisyui],
   daisyui: {
-    themes: ["dracula", "light", "dark"],
+    themes: ["dracula","nord", "light", "dark"],
   },
 };
