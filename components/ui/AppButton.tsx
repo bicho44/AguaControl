@@ -16,30 +16,32 @@ const AppButton: React.FC<AppButtonProps> = ({
   type = 'button',
   ...props 
 }) => {
+  // Mapeo de variantes a clases de DaisyUI
   const variants = {
-    primary: "bg-primary-600 text-white hover:bg-primary-700",
-    secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
-    danger: "bg-red-600 text-white hover:bg-red-700",
-    success: "bg-green-600 text-white hover:bg-green-700",
-    ghost: "bg-transparent text-gray-600 hover:bg-gray-100"
+    primary: "btn-primary",
+    secondary: "btn-secondary",
+    danger: "btn-error",
+    success: "btn-success",
+    ghost: "btn-ghost"
   };
 
+  // Mapeo de tamaños a clases de DaisyUI
   const sizes = {
-    sm: "px-2 py-1 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg"
+    sm: "btn-sm",
+    md: "btn-md",
+    lg: "btn-lg"
   };
 
   return (
     <button 
       type={type}
-      className={`rounded-lg font-medium transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`btn ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={isLoading || props.disabled}
       {...props}
     >
       {isLoading ? (
         <>
-          <span className="animate-spin mr-2">...</span>
+          <span className="loading loading-spinner loading-sm"></span>
           Cargando...
         </>
       ) : children}

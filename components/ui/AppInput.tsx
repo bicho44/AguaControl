@@ -8,20 +8,22 @@ interface AppInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 const AppInput: React.FC<AppInputProps> = ({ label, error, className = '', ...props }) => {
   return (
-    <div className="w-full">
+    <label className="form-control w-full">
       {label && (
-        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
-          {label}
-        </label>
+        <div className="label">
+          <span className="label-text font-bold">{label}</span>
+        </div>
       )}
       <input
-        className={`w-full px-4 py-2.5 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all ${className}`}
+        className={`input input-bordered w-full ${error ? 'input-error' : ''} ${className}`}
         {...props}
       />
       {error && (
-        <p className="text-sm text-red-500 mt-1 ml-1">{error}</p>
+        <div className="label">
+          <span className="label-text-alt text-error">{error}</span>
+        </div>
       )}
-    </div>
+    </label>
   );
 };
 
