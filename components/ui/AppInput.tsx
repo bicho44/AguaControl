@@ -11,7 +11,7 @@ const AppInput: React.FC<AppInputProps> = ({ label, error, className = '', ...pr
     <label className="form-control w-full">
       {label && (
         <div className="label">
-          <span className="label-text font-bold">{label}</span>
+          <span className="label-text">{label}</span>
         </div>
       )}
       <input

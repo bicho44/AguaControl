@@ -13,10 +13,8 @@ const AppButton: React.FC<AppButtonProps> = ({
   size = 'md', 
   isLoading, 
   className = '', 
-  type = 'button',
   ...props 
 }) => {
-  // Mapeo de variantes a clases de DaisyUI
   const variants = {
     primary: "btn-primary",
     secondary: "btn-secondary",
@@ -25,7 +23,6 @@ const AppButton: React.FC<AppButtonProps> = ({
     ghost: "btn-ghost"
   };
 
-  // Mapeo de tamaños a clases de DaisyUI
   const sizes = {
     sm: "btn-sm",
     md: "btn-md",
@@ -34,17 +31,12 @@ const AppButton: React.FC<AppButtonProps> = ({
 
   return (
     <button 
-      type={type}
       className={`btn ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={isLoading || props.disabled}
       {...props}
     >
-      {isLoading ? (
-        <>
-          <span className="loading loading-spinner loading-sm"></span>
-          Cargando...
-        </>
-      ) : children}
+      {isLoading ? <span className="loading loading-spinner"></span> : null}
+      {children}
     </button>
   );
 };
