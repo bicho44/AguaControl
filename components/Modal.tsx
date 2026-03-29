@@ -18,30 +18,40 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className }) =
       }
     };
 
+    // Bloquear el scroll del body cuando el modal está abierto
+    document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      document.body.style.overflow = 'unset';
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
   
+  if (!isOpen) return null;
+
   return (
-    <div className={`modal ${isOpen ? 'modal-open' : ''}`}>
-      <div className={`modal-box p-6 w-full relative ${className || 'max-w-2xl'}`}>
+    <div 
+      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm px-4 py-6 sm:py-12 flex justify-center items-start sm:items-center"
+      onClick={onClose}
+    >
+      <div 
+        className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full relative transform transition-all animate-fade-in-up ${className || 'max-w-2xl'}`}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Botón de cierre rápido en la esquina superior derecha */}
         <button 
           onClick={onClose}
-          className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           aria-label="Cerrar modal"
         >
-          ✕
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
 
         {children}
       </div>
-      <form method="dialog" className="modal-backdrop" onClick={onClose}>
-        <button>close</button>
-      </form>
     </div>
   );
 };

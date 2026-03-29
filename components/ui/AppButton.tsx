@@ -17,29 +17,29 @@ const AppButton: React.FC<AppButtonProps> = ({
   ...props 
 }) => {
   const variants = {
-    primary: "btn-primary",
-    secondary: "btn-outline",
-    danger: "btn-error",
-    success: "btn-success",
-    ghost: "btn-ghost"
+    primary: "bg-primary-600 text-white hover:bg-primary-700",
+    secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
+    danger: "bg-red-600 text-white hover:bg-red-700",
+    success: "bg-green-600 text-white hover:bg-green-700",
+    ghost: "bg-transparent text-gray-600 hover:bg-gray-100"
   };
 
   const sizes = {
-    sm: "btn-sm",
-    md: "btn-md",
-    lg: "btn-lg"
+    sm: "px-2 py-1 text-sm",
+    md: "px-4 py-2 text-base",
+    lg: "px-6 py-3 text-lg"
   };
 
   return (
     <button 
       type={type}
-      className={`btn ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`rounded-lg font-medium transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={isLoading || props.disabled}
       {...props}
     >
       {isLoading ? (
         <>
-          <span className="loading loading-spinner loading-sm"></span>
+          <span className="animate-spin mr-2">...</span>
           Cargando...
         </>
       ) : children}

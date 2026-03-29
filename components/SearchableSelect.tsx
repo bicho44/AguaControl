@@ -147,17 +147,17 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   return (
-    <div className="form-control w-full relative" ref={wrapperRef}>
+    <div className="w-full relative" ref={wrapperRef}>
       {label && (
-        <label className="label">
-          <span className="label-text font-bold">{label}</span>
+        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
+          {label}
         </label>
       )}
       <div className="relative">
         <input
             ref={inputRef}
             type="text"
-            className="input input-bordered w-full pr-10"
+            className="w-full h-[46px] px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
             value={displayValue}
             onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -202,9 +202,9 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
       {isOpen && !disabled && createPortal(
           isMobileMode ? (
-            <div className="fixed inset-0 z-[100] bg-base-100 flex flex-col animate-fade-in">
-                <div className="bg-base-200 px-4 py-3 border-b border-base-300 flex items-center gap-3">
-                    <button type="button" onClick={() => setIsOpen(false)} className="btn btn-ghost btn-circle"><ChevronDownIcon className="rotate-90 w-6 h-6"/></button>
+            <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
+                <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
+                    <button type="button" onClick={() => setIsOpen(false)} className="p-2 text-gray-500"><ChevronDownIcon className="rotate-90 w-6 h-6"/></button>
                     <input
                         ref={mobileInputRef}
                         type="text"
@@ -212,27 +212,27 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         value={searchTerm}
                         onChange={(e) => {setSearchTerm(e.target.value); setIsTyping(true);}}
                         placeholder="Buscar..."
-                        className="input input-bordered flex-1"
+                        className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-lg border-none focus:ring-0"
                     />
                 </div>
                 <div className="flex-1 overflow-y-auto p-2">
                     {filteredOptions.map((opt) => (
-                        <div key={opt.value} onClick={() => handleSelect(opt.value)} className={`p-4 mb-2 rounded-xl border ${opt.value === value ? 'bg-primary text-primary-content' : 'bg-base-100'}`}>
+                        <div key={opt.value} onClick={() => handleSelect(opt.value)} className={`p-4 mb-2 rounded-xl border ${opt.value === value ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800'}`}>
                             <p className="font-bold">{opt.label}</p>
                         </div>
                     ))}
                 </div>
             </div>
           ) : (
-            <ul className="menu bg-base-100 rounded-box shadow-2xl border border-base-300" style={dropdownStyle}>
-                {filteredOptions.length > 0 ? filteredOptions.map((opt, idx) => (
-                    <li key={opt.value} onClick={() => handleSelect(opt.value)} onMouseEnter={() => setHighlightedIndex(idx)} className={idx === highlightedIndex ? 'bg-base-200' : ''}>
-                        <a className={opt.value === value ? 'font-bold bg-primary text-primary-content' : ''}>
+            <div className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto" style={dropdownStyle}>
+                <ul className="py-1">
+                    {filteredOptions.length > 0 ? filteredOptions.map((opt, idx) => (
+                        <li key={opt.value} onClick={() => handleSelect(opt.value)} onMouseEnter={() => setHighlightedIndex(idx)} className={`px-4 py-2.5 cursor-pointer text-sm ${idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''} ${opt.value === value ? 'font-bold bg-primary-100 text-primary-700' : ''}`}>
                             {opt.label}
-                        </a>
-                    </li>
-                )) : <li className="px-4 py-3 text-gray-400 text-center">Sin resultados</li>}
-            </ul>
+                        </li>
+                    )) : <li className="px-4 py-3 text-gray-400 text-center">Sin resultados</li>}
+                </ul>
+            </div>
           ), 
           document.body
       )}
