@@ -134,14 +134,7 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
       </div>
       <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
         {['Activo', 'Inactivo', 'todos'].map(s => (
-            <AppButton 
-                key={s} 
-                variant={statusFilter === s ? 'primary' : 'secondary'}
-                onClick={() => setStatusFilter(s as any)} 
-                className="px-4 py-2 rounded-lg text-xs font-bold border-transparent"
-            >
-                {s.toUpperCase()}
-            </AppButton>
+            <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500'}`}>{s.toUpperCase()}</button>
         ))}
       </div>
       <Card>
@@ -158,9 +151,7 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
                   <td className="px-6 py-4 text-right font-mono">${p.precio.toLocaleString()}</td>
                   <td className="px-6 py-4 text-right font-mono text-green-600">${(p.precioReventa || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-right">
-                    <AppButton variant="secondary" size="sm" onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="!p-2 rounded-full border-transparent">
-                        <PencilIcon />
-                    </AppButton>
+                    <button onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="text-primary-600 p-2 hover:bg-primary-50 rounded-full"><PencilIcon /></button>
                   </td>
                 </tr>
               ))}

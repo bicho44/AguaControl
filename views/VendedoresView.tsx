@@ -174,15 +174,7 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({ usuarios, registrosPago, re
                       <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-tighter ${u.tipo === TipoVendedor.EXTERNO ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{u.tipo}</span>
                   </div>
               </div>
-               <AppButton 
-                   variant="primary" 
-                   size="sm" 
-                   onClick={() => setEditingUsuario(u)} 
-                   className="!p-2 border-transparent bg-transparent text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full transition-colors shadow-none" 
-                   title="Editar Usuario"
-               >
-                   <PencilIcon />
-               </AppButton>
+               <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-colors"><PencilIcon /></button>
             </div>
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 space-y-2">
                 <p className="text-sm font-mono truncate">{u.email}</p>

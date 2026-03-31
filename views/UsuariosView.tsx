@@ -294,25 +294,15 @@ const VendorAccountModal: React.FC<{
                                         {h.monto < 0 ? '-' : '+'}${Math.abs(h.monto).toLocaleString()}
                                     </td>
                                     <td className="px-4 py-3 text-right flex justify-end gap-1">
-                                        <AppButton 
-                                            variant="secondary" 
-                                            size="sm" 
-                                            onClick={() => handleOpenEdit(h)} 
-                                            className="!p-2 border-transparent bg-transparent text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-none"
-                                            title="Editar"
-                                        >
-                                            <PencilIcon className="w-4 h-4" />
-                                        </AppButton>
-                                        <AppButton 
-                                            variant="danger" 
-                                            size="sm" 
+                                        <button onClick={() => handleOpenEdit(h)} className="text-blue-500 p-1" title="Editar"><PencilIcon className="w-4 h-4" /></button>
+                                        <button 
                                             onClick={() => handleDelete(h.id, h.type, h.original)}
-                                            className="!p-2 border-transparent bg-transparent text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none transition-colors"
+                                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
                                             title="Eliminar registro (Corrección)"
                                             disabled={deletingId === h.id}
                                         >
                                             {deletingId === h.id ? '...' : <TrashIcon className="w-4 h-4" />}
-                                        </AppButton>
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -428,25 +418,9 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({
               <div className="flex gap-1">
                    {/* MODIFICADO: AHORA SE MUESTRA PARA TODOS LOS REPARTIDORES, NO SOLO EXTERNOS */}
                    {(u.rol === Rol.REPARTIDOR || u.tipo === TipoVendedor.EXTERNO) && (
-                       <AppButton 
-                           variant="success" 
-                           size="sm" 
-                           onClick={() => setViewAccountUser(u)} 
-                           className="!p-2 border-transparent bg-transparent text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors shadow-none" 
-                           title="Gestión de Cuenta Corriente"
-                       >
-                           <CashIcon />
-                       </AppButton>
+                       <button onClick={() => setViewAccountUser(u)} className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors" title="Gestión de Cuenta Corriente"><CashIcon /></button>
                    )}
-                   <AppButton 
-                       variant="primary" 
-                       size="sm" 
-                       onClick={() => setEditingUsuario(u)} 
-                       className="!p-2 border-transparent bg-transparent text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full transition-colors shadow-none" 
-                       title="Editar Usuario"
-                   >
-                       <PencilIcon />
-                   </AppButton>
+                   <button onClick={() => setEditingUsuario(u)} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-colors" title="Editar Usuario"><PencilIcon /></button>
               </div>
             </div>
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 space-y-2">

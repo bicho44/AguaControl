@@ -4,7 +4,6 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
-import AppButton from '../components/ui/AppButton';
 
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -148,33 +147,31 @@ const LoginView: React.FC = () => {
             />
           </div>
           
-          <AppButton 
+          <button 
             type="submit" 
             disabled={isLoading}
             className="w-full py-4 px-4 bg-primary-600 hover:bg-primary-700 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary-500/20 transition-all transform active:scale-95 disabled:opacity-50"
           >
             {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')}
-          </AppButton>
+          </button>
         </form>
 
         <div className="mt-8 text-center space-y-4">
-            <AppButton 
+            <button 
                 onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
-                variant="secondary"
-                className="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-black uppercase tracking-tighter block w-full bg-transparent border-transparent shadow-none"
+                className="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-black uppercase tracking-tighter block w-full"
             >
                 {isRegistering 
                     ? '¿Ya tienes cuenta? Iniciar Sesión' 
                     : '¿No tienes contraseña aún? Regístrate aquí'}
-            </AppButton>
+            </button>
             
-            <AppButton 
+            <button 
                 onClick={handleResetConfig}
-                variant="secondary"
-                className="text-[9px] text-gray-400 hover:text-red-500 uppercase font-bold tracking-widest pt-4 block mx-auto opacity-50 bg-transparent border-transparent shadow-none"
+                className="text-[9px] text-gray-400 hover:text-red-500 uppercase font-bold tracking-widest pt-4 block mx-auto opacity-50"
             >
                 Configuración de base de datos
-            </AppButton>
+            </button>
         </div>
       </div>
       
