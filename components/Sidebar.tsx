@@ -1,101 +1,160 @@
 import React from 'react';
-import { View, Rol, User } from '../types';
+// Importaciones nombradas corregidas para evitar el error de Vercel
+import { ChartBarIcon } from './icons/ChartBarIcon';
+import { DocumentIcon } from './icons/DocumentIcon';
+import { UsersIcon } from './icons/UsersIcon';
+import { TruckIcon } from './icons/TruckIcon';
+import { UploadIcon } from './icons/UploadIcon';
+import { CubeIcon } from './icons/CubeIcon';
+import { CashIcon } from './icons/CashIcon';
+import { BookOpenIcon } from './icons/BookOpenIcon';
+import { ReceiptIcon } from './icons/ReceiptIcon';
+import { CogIcon } from './icons/CogIcon';
+import { HandshakeIcon } from './icons/HandshakeIcon';
+import { ClipboardListIcon } from './icons/ClipboardListIcon';
+import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
+import { MapIcon } from './icons/MapIcon';
+import { View, Usuario, Rol, EmpresaSettings, TipoVendedor } from '../types';
 import plugins from '../plugins';
-import ChartBarIcon from './icons/ChartBarIcon';
-import ClipboardListIcon from './icons/ClipboardListIcon';
-import UsersIcon from './icons/UsersIcon';
-import CubeIcon from './icons/CubeIcon';
-import CogIcon from './icons/CogIcon';
-import CashIcon from './icons/CashIcon';
-import MapIcon from './icons/MapIcon';
-import HandshakeIcon from './icons/HandshakeIcon';
-import BookOpenIcon from './icons/BookOpenIcon';
-import TruckIcon from './icons/TruckIcon';
-import ClipboardCheckIcon from './icons/ClipboardCheckIcon';
 
 interface SidebarProps {
   currentView: View;
   setCurrentView: (view: View) => void;
   isSidebarOpen: boolean;
   onClose: () => void;
-  currentUser: User;
-  empresaSettings: any;
+  currentUser: Usuario;
+  empresaSettings: EmpresaSettings;
   appVersion: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  currentView, 
-  setCurrentView, 
-  isSidebarOpen, 
-  onClose,
-  currentUser,
-  empresaSettings,
-  appVersion
-}) => {
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMIN, Rol.VENDEDOR, Rol.REPARTIDOR, Rol.SOPLADOR] },
-    { id: 'remitos', label: 'Remitos', icon: <ClipboardListIcon />, roles: [Rol.ADMIN, Rol.VENDEDOR, Rol.REPARTIDOR] },
-    { id: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMIN, Rol.VENDEDOR] },
-    { id: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMIN, Rol.VENDEDOR, Rol.REPARTIDOR] },
-    { id: 'rutas', label: 'Rutas', icon: <MapIcon />, roles: [Rol.ADMIN, Rol.VENDEDOR] },
-    { id: 'productos', label: 'Productos', icon: <CubeIcon />, roles: [Rol.ADMIN] },
-    { id: 'contratos', label: 'Abonos/Comodatos', icon: <HandshakeIcon />, roles: [Rol.ADMIN, Rol.VENDEDOR] },
-    { id: 'planillas', label: 'Planillas', icon: <ClipboardCheckIcon />, roles: [Rol.ADMIN] },
-    { id: 'usuarios', label: 'Usuarios', icon: <UsersIcon />, roles: [Rol.ADMIN] },
-    { id: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMIN] },
-    { id: 'logs', label: 'Logs Sistema', icon: <BookOpenIcon />, roles: [Rol.ADMIN] },
-  ];
+interface NavItem {
+  view: View;
+  label: string;
+  icon: React.ReactElement;
+  roles: Rol[];
+  excludeExternal?: boolean;
+}
 
-  const handleNavClick = (id: View) => {
-    setCurrentView(id);
-    onClose();
+// Mantenemos tus grupos originales de navegación
+const mainNavItems: NavItem[] = [
+  { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR, Rol.SOPLADOR] },
+  { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
+  { view: 'planillas', label: 'Stock y Cargas', icon: <ClipboardCheckIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] },
+];
+
+const managementNavItems: NavItem[] = [
+  { view: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
+  { view: 'cuentacorriente', label: 'Cta. Corriente', icon: <BookOpenIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'facturas', label: 'Facturas', icon: <ReceiptIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
+];
+
+const catalogNavItems: NavItem[] = [
+  { view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'productos', label: 'Productos', icon: <CubeIcon />, roles: [Rol.ADMINISTRADOR] },
+];
+
+const systemNavItems: NavItem[] = [
+  { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMINISTRADOR] },
+  { view: 'logs', label: 'Logs de Sistema', icon: <span>LOG</span>, roles: [Rol.ADMINISTRADOR] },
+];
+
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
+  
+  // Mantenemos tu lógica de filtrado por Rol y Tipo de Vendedor
+  const filterItems = (items: NavItem[]) => items.filter(item => {
+    const roleMatch = item.roles.includes(currentUser.rol);
+    if (!roleMatch) return false;
+    if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) return false;
+    return true;
+  });
+
+  const handleNavClick = (view: View) => {
+    setCurrentView(view);
+    if (window.innerWidth < 768) onClose(); // Cerramos solo en móviles
   };
 
-  return (
-    <nav>
-      <ul>
-        <li>
-          <strong>{empresaSettings?.nombre || 'AguaControl'}</strong>
-          <br />
-          <small>{currentUser.nombre} ({currentUser.rol})</small>
+  const renderNavGroup = (items: NavItem[]) => (
+    <ul>
+      {filterItems(items).map(item => (
+        <li key={item.view}>
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); handleNavClick(item.view); }}
+            className={currentView === item.view ? "" : "secondary"}
+          >
+            <span style={{ marginRight: '8px', verticalAlign: 'middle' }}>{item.icon}</span>
+            {item.label}
+          </a>
         </li>
-      </ul>
-      <ul>
-        {menuItems
-          .filter(item => item.roles.includes(currentUser.rol))
-          .map((item) => (
-            <li key={item.id}>
-              <a 
-                href="#" 
-                className={currentView === item.id ? '' : 'secondary'}
-                onClick={(e) => { e.preventDefault(); handleNavClick(item.id as View); }}
-              >
-                <span style={{ marginRight: '0.5rem' }}>{item.icon}</span>
-                {item.label}
-              </a>
-            </li>
-          ))}
+      ))}
+    </ul>
+  );
+
+  const pluginItems = plugins.filter(p => p.roles.includes(currentUser.rol));
+
+  return (
+    <aside style={{ display: isSidebarOpen ? 'block' : 'none', minWidth: '260px' }}>
+      <nav className="container-fluid">
+        <ul>
+          <li>
+            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+              {empresaSettings.logo ? (
+                <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '60px' }} />
+              ) : (
+                <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>
+              )}
+            </div>
+          </li>
+        </ul>
+
+        {renderNavGroup(mainNavItems)}
         
-        {/* Plugins */}
-        {plugins
-          .filter(p => p.roles.includes(currentUser.rol))
-          .map(plugin => (
-            <li key={plugin.id}>
-              <a 
-                href="#" 
-                className={currentView === `plugin_${plugin.id}` ? '' : 'secondary'}
-                onClick={(e) => { e.preventDefault(); handleNavClick(`plugin_${plugin.id}` as View); }}
-              >
-                <span style={{ marginRight: '0.5rem' }}>{plugin.icon}</span>
-                {plugin.name}
-              </a>
-            </li>
-          ))}
-      </ul>
-      <footer>
-        <small>v{appVersion}</small>
-      </footer>
-    </nav>
+        <details open>
+          <summary className="secondary">Gestión</summary>
+          {renderNavGroup(managementNavItems)}
+        </details>
+
+        <details>
+          <summary className="secondary">Catálogos</summary>
+          {renderNavGroup(catalogNavItems)}
+        </details>
+
+        <details>
+          <summary className="secondary">Sistema</summary>
+          {renderNavGroup(systemNavItems)}
+        </details>
+
+        {pluginItems.length > 0 && (
+          <details>
+            <summary className="secondary">Accesorios</summary>
+            <ul>
+              {pluginItems.map(plugin => (
+                <li key={plugin.id}>
+                  <a
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handleNavClick(`plugin_${plugin.id}` as View); }}
+                    className={currentView === `plugin_${plugin.id}` ? "" : "secondary"}
+                  >
+                    {plugin.icon} {plugin.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
+        <footer>
+          <small style={{ display: 'block', textAlign: 'center', marginTop: '1rem' }}>
+            v{appVersion}
+          </small>
+        </footer>
+      </nav>
+    </aside>
   );
 };
 
