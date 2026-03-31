@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ChartBarIcon } from './icons/ChartBarIcon';
 import { DocumentIcon } from './icons/DocumentIcon';
@@ -31,54 +32,87 @@ interface NavItem {
   label: string;
   icon: React.ReactElement;
   roles: Rol[];
-  excludeExternal?: boolean;
+  excludeExternal?: boolean; // Nueva propiedad para excluir a externos
 }
 
+// Grupo 1: Operativa Diaria
 const mainNavItems: NavItem[] = [
   { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR, Rol.SOPLADOR] },
   { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },
+// Remitos: Solo para Admins o Repartidores INTERNOS
   { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'planillas', label: 'Stock y Cargas', icon: <ClipboardCheckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] },
-];
+ ];
 
+// Grupo 2: Gestión
 const managementNavItems: NavItem[] = [
+  // Clientes: Solo para Admins o Repartidores INTERNOS (Externos gestionan su propia cartera en otro lado si quieren)
   { view: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'cuentacorriente', label: 'Cta. Corriente', icon: <BookOpenIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'facturas', label: 'Facturas', icon: <ReceiptIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
-];
+ { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
+ ];
 
+// Grupo 3: Catálogos
 const catalogNavItems: NavItem[] = [
-  { view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
+{ view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'productos', label: 'Productos', icon: <CubeIcon />, roles: [Rol.ADMINISTRADOR] },
 ];
 
+// Grupo 4: Sistema
 const systemNavItems: NavItem[] = [
   { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'logs', label: 'Logs de Sistema', icon: <span style={{fontSize: '10px', fontWeight: 'bold'}}>LOG</span>, roles: [Rol.ADMINISTRADOR] },
+  { view: 'logs', label: 'Logs de Sistema', icon: <div className="text-xs font-mono font-bold bg-gray-200 dark:bg-gray-600 rounded px-1">LOG</div>, roles: [Rol.ADMINISTRADOR] },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, onClose, currentUser, empresaSettings, appVersion }) => {
+
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
+  
   const filterItems = (items: NavItem[]) => items.filter(item => {
-    if (!item.roles.includes(currentUser.rol)) return false;
-    if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) return false;
-    return true;
+      // 1. Check Rol
+      const roleMatch = item.roles.includes(currentUser.rol);
+      if (!roleMatch) return false;
+
+      // 2. Check Exclusión de Externos
+      if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) {
+          return false;
+      }
+
+      return true;
   });
+
+  const group1 = filterItems(mainNavItems);
+  const group2 = filterItems(managementNavItems);
+  const group3 = filterItems(catalogNavItems);
+  const group4 = filterItems(systemNavItems);
+  
+  // Plugins filtrados por rol
+  const pluginItems = plugins.filter(p => p.roles.includes(currentUser.rol));
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
-    if (window.innerWidth < 992) onClose();
+    onClose(); 
   };
 
   const renderNavList = (items: NavItem[]) => (
-    <ul style={{ listStyle: 'none', padding: 0 }}>
-      {filterItems(items).map(item => (
+    <ul className="space-y-2 font-medium">
+      {items.map(item => (
         <li key={item.view}>
-          <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick(item.view); }} className={currentView === item.view ? "" : "secondary"} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {item.icon} <span style={{fontSize: '0.9rem'}}>{item.label}</span>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick(item.view);
+            }}
+            className={`flex items-center p-2 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group ${
+              currentView === item.view ? 'bg-gray-200 dark:bg-gray-700' : ''
+            }`}
+          >
+            <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white">{item.icon}</span>
+            <span className="ms-3">{item.label}</span>
           </a>
         </li>
       ))}
@@ -86,30 +120,88 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, onClose,
   );
 
   return (
-    <nav>
-      <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        {empresaSettings.logo ? <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '50px' }} /> : <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>}
-      </header>
-      {renderNavList(mainNavItems)}
-      <details open><summary className="secondary" style={{fontSize: '0.8rem'}}>GESTIÓN</summary>{renderNavList(managementNavItems)}</details>
-      <details><summary className="secondary" style={{fontSize: '0.8rem'}}>CATÁLOGOS</summary>{renderNavList(catalogNavItems)}</details>
-      <details><summary className="secondary" style={{fontSize: '0.8rem'}}>SISTEMA</summary>{renderNavList(systemNavItems)}</details>
-      {plugins.filter(p => p.roles.includes(currentUser.rol)).length > 0 && (
-        <details>
-          <summary className="secondary" style={{fontSize: '0.8rem'}}>ACCESORIOS</summary>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {plugins.filter(p => p.roles.includes(currentUser.rol)).map(plugin => (
-              <li key={plugin.id}>
-                <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick(`plugin_${plugin.id}` as View); }} className={currentView === `plugin_${plugin.id}` ? "" : "secondary"} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {plugin.icon} <span style={{fontSize: '0.9rem'}}>{plugin.name || (plugin as any).label}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-      <footer style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}><small style={{ display: 'block', textAlign: 'center', color: '#999' }}>v{appVersion}</small></footer>
-    </nav>
+    <aside className={`fixed top-0 left-0 z-50 w-64 h-screen transition-transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-2xl md:shadow-none`}>
+      <div className="h-full px-3 py-4 overflow-y-auto bg-white dark:bg-gray-800 flex flex-col border-r dark:border-gray-700">
+        
+        <button 
+          onClick={onClose}
+          className="md:hidden absolute top-4 right-4 p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <div className="flex items-center justify-center ps-2.5 mb-5 h-12 flex-shrink-0">
+            {empresaSettings.logo ? (
+              <img src={empresaSettings.logo} alt={empresaSettings.nombre} className="h-12 w-auto max-w-full object-contain" />
+            ) : (
+              <span className="self-center text-xl font-semibold whitespace-nowrap dark:text-white text-center">
+                {empresaSettings.nombreFantasia || empresaSettings.nombre}
+              </span>
+            )}
+        </div>
+
+        <div className="flex-grow space-y-4">
+            {renderNavList(group1)}
+            
+            {group2.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group2)}
+                </>
+            )}
+
+            {group3.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group3)}
+                </>
+            )}
+            
+            {group4.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group4)}
+                </>
+            )}
+
+            {pluginItems.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    <div className="px-3 py-2">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-2">Accesorios</h3>
+                        <ul className="space-y-2 font-medium">
+                            {pluginItems.map(plugin => (
+                                <li key={plugin.id}>
+                                    <a
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            handleNavClick(`plugin_${plugin.id}`);
+                                        }}
+                                        className={`flex items-center p-2 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group ${
+                                            currentView === `plugin_${plugin.id}` ? 'bg-gray-200 dark:bg-gray-700' : ''
+                                        }`}
+                                    >
+                                        <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white">{plugin.icon}</span>
+                                        <span className="ms-3">{plugin.label}</span>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </>
+            )}
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-center text-gray-400 dark:text-gray-500 font-mono">
+                v{appVersion}
+            </p>
+        </div>
+      </div>
+    </aside>
   );
 };
 

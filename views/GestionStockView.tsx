@@ -130,15 +130,13 @@ const PlanillaForm: React.FC<{
                 <div className="flex justify-between items-center px-1">
                     <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Productos a Cargar</h3>
                     {repartidorId && (
-                        <AppButton 
+                        <button 
                             type="button" 
                             onClick={handleLoadLast}
-                            variant="secondary"
-                            size="sm"
-                            className="text-[10px] font-black text-primary-600 hover:text-primary-700 uppercase tracking-widest bg-primary-50 dark:bg-primary-900/20 px-3 py-1 rounded-full transition-colors border-transparent shadow-none"
+                            className="text-[10px] font-black text-primary-600 hover:text-primary-700 uppercase tracking-widest bg-primary-50 dark:bg-primary-900/20 px-3 py-1 rounded-full transition-colors"
                         >
                             ⚡ Cargar Último Reparto
-                        </AppButton>
+                        </button>
                     )}
                 </div>
                 
