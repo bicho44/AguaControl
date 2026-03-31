@@ -1,5 +1,4 @@
 import React from 'react';
-// Importaciones nombradas corregidas para evitar el error de Vercel
 import { ChartBarIcon } from './icons/ChartBarIcon';
 import { DocumentIcon } from './icons/DocumentIcon';
 import { UsersIcon } from './icons/UsersIcon';
@@ -35,7 +34,6 @@ interface NavItem {
   excludeExternal?: boolean;
 }
 
-// Mantenemos tus grupos originales de navegación
 const mainNavItems: NavItem[] = [
   { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR, Rol.SOPLADOR] },
   { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },
@@ -65,7 +63,6 @@ const systemNavItems: NavItem[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
   
-  // Mantenemos tu lógica de filtrado por Rol y Tipo de Vendedor
   const filterItems = (items: NavItem[]) => items.filter(item => {
     const roleMatch = item.roles.includes(currentUser.rol);
     if (!roleMatch) return false;
@@ -75,10 +72,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
-    if (window.innerWidth < 768) onClose(); // Cerramos solo en móviles
   };
 
-  const renderNavGroup = (items: NavItem[]) => (
+  const renderNavList = (items: NavItem[]) => (
     <ul>
       {filterItems(items).map(item => (
         <li key={item.view}>
@@ -87,7 +83,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
             onClick={(e) => { e.preventDefault(); handleNavClick(item.view); }}
             className={currentView === item.view ? "" : "secondary"}
           >
-            <span style={{ marginRight: '8px', verticalAlign: 'middle' }}>{item.icon}</span>
             {item.label}
           </a>
         </li>
@@ -95,66 +90,39 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
     </ul>
   );
 
-  const pluginItems = plugins.filter(p => p.roles.includes(currentUser.rol));
-
   return (
-    <aside style={{ display: isSidebarOpen ? 'block' : 'none', minWidth: '260px' }}>
-      <nav className="container-fluid">
-        <ul>
-          <li>
-            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-              {empresaSettings.logo ? (
-                <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '60px' }} />
-              ) : (
-                <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>
-              )}
-            </div>
-          </li>
-        </ul>
-
-        {renderNavGroup(mainNavItems)}
-        
-        <details open>
-          <summary className="secondary">Gestión</summary>
-          {renderNavGroup(managementNavItems)}
-        </details>
-
-        <details>
-          <summary className="secondary">Catálogos</summary>
-          {renderNavGroup(catalogNavItems)}
-        </details>
-
-        <details>
-          <summary className="secondary">Sistema</summary>
-          {renderNavGroup(systemNavItems)}
-        </details>
-
-        {pluginItems.length > 0 && (
-          <details>
-            <summary className="secondary">Accesorios</summary>
-            <ul>
-              {pluginItems.map(plugin => (
-                <li key={plugin.id}>
-                  <a
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); handleNavClick(`plugin_${plugin.id}` as View); }}
-                    className={currentView === `plugin_${plugin.id}` ? "" : "secondary"}
-                  >
-                    {plugin.icon} {plugin.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </details>
+    <nav>
+      <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        {empresaSettings.logo ? (
+          <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '50px' }} />
+        ) : (
+          <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>
         )}
+      </header>
 
-        <footer>
-          <small style={{ display: 'block', textAlign: 'center', marginTop: '1rem' }}>
-            v{appVersion}
-          </small>
-        </footer>
-      </nav>
-    </aside>
+      {renderNavList(mainNavItems)}
+      
+      <details open>
+        <summary className="secondary">Gestión</summary>
+        {renderNavList(managementNavItems)}
+      </details>
+
+      <details>
+        <summary className="secondary">Catálogos</summary>
+        {renderNavList(catalogNavItems)}
+      </details>
+
+      <details>
+        <summary className="secondary">Sistema</summary>
+        {renderNavList(systemNavItems)}
+      </details>
+
+      <footer>
+        <small style={{ display: 'block', textAlign: 'center', marginTop: '1rem' }}>
+          v{appVersion}
+        </small>
+      </footer>
+    </nav>
   );
 };
 

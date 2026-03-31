@@ -60,7 +60,6 @@ function AppContent() {
         route: currentView
       });
     };
-
     window.addEventListener('error', handleGlobalError);
     return () => window.removeEventListener('error', handleGlobalError);
   }, [user, currentView, dataStore]);
@@ -69,7 +68,7 @@ function AppContent() {
     if (user) setCurrentView('dashboard');
   }, [user]);
 
-  if (authLoading) return <div aria-busy="true">Cargando...</div>;
+  if (authLoading) return <div aria-busy="true" className="container">Cargando aplicación...</div>;
   if (!user) return <LoginView />;
 
   const renderView = () => {
@@ -96,7 +95,6 @@ function AppContent() {
         setCurrentView: setCurrentView
     };
 
-    // Lógica de roles y plugins se mantiene igual...
     if (currentView.startsWith('plugin_')) {
       const pluginId = currentView.replace('plugin_', '');
       const plugin = plugins.find(p => p.id === pluginId);
@@ -125,37 +123,39 @@ function AppContent() {
   };
 
   return (
-    <div className="container-fluid">
-      <div className="grid">
-        <aside>
-          <Sidebar 
-            currentView={currentView} 
-            setCurrentView={setCurrentView} 
-            isSidebarOpen={isSidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            currentUser={user}
-            empresaSettings={dataStore.empresaSettings}
-            appVersion={APP_VERSION}
-          />
-        </aside>
-        <main>
+    <>
+      <aside role="sidebar" className={isSidebarOpen ? 'open' : ''}>
+        <Sidebar 
+          currentView={currentView} 
+          setCurrentView={setCurrentView} 
+          isSidebarOpen={isSidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          currentUser={user}
+          empresaSettings={dataStore.empresaSettings}
+          appVersion={APP_VERSION}
+        />
+      </aside>
+
+      <main role="main-content">
+        <header>
           <nav>
             <ul>
-              <li>
-                <button className="outline" onClick={() => setSidebarOpen(!isSidebarOpen)}>Menu</button>
+              <li style={{ display: window.innerWidth < 992 ? 'block' : 'none' }}>
+                <button className="outline" onClick={() => setSidebarOpen(!isSidebarOpen)}>☰</button>
               </li>
-            </ul>
-            <ul>
               <li><strong>{currentView.toUpperCase()}</strong></li>
             </ul>
             <ul>
-              <li><button className="secondary" onClick={logout}>Cerrar Sesión</button></li>
+              <li><small>{user.nombre}</small></li>
+              <li><button className="secondary outline" onClick={logout}>Salir</button></li>
             </ul>
           </nav>
+        </header>
+        <section>
           {renderView()}
-        </main>
-      </div>
-    </div>
+        </section>
+      </main>
+    </>
   );
 }
 
