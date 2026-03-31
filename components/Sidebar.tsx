@@ -58,32 +58,27 @@ const systemNavItems: NavItem[] = [
   { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'logs', label: 'Logs de Sistema', icon: <span>LOG</span>, roles: [Rol.ADMINISTRADOR] },
+  { view: 'logs', label: 'Logs de Sistema', icon: <span style={{fontSize: '10px', fontWeight: 'bold'}}>LOG</span>, roles: [Rol.ADMINISTRADOR] },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
-  
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, onClose, currentUser, empresaSettings, appVersion }) => {
   const filterItems = (items: NavItem[]) => items.filter(item => {
-    const roleMatch = item.roles.includes(currentUser.rol);
-    if (!roleMatch) return false;
+    if (!item.roles.includes(currentUser.rol)) return false;
     if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) return false;
     return true;
   });
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
+    if (window.innerWidth < 992) onClose();
   };
 
   const renderNavList = (items: NavItem[]) => (
-    <ul>
+    <ul style={{ listStyle: 'none', padding: 0 }}>
       {filterItems(items).map(item => (
         <li key={item.view}>
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); handleNavClick(item.view); }}
-            className={currentView === item.view ? "" : "secondary"}
-          >
-            {item.label}
+          <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick(item.view); }} className={currentView === item.view ? "" : "secondary"} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {item.icon} <span style={{fontSize: '0.9rem'}}>{item.label}</span>
           </a>
         </li>
       ))}
@@ -93,35 +88,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   return (
     <nav>
       <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        {empresaSettings.logo ? (
-          <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '50px' }} />
-        ) : (
-          <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>
-        )}
+        {empresaSettings.logo ? <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '50px' }} /> : <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>}
       </header>
-
       {renderNavList(mainNavItems)}
-      
-      <details open>
-        <summary className="secondary">Gestión</summary>
-        {renderNavList(managementNavItems)}
-      </details>
-
-      <details>
-        <summary className="secondary">Catálogos</summary>
-        {renderNavList(catalogNavItems)}
-      </details>
-
-      <details>
-        <summary className="secondary">Sistema</summary>
-        {renderNavList(systemNavItems)}
-      </details>
-
-      <footer>
-        <small style={{ display: 'block', textAlign: 'center', marginTop: '1rem' }}>
-          v{appVersion}
-        </small>
-      </footer>
+      <details open><summary className="secondary" style={{fontSize: '0.8rem'}}>GESTIÓN</summary>{renderNavList(managementNavItems)}</details>
+      <details><summary className="secondary" style={{fontSize: '0.8rem'}}>CATÁLOGOS</summary>{renderNavList(catalogNavItems)}</details>
+      <details><summary className="secondary" style={{fontSize: '0.8rem'}}>SISTEMA</summary>{renderNavList(systemNavItems)}</details>
+      {plugins.filter(p => p.roles.includes(currentUser.rol)).length > 0 && (
+        <details>
+          <summary className="secondary" style={{fontSize: '0.8rem'}}>ACCESORIOS</summary>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {plugins.filter(p => p.roles.includes(currentUser.rol)).map(plugin => (
+              <li key={plugin.id}>
+                <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick(`plugin_${plugin.id}` as View); }} className={currentView === `plugin_${plugin.id}` ? "" : "secondary"} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {plugin.icon} <span style={{fontSize: '0.9rem'}}>{plugin.name || (plugin as any).label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <footer style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}><small style={{ display: 'block', textAlign: 'center', color: '#999' }}>v{appVersion}</small></footer>
     </nav>
   );
 };

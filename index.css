@@ -1,14 +1,12 @@
-/* Importación principal de Pico.css */
+/* Importación de Pico.css */
 @import "@picocss/pico";
 
-/* Reset de Layout para el Dashboard de AguaControl */
 :root {
-  --sidebar-width: 260px;
+  --sidebar-width: 280px;
   --pico-primary: #0077cc;
-  --pico-font-size: 14px; /* Tamaño de fuente más administrativo */
+  --pico-font-size: 15px;
 }
 
-/* Forzar caja de bordes global */
 *, ::before, ::after {
   box-sizing: border-box;
 }
@@ -18,11 +16,10 @@ body {
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
   background-color: var(--pico-background-color);
 }
 
-/* El Sidebar queda fijo a la izquierda */
+/* Sidebar Fijo */
 aside[role="sidebar"] {
   width: var(--sidebar-width);
   height: 100vh;
@@ -36,16 +33,14 @@ aside[role="sidebar"] {
   z-index: 100;
 }
 
-/* El contenido principal se desplaza para dejar lugar al Sidebar */
+/* Contenido Principal */
 main[role="main-content"] {
   flex: 1;
   margin-left: var(--sidebar-width);
-  padding: 1.5rem;
+  padding: 1.5rem 2.5rem;
   width: calc(100% - var(--sidebar-width));
-  min-height: 100vh;
 }
 
-/* Ajustes para dispositivos móviles */
 @media (max-width: 992px) {
   aside[role="sidebar"] {
     transform: translateX(-100%);
@@ -60,23 +55,13 @@ main[role="main-content"] {
   }
 }
 
-/* Parches de legibilidad para la administración en Bariloche */
+/* Fix de Visibilidad para la Administración */
 input, select, textarea {
-  background-color: white !important; 
+  background-color: white !important;
   color: #333 !important;
-  margin-bottom: 1rem;
+  border: 1px solid #ccc !important;
 }
 
-/* Fix para Leaflet y elementos flotantes */
 .leaflet-container {
   z-index: 1 !important;
-}
-
-/* Scrollbar sutil para el Sidebar */
-aside[role="sidebar"]::-webkit-scrollbar {
-  width: 4px;
-}
-aside[role="sidebar"]::-webkit-scrollbar-thumb {
-  background: var(--pico-muted-border-color);
-  border-radius: 2px;
 }
