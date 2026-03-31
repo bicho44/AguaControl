@@ -1,31 +1,38 @@
-
 import React from 'react';
 
 interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'contrast' | 'outline';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
 }
 
 const AppButton: React.FC<AppButtonProps> = ({ 
   children, 
-  variant, 
+  variant = 'primary', 
+  size = 'md', 
   isLoading, 
   className = '', 
   type = 'button',
   ...props 
 }) => {
-  // Pico.css usa clases como 'secondary', 'contrast', 'outline' directamente en el botón
-  const variantClass = variant ? (variant === 'primary' ? '' : variant) : '';
-  
+  // Mapeo de variantes a clases nativas de Pico.css
+  const variantClasses = {
+    primary: "",
+    secondary: "secondary",
+    danger: "contrast", // Pico usa contrast para acciones de alto impacto
+    success: "", 
+    outline: "outline"
+  };
+
   return (
     <button 
       type={type}
-      className={`${variantClass} ${className}`.trim()}
-      aria-busy={isLoading}
+      className={`${variantClasses[variant]} ${className}`}
       disabled={isLoading || props.disabled}
+      aria-busy={isLoading}
       {...props}
     >
-      {children}
+      {!isLoading && children}
     </button>
   );
 };
