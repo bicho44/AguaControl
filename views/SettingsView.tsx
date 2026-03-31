@@ -249,7 +249,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                                     {formData.afipConfig?.cert && <span className="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded">CARGADO</span>}
                                 </div>
                                 <label className="cursor-pointer block">
-                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-blue-500 transition-colors">
+                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-primary-500 transition-colors">
                                         <UploadIcon /> <span className="text-xs font-bold">Subir archivo .CRT</span>
                                     </div>
                                     <input type="file" accept=".crt,.pem" className="hidden" onChange={(e) => handleFileUpload(e, 'cert')} />
@@ -268,7 +268,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                                     {formData.afipConfig?.key && <span className="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded">CARGADO</span>}
                                 </div>
                                 <label className="cursor-pointer block">
-                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-blue-500 transition-colors">
+                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-primary-500 transition-colors">
                                         <UploadIcon /> <span className="text-xs font-bold">Subir archivo .KEY</span>
                                     </div>
                                     <input type="file" accept=".key" className="hidden" onChange={(e) => handleFileUpload(e, 'key')} />
