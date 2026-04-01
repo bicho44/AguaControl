@@ -94,12 +94,6 @@ const AppButton: React.FC<AppButtonProps> = ({
       ) : (
         <>
           {children}
-          {type === 'submit' && !isCancel && (
-            <span className="opacity-60 text-[10px] ml-1 font-normal hidden sm:inline">(Alt+Enter)</span>
-          )}
-          {isCancel && (
-            <span className="opacity-60 text-[10px] ml-1 font-normal hidden sm:inline">(Esc)</span>
-          )}
         </>
       )}
     </button>
