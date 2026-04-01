@@ -10,6 +10,8 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 
+// Force sync
+
 interface ProductosViewProps {
   productos: Producto[];
   addProducto: (producto: Omit<Producto, 'id' | 'estado'>) => void;
@@ -82,7 +84,7 @@ const ProductoForm: React.FC<{
       </div>
       <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto</AppButton>
+        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )

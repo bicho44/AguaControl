@@ -9,6 +9,8 @@ import { MapIcon } from '../components/icons/MapIcon';
 import { useNotification } from '../context/NotificationContext';
 import MapPickerModal from '../components/MapPickerModal';
 
+// Force sync
+
 interface RutasViewProps {
   clientes: Cliente[];
   usuarios: Usuario[];

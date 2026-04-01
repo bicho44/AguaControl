@@ -8,6 +8,8 @@ import { SearchIcon } from '../components/icons/SearchIcon';
 import Modal from '../components/Modal';
 import { useNotification } from '../context/NotificationContext';
 
+// Force sync
+
 interface SystemLogsViewProps {
     logs: LogEntry[];
 }

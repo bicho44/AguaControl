@@ -11,6 +11,8 @@ import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import SearchableSelect from '../components/SearchableSelect';
 
+// Force sync
+
 interface UsuariosViewProps {
   usuarios: Usuario[];
   registrosPago: RegistroPago[];
@@ -116,7 +118,7 @@ const UsuarioForm: React.FC<{
 
       <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-8">Guardar Usuario</AppButton>
+        <AppButton variant="primary" type="submit" className="px-8">Guardar Usuario <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )
