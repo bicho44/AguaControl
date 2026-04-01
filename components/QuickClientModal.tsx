@@ -71,18 +71,42 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
     });
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Nuevo Cliente Rápido</h3>
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title="Nuevo Cliente Rápido"
+            style={{ maxWidth: '450px' }}
+        >
+            <form onSubmit={handleSubmit} style={{ margin: 0 }}>
                 <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} required />
-                <div className="relative">
+                <div style={{ position: 'relative' }}>
                     <AppInput label="Dirección de Entrega" value={direccion} onChange={e => setDireccion(e.target.value)} />
-                    <button type="button" onClick={handleGetLocation} disabled={isLocating} className="absolute right-2 top-8 p-1.5 rounded-lg text-gray-400 hover:text-primary-600"><MapIcon className="w-6 h-6" /></button>
+                    <button 
+                        type="button" 
+                        onClick={handleGetLocation} 
+                        disabled={isLocating} 
+                        className="outline"
+                        style={{ 
+                            position: 'absolute', 
+                            right: '0.5rem', 
+                            top: '2.25rem', 
+                            padding: '0.25rem', 
+                            margin: 0, 
+                            width: 'auto', 
+                            border: 'none', 
+                            background: 'transparent',
+                            color: 'var(--pico-muted-color)'
+                        }}
+                    >
+                        <MapIcon style={{ width: '1.5rem', height: '1.5rem' }} />
+                    </button>
                 </div>
                 <AppInput label="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} />
-                <div className="flex justify-end gap-2 pt-4">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
                     <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
+                    <AppButton variant="primary" type="submit" isLoading={isSaving}>
+                        Crear <small style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: '0.25rem', fontWeight: 'normal' }}>(Alt+Enter)</small>
+                    </AppButton>
                 </div>
             </form>
         </Modal>

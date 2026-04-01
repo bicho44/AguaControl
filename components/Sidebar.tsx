@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ChartBarIcon } from './icons/ChartBarIcon';
 import { DocumentIcon } from './icons/DocumentIcon';
@@ -31,68 +32,85 @@ interface NavItem {
   label: string;
   icon: React.ReactElement;
   roles: Rol[];
-  excludeExternal?: boolean;
+  excludeExternal?: boolean; // Nueva propiedad para excluir a externos
 }
 
+// Grupo 1: Operativa Diaria
 const mainNavItems: NavItem[] = [
   { view: 'dashboard', label: 'Dashboard', icon: <ChartBarIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR, Rol.SOPLADOR] },
   { view: 'caja', label: 'Caja', icon: <CashIcon />, roles: [Rol.ADMINISTRADOR] },
+// Remitos: Solo para Admins o Repartidores INTERNOS
   { view: 'remitos', label: 'Remitos', icon: <DocumentIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'planillas', label: 'Stock y Cargas', icon: <ClipboardCheckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'rutas', label: 'Hoja de Ruta', icon: <MapIcon />, roles: [Rol.ADMINISTRADOR] },
-];
+ ];
 
+// Grupo 2: Gestión
 const managementNavItems: NavItem[] = [
+  // Clientes: Solo para Admins o Repartidores INTERNOS (Externos gestionan su propia cartera en otro lado si quieren)
   { view: 'clientes', label: 'Clientes', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR], excludeExternal: true },
   { view: 'cuentacorriente', label: 'Cta. Corriente', icon: <BookOpenIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'facturas', label: 'Facturas', icon: <ReceiptIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
-];
+ { view: 'contratos', label: 'Contratos', icon: <HandshakeIcon />, roles: [Rol.ADMINISTRADOR] },
+ ];
 
+// Grupo 3: Catálogos
 const catalogNavItems: NavItem[] = [
-  { view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
+{ view: 'servicios', label: 'Servicios', icon: <ClipboardListIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'productos', label: 'Productos', icon: <CubeIcon />, roles: [Rol.ADMINISTRADOR] },
 ];
 
+// Grupo 4: Sistema
 const systemNavItems: NavItem[] = [
   { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'logs', label: 'Logs de Sistema', icon: <span style={{fontSize: '10px', fontWeight: 'bold'}}>LOG</span>, roles: [Rol.ADMINISTRADOR] },
+  { view: 'logs', label: 'Logs de Sistema', icon: <div style={{ fontSize: '0.625rem', fontFamily: 'var(--pico-font-family-mono)', fontWeight: 'bold', backgroundColor: 'var(--pico-muted-background-color)', borderRadius: '4px', padding: '0 4px' }}>LOG</div>, roles: [Rol.ADMINISTRADOR] },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, onClose, currentUser, empresaSettings, appVersion }) => {
+
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
+  
   const filterItems = (items: NavItem[]) => items.filter(item => {
-    if (!item.roles.includes(currentUser.rol)) return false;
-    if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) return false;
-    return true;
+      // 1. Check Rol
+      const roleMatch = item.roles.includes(currentUser.rol);
+      if (!roleMatch) return false;
+
+      // 2. Check Exclusión de Externos
+      if (item.excludeExternal && currentUser.tipo === TipoVendedor.EXTERNO) {
+          return false;
+      }
+
+      return true;
   });
+
+  const group1 = filterItems(mainNavItems);
+  const group2 = filterItems(managementNavItems);
+  const group3 = filterItems(catalogNavItems);
+  const group4 = filterItems(systemNavItems);
+  
+  // Plugins filtrados por rol
+  const pluginItems = plugins.filter(p => p.roles.includes(currentUser.rol));
 
   const handleNavClick = (view: View) => {
     setCurrentView(view);
-    if (window.innerWidth < 992) onClose();
+    onClose(); 
   };
 
   const renderNavList = (items: NavItem[]) => (
-    <ul style={{ listStyle: 'none', padding: 0, marginBottom: '1rem' }}>
-      {filterItems(items).map(item => (
-        <li key={item.view} style={{ marginBottom: '0.25rem' }}>
-          <a 
-            href="#" 
-            onClick={(e) => { e.preventDefault(); handleNavClick(item.view); }} 
-            className={currentView === item.view ? "" : "secondary outline"} 
-            style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '10px',
-                padding: '0.5rem 0.75rem',
-                borderRadius: 'var(--pico-border-radius)',
-                textDecoration: 'none',
-                backgroundColor: currentView === item.view ? 'var(--pico-primary-background)' : 'transparent',
-                color: currentView === item.view ? 'var(--pico-primary-inverse)' : 'var(--pico-secondary)'
+    <ul>
+      {items.map(item => (
+        <li key={item.view}>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick(item.view);
             }}
+            className={currentView === item.view ? 'active' : ''}
           >
-            {item.icon} <span style={{fontSize: '0.9rem', fontWeight: currentView === item.view ? 'bold' : 'normal'}}>{item.label}</span>
+            {item.icon}
+            {item.label}
           </a>
         </li>
       ))}
@@ -100,32 +118,85 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, onClose,
   );
 
   return (
-    <nav>
-      <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        {empresaSettings.logo ? <img src={empresaSettings.logo} alt="Logo" style={{ maxHeight: '50px' }} /> : <strong>{empresaSettings.nombreFantasia || empresaSettings.nombre}</strong>}
-      </header>
-      {renderNavList(mainNavItems)}
-      <details open><summary className="secondary" style={{fontSize: '0.8rem'}}>GESTIÓN</summary>{renderNavList(managementNavItems)}</details>
-      <details><summary className="secondary" style={{fontSize: '0.8rem'}}>CATÁLOGOS</summary>{renderNavList(catalogNavItems)}</details>
-      <details><summary className="secondary" style={{fontSize: '0.8rem'}}>SISTEMA</summary>{renderNavList(systemNavItems)}</details>
-      {plugins.filter(p => p.roles.includes(currentUser.rol)).length > 0 && (
-        <details>
-          <summary className="secondary" style={{fontSize: '0.8rem'}}>ACCESORIOS</summary>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {plugins.filter(p => p.roles.includes(currentUser.rol)).map(plugin => (
-              <li key={plugin.id}>
-                <a href="#" onClick={(e) => { e.preventDefault(); handleNavClick(`plugin_${plugin.id}` as View); }} className={currentView === `plugin_${plugin.id}` ? "" : "secondary"} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {plugin.icon} <span style={{fontSize: '0.9rem'}}>{plugin.name || (plugin as any).label}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-      <footer style={{ marginTop: '2rem', borderTop: '1px solid var(--pico-muted-border-color)', paddingTop: '1rem' }}>
-        <small style={{ display: 'block', textAlign: 'center', color: 'var(--pico-muted-color)' }}>v{appVersion}</small>
-      </footer>
-    </nav>
+    <aside className={isSidebarOpen ? 'open' : ''}>
+      <nav>
+        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--pico-spacing)' }}>
+            {empresaSettings.logo ? (
+              <img src={empresaSettings.logo} alt={empresaSettings.nombre} style={{ height: '3rem', width: 'auto' }} />
+            ) : (
+              <h4 style={{ margin: 0, textAlign: 'center' }}>
+                {empresaSettings.nombreFantasia || empresaSettings.nombre}
+              </h4>
+            )}
+            <button 
+              onClick={onClose}
+              className="outline md:hidden"
+              style={{ position: 'absolute', top: '1rem', right: '1rem', padding: '0.25rem', width: 'auto', marginBottom: 0 }}
+            >
+              <svg style={{ width: '24px', height: '24px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+        </header>
+
+        <div style={{ flexGrow: 1 }}>
+            {renderNavList(group1)}
+            
+            {group2.length > 0 && (
+                <>
+                    <hr style={{ margin: '1rem 0' }} />
+                    {renderNavList(group2)}
+                </>
+            )}
+
+            {group3.length > 0 && (
+                <>
+                    <hr style={{ margin: '1rem 0' }} />
+                    {renderNavList(group3)}
+                </>
+            )}
+            
+            {group4.length > 0 && (
+                <>
+                    <hr style={{ margin: '1rem 0' }} />
+                    {renderNavList(group4)}
+                </>
+            )}
+
+            {pluginItems.length > 0 && (
+                <>
+                    <hr style={{ margin: '1rem 0' }} />
+                    <details open>
+                        <summary style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Accesorios</summary>
+                        <ul>
+                            {pluginItems.map(plugin => (
+                                <li key={plugin.id}>
+                                    <a
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            handleNavClick(`plugin_${plugin.id}`);
+                                        }}
+                                        className={currentView === `plugin_${plugin.id}` ? 'active' : ''}
+                                    >
+                                        {plugin.icon}
+                                        {plugin.label}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </details>
+                </>
+            )}
+        </div>
+
+        <footer style={{ marginTop: 'auto', paddingTop: '1rem', textAlign: 'center', borderTop: '1px solid var(--pico-muted-border-color)' }}>
+            <small style={{ color: 'var(--pico-muted-color)', fontFamily: 'var(--pico-font-family-mono)' }}>
+                v{appVersion}
+            </small>
+        </footer>
+      </nav>
+    </aside>
   );
 };
 

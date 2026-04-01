@@ -14,7 +14,6 @@ import AppButton from '../components/ui/AppButton';
 import AppSelect from '../components/ui/AppSelect';
 import AppInput from '../components/ui/AppInput'; // Requerido para ReassignModal
 import { CogIcon } from '../components/icons/CogIcon';
-import { PdfIcon } from '../components/icons/PdfIcon';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -38,32 +37,29 @@ interface RemitosViewProps {
 
 const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     return (
-        <Modal isOpen={isOpen} onClose={onClose} className="max-w-sm">
-            <div className="p-4">
-                <hgroup>
-                    <h3 style={{ margin: 0 }}>Atajos de Teclado</h3>
-                    <p>Productividad rápida</p>
-                </hgroup>
-                <div className="space-y-3 text-sm">
-                    <div className="flex justify-between items-center pb-2 border-b">
-                        <span>Nuevo Remito</span>
-                        <kbd>Alt + N</kbd>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b">
-                        <span>Guardar Remito</span>
-                        <kbd>Ctrl + Enter</kbd>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b">
-                        <span>Agregar Producto</span>
-                        <kbd>Alt + I</kbd>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span>Agregar Pago</span>
-                        <kbd>Alt + P</kbd>
-                    </div>
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title="Atajos de Teclado"
+            style={{ maxWidth: '400px' }}
+            footer={<small style={{ fontSize: '0.65rem', color: 'var(--pico-muted-color)' }}>En Mac, 'Alt' corresponde a la tecla 'Option' (⌥).</small>}
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--pico-muted-border-color)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: 'var(--pico-muted-color)' }}>Nuevo Remito</span>
+                    <kbd style={{ fontSize: '0.75rem' }}>Alt + N</kbd>
                 </div>
-                <div className="mt-6 text-center">
-                    <p className="text-[10px] text-gray-400">En Mac, 'Alt' corresponde a la tecla 'Option' (⌥).</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--pico-muted-border-color)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: 'var(--pico-muted-color)' }}>Guardar Remito</span>
+                    <kbd style={{ fontSize: '0.75rem' }}>Ctrl + Enter</kbd>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--pico-muted-border-color)', paddingBottom: '0.5rem' }}>
+                    <span style={{ color: 'var(--pico-muted-color)' }}>Agregar Producto</span>
+                    <kbd style={{ fontSize: '0.75rem' }}>Alt + I</kbd>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--pico-muted-color)' }}>Agregar Pago</span>
+                    <kbd style={{ fontSize: '0.75rem' }}>Alt + P</kbd>
                 </div>
             </div>
         </Modal>
@@ -111,18 +107,34 @@ const ReassignModal: React.FC<{
     if (!isOpen) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
-            <div className="space-y-4">
-                <h2 style={{ margin: 0 }}>Herramienta de Corrección Masiva</h2>
-                <p className="text-xs text-gray-500">Reasigna remitos de un vendedor a otro en un rango de fechas.</p>
-                
-                <div className="grid">
-                    <AppInput type="date" label="Desde" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-                    <AppInput type="date" label="Hasta" value={toDate} onChange={e => setToDate(e.target.value)} />
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title="Herramienta de Corrección Masiva"
+            style={{ maxWidth: '500px' }}
+            footer={
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
+                    <AppButton 
+                        variant="primary" 
+                        onClick={handleConfirm} 
+                        isLoading={isProcessing}
+                        disabled={affectedRemitos.length === 0}
+                    >
+                        Reasignar {affectedRemitos.length} remitos
+                    </AppButton>
                 </div>
+            }
+        >
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.75rem', color: 'var(--pico-muted-color)' }}>Reasigna remitos de un vendedor a otro en un rango de fechas.</p>
+            
+            <div className="grid">
+                <AppInput type="date" label="Desde" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+                <AppInput type="date" label="Hasta" value={toDate} onChange={e => setToDate(e.target.value)} />
+            </div>
 
-                <div className="space-y-2 pt-2">
-                    <p className="text-[10px] font-bold uppercase text-gray-400">Filtros de Vendedor</p>
+                <div style={{ marginTop: '1rem' }}>
+                    <small style={{ fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--pico-muted-color)', display: 'block', marginBottom: '0.5rem' }}>Filtros de Vendedor</small>
                     <AppSelect 
                         label="Vendedor Original (Opcional)" 
                         value={oldVendedorId} 
@@ -137,43 +149,49 @@ const ReassignModal: React.FC<{
                     />
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-lg border">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'var(--pico-card-sectioning-background-color)', borderRadius: 'var(--pico-border-radius)', border: '1px solid var(--pico-muted-border-color)', marginTop: '1rem' }}>
                     <input 
                         type="checkbox" 
                         id="excludeAdj" 
                         checked={excludeAdjustments} 
                         onChange={e => setExcludeAdjustments(e.target.checked)} 
-                        className="w-4 h-4 text-primary-600 rounded"
-                        style={{ marginBottom: 0 }}
+                        style={{ margin: 0 }}
                     />
-                    <label htmlFor="excludeAdj" className="text-xs font-bold cursor-pointer select-none" style={{ marginBottom: 0 }}>
+                    <label htmlFor="excludeAdj" style={{ margin: 0, fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>
                         Excluir Cargas Iniciales (Importaciones)
-                        <br/><span className="text-[10px] font-normal text-gray-400">Ignora remitos tipo "INI-XXXX" o ajustes de stock.</span>
+                        <br/><span style={{ fontSize: '0.65rem', fontWeight: 'normal', color: 'var(--pico-muted-color)' }}>Ignora remitos tipo "INI-XXXX" o ajustes de stock.</span>
                     </label>
                 </div>
 
-                <div className="p-3 rounded-lg border" style={{ backgroundColor: 'var(--pico-ins-background-color)', borderColor: 'var(--pico-ins-color)' }}>
-                    <p className="text-sm font-bold text-center" style={{ color: 'var(--pico-ins-color)', marginBottom: 0 }}>
+                <div style={{ background: 'rgba(255, 193, 7, 0.1)', padding: '0.75rem', borderRadius: 'var(--pico-border-radius)', border: '1px solid rgba(255, 193, 7, 0.3)', marginTop: '1rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 'bold', textAlign: 'center', color: '#856404' }}>
                         {affectedRemitos.length > 0 ? `Se actualizarán ${affectedRemitos.length} remitos.` : 'No hay remitos que coincidan.'}
                     </p>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4">
-                    <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                    <AppButton onClick={handleConfirm} disabled={affectedRemitos.length === 0 || isProcessing} isLoading={isProcessing}>Aplicar Cambios</AppButton>
-                </div>
-            </div>
         </Modal>
     );
 };
 
 const PaymentStatusBadge: React.FC<{ remito: any }> = ({ remito }) => {
-    if (remito.esAjuste) return <span className="font-bold text-[10px] uppercase text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Carga Inicial</span>;
+    if (remito.esAjuste) return <span style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', padding: '0.25rem 0.5rem', borderRadius: '1rem', background: 'var(--pico-muted-background-color)', color: 'var(--pico-muted-color)' }}>Carga Inicial</span>;
+    
+    const badgeStyle: React.CSSProperties = {
+        fontSize: '0.75rem',
+        fontWeight: 'bold',
+        padding: '0.25rem 0.5rem',
+        borderRadius: '1rem',
+    };
+
     switch (remito.paymentStatus) {
-        case 'facturado': return <span className="font-bold text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full">Facturado</span>;
-        case 'pagado': return <span className="font-bold text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full">Pagado</span>;
-        case 'pagado_parcial': return <span className="font-bold text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded-full">Parcial</span>;
-        default: return <span className="font-bold text-xs text-red-700 bg-red-100 px-2 py-1 rounded-full">Pendiente</span>;
+        case 'facturado': 
+            return <span style={{ ...badgeStyle, background: 'rgba(255, 193, 7, 0.2)', color: '#856404' }}>Facturado</span>;
+        case 'pagado': 
+            return <span style={{ ...badgeStyle, background: 'rgba(40, 167, 69, 0.2)', color: '#155724' }}>Pagado</span>;
+        case 'pagado_parcial': 
+            return <span style={{ ...badgeStyle, background: 'rgba(253, 126, 20, 0.2)', color: '#854226' }}>Parcial</span>;
+        default: 
+            return <span style={{ ...badgeStyle, background: 'rgba(220, 53, 69, 0.2)', color: '#721c24' }}>Pendiente</span>;
     }
 }
 
@@ -488,12 +506,18 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   };
 
   if (isFormOpen) return (
-    <div className="animate-fade-in relative">
-        <div className="mb-6 flex items-center gap-4">
-            <button onClick={() => setIsFormOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-            <h1 className="text-2xl font-black uppercase">Gestionar Remito</h1>
-            <button onClick={() => setShowShortcuts(true)} className="ml-auto text-gray-400 hover:text-primary-600 transition-colors" title="Atajos de Teclado">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    <div className="animate-fade-in" style={{ position: 'relative' }}>
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button onClick={() => setIsFormOpen(false)} className="outline" style={{ padding: '0.5rem', margin: 0, width: 'auto', border: 'none', background: 'transparent' }}>
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.5rem', height: '1.5rem' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900, textTransform: 'uppercase' }}>Gestionar Remito</h1>
+            <button onClick={() => setShowShortcuts(true)} className="outline" style={{ marginLeft: 'auto', padding: '0.5rem', margin: 0, width: 'auto', border: 'none', background: 'transparent', color: 'var(--pico-muted-color)' }} title="Atajos de Teclado">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.5rem', height: '1.5rem' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
             </button>
         </div>
         <Card>
@@ -518,252 +542,380 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   );
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0 relative">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>
-            <button onClick={() => setShowShortcuts(true)} className="text-gray-400 hover:text-primary-600 transition-colors p-1" title="Atajos de teclado">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 'bold' }}>Remitos</h1>
+                <button onClick={() => setShowShortcuts(true)} className="outline" style={{ padding: '0.25rem', margin: 0, width: 'auto', border: 'none', background: 'transparent', color: 'var(--pico-muted-color)' }} title="Atajos de teclado">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.25rem', height: '1.25rem' }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {currentUser.rol === Rol.ADMINISTRADOR && (
+                      <button 
+                        onClick={() => setShowReassignModal(true)} 
+                        className="outline secondary"
+                        style={{ padding: '0.5rem', margin: 0, width: 'auto' }}
+                        title="Corrección Masiva de Asignación"
+                      >
+                          <CogIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                      </button>
+                  )}
+                  <AppButton onClick={openNewModal}>
+                      + Nuevo Remito <small style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: '0.25rem', fontWeight: 'normal' }}>(Alt+N)</small>
+                  </AppButton>
+              </div>
           </div>
           
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl self-start">
+          <div style={{ display: 'flex', background: 'var(--pico-card-sectioning-background-color)', padding: '0.25rem', borderRadius: 'var(--pico-border-radius)', alignSelf: 'flex-start' }}>
               <button 
                 onClick={() => setActiveTab('listado')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'listado' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className="outline"
+                style={{ 
+                    padding: '0.5rem 1rem', 
+                    margin: 0, 
+                    fontSize: '0.875rem', 
+                    fontWeight: 'bold',
+                    border: 'none',
+                    background: activeTab === 'listado' ? 'var(--pico-background-color)' : 'transparent',
+                    color: activeTab === 'listado' ? 'var(--pico-primary-underline)' : 'var(--pico-muted-color)',
+                    boxShadow: activeTab === 'listado' ? 'var(--pico-card-box-shadow)' : 'none'
+                }}
               >
                   Listado
               </button>
               <button 
                 onClick={() => setActiveTab('balance')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'balance' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className="outline"
+                style={{ 
+                    padding: '0.5rem 1rem', 
+                    margin: 0, 
+                    fontSize: '0.875rem', 
+                    fontWeight: 'bold',
+                    border: 'none',
+                    background: activeTab === 'balance' ? 'var(--pico-background-color)' : 'transparent',
+                    color: activeTab === 'balance' ? 'var(--pico-primary-underline)' : 'var(--pico-muted-color)',
+                    boxShadow: activeTab === 'balance' ? 'var(--pico-card-box-shadow)' : 'none'
+                }}
               >
                   Balance de Envases
               </button>
           </div>
-
-          <div className="flex gap-2 self-end md:self-auto">
-              {currentUser.rol === Rol.ADMINISTRADOR && (
-                  <button 
-                    onClick={() => setShowReassignModal(true)} 
-                    className="p-2 bg-yellow-100 text-yellow-800 rounded-xl hover:bg-yellow-200 transition-colors flex items-center gap-2"
-                    title="Corrección Masiva de Asignación"
-                  >
-                      <CogIcon className="w-5 h-5" />
-                  </button>
-              )}
-              <AppButton onClick={openNewModal}>+ Nuevo Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
-          </div>
       </div>
 
       {activeTab === 'listado' ? (
-        <div className="space-y-4">
-          <div className="grid">
-            <SearchableSelect 
-                label="Cliente" 
-                options={filterClienteOptions} 
-                value={clienteFilter} 
-                onChange={setClienteFilter} 
-            />
-            <div className="grid">
-                <AppInput label="Nº Remito" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} placeholder="0001-00001234" />
-                <AppSelect label="Estado Pago" value={paymentStatusFilter} onChange={e => setPaymentStatusFilter(e.target.value as any)} options={[{value:'todos', label:'Todos'}, {value:'pendiente', label:'Pendiente'}, {value:'pagado', label:'Pagado'}, {value:'facturado', label:'Facturado'}, {value:'ajuste', label:'Carga Inicial'}]} />
-            </div>
-            <div className="grid">
-                <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter({ ...dateFilter, from: e.target.value })} />
-                <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={e => setDateFilter({ ...dateFilter, to: e.target.value })} />
-            </div>
-            <div className="flex gap-2 items-end">
-                <AppButton variant="secondary" onClick={() => { setClienteFilter(''); setRemitoNumberFilter(''); setPaymentStatusFilter('todos'); setDateFilter({ from: '', to: '' }); }} className="flex-1">Limpiar</AppButton>
-                {currentUser.rol === Rol.ADMINISTRADOR && (
-                    <button onClick={() => setShowReassignModal(true)} className="secondary outline p-3 rounded-xl" title="Reasignar Vendedor Masivo" style={{ marginBottom: '1rem' }}><CogIcon className="w-5 h-5" /></button>
-                )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {filteredRemitos.map(remito => (
-              <article key={remito.id} style={{ padding: '0.75rem', marginBottom: '0.5rem' }}>
-                  <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
-                      <div className="flex-grow responsive-grid items-center">
-                          <div><p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Fecha</p><p className="font-medium text-sm" style={{ marginBottom: 0 }}>{new Date(remito.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p></div>
-                          <div>
-                              <p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Cliente</p>
-                              <p className="font-bold text-sm truncate" style={{ marginBottom: 0 }}>
-                                  {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
-                                  {remito.sucursalId && (
-                                      <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                                          {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
-                                      </span>
-                                  )}
-                              </p>
-                          </div>
-                          <div><p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Número</p><p className="font-medium text-sm font-mono" style={{ marginBottom: 0 }}>{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
-                          <div><p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Estado</p><PaymentStatusBadge remito={remito} /></div>
-                      </div>
-                      <div className="flex gap-2">
-                          <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="contrast outline p-2 rounded-full" style={{ border: 'none', background: 'none', marginBottom: 0 }} disabled={!remito.canBeEdited}><PencilIcon className="w-4 h-4" /></button>
-                          {currentUser.rol === Rol.ADMINISTRADOR && (
-                              <button
-                                  onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
-                                  className="contrast outline p-2 rounded-full text-red-500"
-                                  style={{ border: 'none', background: 'none', marginBottom: 0 }}
-                                  disabled={!remito.canBeDeleted}
-                                  title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
-                              >
-                                  <TrashIcon className="w-4 h-4" />
-                              </button>
-                          )}
-                          <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
-                      </div>
-                  </div>
-                  {expandedRemitoId === remito.id && (
-                      <div className="p-4 border-t mt-4 animate-fade-in">
-                          <table className="striped" style={{ marginBottom: 0 }}>
-                              <thead><tr><th>Producto</th><th className="text-center">Entregados</th><th className="text-center">Retirados</th></tr></thead>
-                              <tbody>{remito.movimientos.map((m, i)=>(<tr key={i}><td>{productosMap.get(m.productoId)?.nombre}</td><td className="text-center font-bold text-blue-600">{m.entregados}</td><td className="text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
-                          </table>
-                      </div>
-                  )}
-              </article>
-            ))}
-            {filteredRemitos.length === 0 && <Card><p className="text-center py-12 text-gray-400">No se encontraron remitos con los filtros aplicados.</p></Card>}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-            <div className="grid">
-                <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
-                <div className="grid">
-                    <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
-                    <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={e => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+        <>
+          <Card>
+            <div style={{ padding: '1rem', borderBottom: '1px solid var(--pico-muted-border-color)', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1 1 200px' }}>
+                    <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                 </div>
-                <div className="grid">
-                    <AppSelect 
-                        label="Filtrar Balance"
-                        value={balanceFilter}
-                        onChange={(e) => setBalanceFilter(e.target.value as any)}
-                        options={[
-                            { value: 'todos', label: 'Todos' },
-                            { value: 'perdidos', label: 'Solo Perdidos' },
-                            { value: 'recuperados', label: 'Solo Recuperados' },
-                            { value: 'ambos', label: 'Perdidos y Recuperados' }
-                        ]}
-                    />
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold uppercase text-gray-400">Columnas</label>
+                <div style={{ flex: '1 1 150px' }}>
+                    <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
+                </div>
+                <div style={{ flex: '1 1 120px' }}>
+                    <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
+                </div>
+                <div style={{ flex: '1 1 280px' }}>
+                    <div className="grid" style={{ margin: 0, gap: '0.5rem' }}>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Desde</label>
+                            <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} style={{ margin: 0 }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Hasta</label>
+                            <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} style={{ margin: 0 }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem' }}>
+              {filteredRemitos.map(remito => (
+                <article key={remito.id} style={{ margin: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--pico-muted-border-color)' }}>
+                    <div 
+                        style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} 
+                        onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}
+                    >
+                        <div style={{ flexGrow: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '1rem', alignItems: 'center' }}>
+                            <div>
+                                <small style={{ fontSize: '0.65rem', color: 'var(--pico-muted-color)', textTransform: 'uppercase', fontWeight: 'bold', display: 'block' }}>Fecha</small>
+                                <span style={{ fontWeight: '500', fontSize: '0.875rem' }}>{new Date(remito.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</span>
+                            </div>
+                            <div>
+                                <small style={{ fontSize: '0.65rem', color: 'var(--pico-muted-color)', textTransform: 'uppercase', fontWeight: 'bold', display: 'block' }}>Cliente</small>
+                                <span style={{ fontWeight: 'bold', fontSize: '0.875rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
+                                    {remito.sucursalId && (
+                                        <small style={{ marginLeft: '0.25rem', fontSize: '0.65rem', fontWeight: 'normal', color: 'var(--pico-muted-color)', background: 'var(--pico-card-sectioning-background-color)', padding: '0.125rem 0.375rem', borderRadius: '1rem' }}>
+                                            {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
+                                        </small>
+                                    )}
+                                </span>
+                            </div>
+                            <div>
+                                <small style={{ fontSize: '0.65rem', color: 'var(--pico-muted-color)', textTransform: 'uppercase', fontWeight: 'bold', display: 'block' }}>Número</small>
+                                <span style={{ fontWeight: '500', fontSize: '0.875rem', fontFamily: 'var(--pico-font-family-monospace)' }}>{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</span>
+                            </div>
+                            <div>
+                                <small style={{ fontSize: '0.65rem', color: 'var(--pico-muted-color)', textTransform: 'uppercase', fontWeight: 'bold', display: 'block' }}>Estado</small>
+                                <PaymentStatusBadge remito={remito} />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} 
+                                className="outline"
+                                style={{ padding: '0.25rem', margin: 0, width: 'auto', border: 'none', background: 'transparent', color: '#3b82f6' }}
+                                disabled={!remito.canBeEdited}
+                            >
+                                <PencilIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                            </button>
+                            {currentUser.rol === Rol.ADMINISTRADOR && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
+                                    className="outline"
+                                    style={{ padding: '0.25rem', margin: 0, width: 'auto', border: 'none', background: 'transparent', color: '#ef4444' }}
+                                    disabled={!remito.canBeDeleted}
+                                    title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
+                                >
+                                    <TrashIcon style={{ width: '1.25rem', height: '1.25rem' }} />
+                                </button>
+                            )}
+                            <ChevronDownIcon style={{ width: '1.25rem', height: '1.25rem', transition: 'transform 0.2s', transform: expandedRemitoId === remito.id ? 'rotate(180deg)' : 'none' }} />
+                        </div>
+                    </div>
+                    {expandedRemitoId === remito.id && (
+                        <div style={{ padding: '1rem', borderTop: '1px solid var(--pico-muted-border-color)', background: 'var(--pico-card-sectioning-background-color)' }}>
+                            <table style={{ width: '100%', fontSize: '0.75rem', margin: 0 }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ textTransform: 'uppercase', fontWeight: 900 }}>Producto</th>
+                                        <th style={{ textTransform: 'uppercase', fontWeight: 900, textAlign: 'center' }}>Entregados</th>
+                                        <th style={{ textTransform: 'uppercase', fontWeight: 900, textAlign: 'center' }}>Retirados</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {remito.movimientos.map((m, i) => (
+                                        <tr key={i}>
+                                            <td>{productosMap.get(m.productoId)?.nombre}</td>
+                                            <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#2563eb' }}>{m.entregados}</td>
+                                            <td style={{ textAlign: 'center', color: 'var(--pico-muted-color)' }}>{m.recibidos}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </article>
+              ))}
+            </div>
+          </Card>
+        </>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <Card>
+                <div style={{ padding: '1rem', borderBottom: '1px solid var(--pico-muted-border-color)', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+                    <div style={{ flex: '1 1 200px' }}>
+                        <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
+                    </div>
+                    <div style={{ flex: '1 1 280px' }}>
+                        <div className="grid" style={{ margin: 0, gap: '0.5rem' }}>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Desde</label>
+                                <input type="date" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} style={{ margin: 0 }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem', display: 'block' }}>Hasta</label>
+                                <input type="date" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} style={{ margin: 0 }} />
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ width: '12rem' }}>
+                        <AppSelect 
+                            label="Filtrar Balance"
+                            value={balanceFilter}
+                            onChange={(e) => setBalanceFilter(e.target.value as any)}
+                            options={[
+                                { value: 'todos', label: 'Todos' },
+                                { value: 'perdidos', label: 'Solo Perdidos' },
+                                { value: 'recuperados', label: 'Solo Recuperados' },
+                                { value: 'ambos', label: 'Perdidos y Recuperados' }
+                            ]}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <small style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--pico-muted-color)' }}>Columnas</small>
                         <AppButton 
                             variant="secondary" 
                             size="sm"
                             onClick={() => setShowRemitosColumn(!showRemitosColumn)}
-                            className={showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-700' : ''}
+                            style={{ 
+                                background: showRemitosColumn ? 'rgba(var(--pico-primary-rgb), 0.1)' : 'transparent',
+                                borderColor: showRemitosColumn ? 'var(--pico-primary-border)' : 'var(--pico-muted-border-color)',
+                                color: showRemitosColumn ? 'var(--pico-primary)' : 'var(--pico-muted-color)'
+                            }}
                         >
                             {showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
                         </AppButton>
                     </div>
-                </div>
-                <div className="flex gap-2 items-end">
-                    <AppButton variant="secondary" onClick={() => {
-                        const doc = new jsPDF();
-                        const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
-                        
-                        const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
-                        const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
-                        const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <AppButton variant="secondary" onClick={() => {
+                            const doc = new jsPDF();
+                            const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
+                            
+                            const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
+                            const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
+                            const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
 
-                        doc.setFontSize(20);
-                        doc.setTextColor(0, 102, 204);
-                        doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
-                        
-                        if (empresaSettings.logo) {
-                            try {
-                                const imgProps = doc.getImageProperties(empresaSettings.logo);
-                                const maxWidth = 40;
-                                const maxHeight = 25;
-                                const ratio = imgProps.width / imgProps.height;
-                                
-                                let imgWidth = maxWidth;
-                                let imgHeight = maxWidth / ratio;
-                                
-                                if (imgHeight > maxHeight) {
-                                    imgHeight = maxHeight;
-                                    imgWidth = maxHeight * ratio;
+                            doc.setFontSize(20);
+                            doc.setTextColor(0, 102, 204);
+                            doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
+                            
+                            if (empresaSettings.logo) {
+                                try {
+                                    const imgProps = doc.getImageProperties(empresaSettings.logo);
+                                    const maxWidth = 40;
+                                    const maxHeight = 25;
+                                    const ratio = imgProps.width / imgProps.height;
+                                    
+                                    let imgWidth = maxWidth;
+                                    let imgHeight = maxWidth / ratio;
+                                    
+                                    if (imgHeight > maxHeight) {
+                                        imgHeight = maxHeight;
+                                        imgWidth = maxHeight * ratio;
+                                    }
+                                    
+                                    doc.addImage(empresaSettings.logo, 'PNG', 196 - imgWidth, 10, imgWidth, imgHeight);
+                                } catch (e) {
+                                    console.error("Error adding logo to PDF", e);
                                 }
-                                
-                                doc.addImage(empresaSettings.logo, 'PNG', 196 - imgWidth, 10, imgWidth, imgHeight);
-                            } catch (e) {
-                                console.error("Error adding logo to PDF", e);
                             }
-                        }
-                        
-                        doc.setFontSize(10);
-                        doc.setTextColor(100, 100, 100);
-                        doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, 14, 27);
-                        doc.text(`Período: ${dateFilter.from || 'Inicio'} al ${dateFilter.to || 'Hoy'}`, 14, 32);
-                        
-                        // Resumen de Totales
-                        doc.setDrawColor(200, 200, 200);
-                        doc.line(14, 38, 196, 38);
-                        
-                        doc.setFontSize(11);
-                        doc.setTextColor(0, 0, 0);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('RESUMEN DEL PERÍODO POR PRODUCTO:', 14, 45);
-                        
-                        doc.setFontSize(9);
-                        doc.setFont('helvetica', 'normal');
-                        let summaryY = 52;
-                            (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
-                                const prod = productosMap.get(prodId);
-                                if (summaryY > 260) {
-                                    doc.addPage();
-                                    summaryY = 20;
+                            
+                            doc.setFontSize(10);
+                            doc.setTextColor(100, 100, 100);
+                            doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, 14, 27);
+                            doc.text(`Período: ${dateFilter.from || 'Inicio'} al ${dateFilter.to || 'Hoy'}`, 14, 32);
+                            
+                            // Resumen de Totales
+                            doc.setDrawColor(200, 200, 200);
+                            doc.line(14, 38, 196, 38);
+                            
+                            doc.setFontSize(11);
+                            doc.setTextColor(0, 0, 0);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('RESUMEN DEL PERÍODO POR PRODUCTO:', 14, 45);
+                            
+                            doc.setFontSize(9);
+                            doc.setFont('helvetica', 'normal');
+                            let summaryY = 52;
+                                (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
+                                    const prod = productosMap.get(prodId);
+                                    if (summaryY > 260) {
+                                        doc.addPage();
+                                        summaryY = 20;
+                                    }
+                                    doc.setTextColor(0, 0, 0);
+                                    doc.text(`${prod?.nombre || 'N/A'}:`, 14, summaryY);
+                                    doc.setTextColor(0, 102, 204);
+                                    doc.text(`Entregados: ${totals.entregados}`, 70, summaryY);
+                                    doc.setTextColor(100, 100, 100);
+                                    doc.text(`Recibidos: ${totals.recibidos}`, 110, summaryY);
+                                    doc.setTextColor(totals.balance > 0 ? 200 : 0, totals.balance < 0 ? 150 : 0, 0);
+                                    doc.text(`Balance: ${totals.balance > 0 ? '+' : ''}${totals.balance}`, 150, summaryY);
+                                    summaryY += 6;
+                                });
+                            
+                            doc.setTextColor(0, 0, 0);
+                            doc.line(14, summaryY + 2, 196, summaryY + 2);
+
+                            let currentY = summaryY + 12;
+
+                            days.forEach(day => {
+                                const clientsForDay = balanceData.filter(d => {
+                                    return d.cliente?.sucursales.some(suc => suc.diasReparto?.includes(day));
+                                });
+
+                                if (clientsForDay.length > 0) {
+                                    if (currentY > 230) {
+                                        doc.addPage();
+                                        currentY = 20;
+                                    }
+                                    
+                                    doc.setFontSize(14);
+                                    doc.setTextColor(0, 102, 204);
+                                    doc.text(`REPARTO: ${day.toUpperCase()}`, 14, currentY);
+                                    doc.setTextColor(0, 0, 0);
+                                    
+                                    autoTable(doc, {
+                                        startY: currentY + 5,
+                                        head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
+                                        body: clientsForDay.map(d => {
+                                            const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.entregados > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
+                                                .join('\n');
+                                            
+                                            const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.recibidos > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
+                                                .join('\n');
+
+                                            return [
+                                                d.cliente?.nombre || 'N/A',
+                                                d.cliente?.sucursales[0]?.direccion || '',
+                                                { content: entregadosDetalle || '0', styles: { fontSize: 7 } },
+                                                { content: recibidosDetalle || '0', styles: { fontSize: 7 } },
+                                                { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
+                                            ];
+                                        }),
+                                        theme: 'grid',
+                                        headStyles: { fillColor: [0, 102, 204], fontSize: 9 },
+                                        bodyStyles: { fontSize: 8 },
+                                        columnStyles: {
+                                            2: { halign: 'center' },
+                                            3: { halign: 'center' },
+                                            4: { halign: 'center' }
+                                        },
+                                        margin: { left: 14, right: 14 }
+                                    });
+                                    
+                                    currentY = (doc as any).lastAutoTable.finalY + 15;
                                 }
-                                doc.setTextColor(0, 0, 0);
-                                doc.text(`${prod?.nombre || 'N/A'}:`, 14, summaryY);
-                                doc.setTextColor(0, 102, 204);
-                                doc.text(`Entregados: ${totals.entregados}`, 70, summaryY);
-                                doc.setTextColor(100, 100, 100);
-                                doc.text(`Recibidos: ${totals.recibidos}`, 110, summaryY);
-                                doc.setTextColor(totals.balance > 0 ? 200 : 0, totals.balance < 0 ? 150 : 0, 0);
-                                doc.text(`Balance: ${totals.balance > 0 ? '+' : ''}${totals.balance}`, 150, summaryY);
-                                summaryY += 6;
-                            });
-                        
-                        doc.setTextColor(0, 0, 0);
-                        doc.line(14, summaryY + 2, 196, summaryY + 2);
-
-                        let currentY = summaryY + 12;
-
-                        days.forEach(day => {
-                            const clientsForDay = balanceData.filter(d => {
-                                return d.cliente?.sucursales.some(suc => suc.diasReparto?.includes(day));
                             });
 
-                            if (clientsForDay.length > 0) {
+                            // Clientes sin día asignado
+                            const clientsNoDay = balanceData.filter(d => {
+                                return !d.cliente?.sucursales.some(suc => suc.diasReparto && suc.diasReparto.length > 0);
+                            });
+
+                            if (clientsNoDay.length > 0) {
                                 if (currentY > 230) {
                                     doc.addPage();
                                     currentY = 20;
                                 }
-                                
                                 doc.setFontSize(14);
-                                doc.setTextColor(0, 102, 204);
-                                doc.text(`REPARTO: ${day.toUpperCase()}`, 14, currentY);
+                                doc.setTextColor(100, 100, 100);
+                                doc.text('CLIENTES SIN DÍA ASIGNADO', 14, currentY);
                                 doc.setTextColor(0, 0, 0);
-                                
+
                                 autoTable(doc, {
                                     startY: currentY + 5,
                                     head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
-                                    body: clientsForDay.map(d => {
-                                        const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.entregados > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
-                                            .join('\n');
-                                        
-                                        const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.recibidos > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
-                                            .join('\n');
+                                        body: clientsNoDay.map(d => {
+                                            const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.entregados > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
+                                                .join('\n');
+                                            
+                                            const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.recibidos > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
+                                                .join('\n');
 
                                         return [
                                             d.cliente?.nombre || 'N/A',
@@ -774,7 +926,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                         ];
                                     }),
                                     theme: 'grid',
-                                    headStyles: { fillColor: [0, 102, 204], fontSize: 9 },
+                                    headStyles: { fillColor: [100, 100, 100], fontSize: 9 },
                                     bodyStyles: { fontSize: 8 },
                                     columnStyles: {
                                         2: { halign: 'center' },
@@ -783,190 +935,137 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                     },
                                     margin: { left: 14, right: 14 }
                                 });
-                                
-                                currentY = (doc as any).lastAutoTable.finalY + 15;
                             }
-                        });
 
-                        // Clientes sin día asignado
-                        const clientsNoDay = balanceData.filter(d => {
-                            return !d.cliente?.sucursales.some(suc => suc.diasReparto && suc.diasReparto.length > 0);
-                        });
-
-                        if (clientsNoDay.length > 0) {
-                            if (currentY > 230) {
-                                doc.addPage();
-                                currentY = 20;
-                            }
-                            doc.setFontSize(14);
-                            doc.setTextColor(100, 100, 100);
-                            doc.text('CLIENTES SIN DÍA ASIGNADO', 14, currentY);
-                            doc.setTextColor(0, 0, 0);
-
-                            autoTable(doc, {
-                                startY: currentY + 5,
-                                head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
-                                    body: clientsNoDay.map(d => {
-                                        const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.entregados > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
-                                            .join('\n');
-                                        
-                                        const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.recibidos > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
-                                            .join('\n');
-
-                                    return [
-                                        d.cliente?.nombre || 'N/A',
-                                        d.cliente?.sucursales[0]?.direccion || '',
-                                        { content: entregadosDetalle || '0', styles: { fontSize: 7 } },
-                                        { content: recibidosDetalle || '0', styles: { fontSize: 7 } },
-                                        { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
-                                    ];
-                                }),
-                                theme: 'grid',
-                                headStyles: { fillColor: [100, 100, 100], fontSize: 9 },
-                                bodyStyles: { fontSize: 8 },
-                                columnStyles: {
-                                    2: { halign: 'center' },
-                                    3: { halign: 'center' },
-                                    4: { halign: 'center' }
-                                },
-                                margin: { left: 14, right: 14 }
-                            });
-                        }
-
-                        doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
-                    }} icon={<PdfIcon className="w-4 h-4" />}>PDF</AppButton>
-                    <AppButton variant="secondary" onClick={() => {
-                        const csvRows = [
-                            ['RESUMEN DEL PERÍODO POR PRODUCTO'],
-                            ['Producto', 'Entregados', 'Recibidos', 'Balance Neto']
-                        ];
-
-                        (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
-                            const prod = productosMap.get(prodId);
-                            csvRows.push([
-                                `"${prod?.nombre || 'N/A'}"`,
-                                totals.entregados.toString(),
-                                totals.recibidos.toString(),
-                                totals.balance.toString()
-                            ]);
-                        });
-
-                        csvRows.push([]);
-                        csvRows.push(['DETALLE POR CLIENTE']);
-                        
-                        const headers = ['Cliente', 'Dirección'];
-                        if (showRemitosColumn) headers.push('Remitos');
-                        headers.push('Entregados', 'Recibidos', 'Balance');
-                        csvRows.push(headers);
-
-                        balanceData.forEach(d => {
-                            const row = [
-                                `"${d.cliente?.nombre || 'N/A'}"`,
-                                `"${d.cliente?.sucursales[0]?.direccion || ''}"`
+                            doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
+                        }}>Generar PDF</AppButton>
+                        <AppButton variant="secondary" onClick={() => {
+                            const csvRows = [
+                                ['RESUMEN DEL PERÍODO POR PRODUCTO'],
+                                ['Producto', 'Entregados', 'Recibidos', 'Balance Neto']
                             ];
-                            if (showRemitosColumn) row.push(d.remitosCount.toString());
-                            row.push(
-                                d.entregados.toString(),
-                                d.recibidos.toString(),
-                                d.balance.toString()
-                            );
-                            csvRows.push(row);
-                        });
 
-                        const csv = csvRows.map(row => row.join(',')).join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
-                        link.click();
-                    }} className="flex-1">CSV</AppButton>
+                            (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
+                                const prod = productosMap.get(prodId);
+                                csvRows.push([
+                                    `"${prod?.nombre || 'N/A'}"`,
+                                    totals.entregados.toString(),
+                                    totals.recibidos.toString(),
+                                    totals.balance.toString()
+                                ]);
+                            });
+
+                            csvRows.push([]);
+                            csvRows.push(['DETALLE POR CLIENTE']);
+                            
+                            const headers = ['Cliente', 'Dirección'];
+                            if (showRemitosColumn) headers.push('Remitos');
+                            headers.push('Entregados', 'Recibidos', 'Balance');
+                            csvRows.push(headers);
+
+                            balanceData.forEach(d => {
+                                const row = [
+                                    `"${d.cliente?.nombre || 'N/A'}"`,
+                                    `"${d.cliente?.sucursales[0]?.direccion || ''}"`
+                                ];
+                                if (showRemitosColumn) row.push(d.remitosCount.toString());
+                                row.push(
+                                    d.entregados.toString(),
+                                    d.recibidos.toString(),
+                                    d.balance.toString()
+                                );
+                                csvRows.push(row);
+                            });
+
+                            const csv = csvRows.map(row => row.join(',')).join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
+                            link.click();
+                        }}>Exportar CSV</AppButton>
+                    </div>
                 </div>
-            </div>
-            
-            {/* Stock en Planta Legend */}
-            <div className="responsive-grid">
-                {stockPlantaSummary.map(s => (
-                    <article key={s.id} style={{ padding: '1rem', marginBottom: 0 }}>
-                        <header style={{ padding: '0.5rem 0', marginBottom: '0.5rem', borderBottom: '1px solid var(--pico-muted-border-color)' }}>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{s.nombre}</span>
-                        </header>
-                        <div className="flex justify-between items-end">
-                            <div className="flex flex-col">
-                                <span className="text-2xl font-black text-blue-600 leading-none">{s.stock}</span>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Llenos</span>
-                                    {s.hoyEntregados > 0 && <span className="text-[10px] font-black text-red-500">(-{s.hoyEntregados})</span>}
+                
+                {/* Stock en Planta Legend */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', padding: '1rem', borderBottom: '1px solid var(--pico-muted-border-color)', background: 'var(--pico-card-sectioning-background-color)' }}>
+                    {stockPlantaSummary.map(s => (
+                        <div key={s.id} style={{ display: 'flex', flexDirection: 'column', padding: '0.75rem', borderRadius: 'var(--pico-border-radius)', border: '1px solid var(--pico-muted-border-color)', background: 'var(--pico-background-color)', boxShadow: 'var(--pico-box-shadow)' }}>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 900, color: 'var(--pico-muted-color)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nombre}</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#2563eb', lineHeight: 1 }}>{s.stock}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <span style={{ fontSize: '0.5rem', fontWeight: 'bold', color: 'var(--pico-muted-color)', textTransform: 'uppercase', letterSpacing: '-0.02em' }}>Llenos</span>
+                                        {s.hoyEntregados > 0 && <span style={{ fontSize: '0.5rem', fontWeight: 900, color: '#ef4444' }}>(-{s.hoyEntregados})</span>}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-xl font-black text-gray-500 leading-none">{s.envases}</span>
-                                <div className="flex items-center gap-1">
-                                    {s.hoyRecibidos > 0 && <span className="text-[10px] font-black text-green-600">(+{s.hoyRecibidos})</span>}
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Vacíos</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                    <span style={{ fontSize: '1.125rem', fontWeight: 900, color: 'var(--pico-muted-color)', lineHeight: 1 }}>{s.envases}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        {s.hoyRecibidos > 0 && <span style={{ fontSize: '0.5rem', fontWeight: 900, color: '#16a34a' }}>(+{s.hoyRecibidos})</span>}
+                                        <span style={{ fontSize: '0.5rem', fontWeight: 'bold', color: 'var(--pico-muted-color)', textTransform: 'uppercase', letterSpacing: '-0.02em' }}>Vacíos</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </article>
-                ))}
-            </div>
+                    ))}
+                </div>
 
-            <article style={{ padding: 0, overflow: 'hidden' }}>
-                <div className="overflow-x-auto">
-                    <table className="striped" style={{ marginBottom: 0 }}>
-                        <thead>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', fontSize: '0.875rem', margin: 0 }}>
+                        <thead style={{ fontSize: '0.65rem', color: 'var(--pico-muted-color)', textTransform: 'uppercase', fontWeight: 900, background: 'var(--pico-card-sectioning-background-color)' }}>
                             <tr>
-                                <th>Cliente</th>
-                                {showRemitosColumn && <th className="text-center">Remitos</th>}
-                                <th className="text-center">Entregados</th>
-                                <th className="text-center">Recibidos</th>
-                                <th className="text-center">Balance Neto</th>
+                                <th style={{ padding: '0.75rem 1rem' }}>Cliente</th>
+                                {showRemitosColumn && <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Remitos</th>}
+                                <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Entregados</th>
+                                <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Recibidos</th>
+                                <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Balance Neto</th>
                             </tr>
                         </thead>
                         <tbody>
                             {balanceData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={showRemitosColumn ? 5 : 4} className="text-center py-12 text-gray-400 italic">No hay movimientos de envases retornables en este período.</td>
+                                    <td colSpan={showRemitosColumn ? 5 : 4} style={{ padding: '2rem', textAlign: 'center', color: 'var(--pico-muted-color)', fontStyle: 'italic' }}>No hay movimientos de envases retornables en este período.</td>
                                 </tr>
                             ) : (
                                 balanceData.map((item) => (
-                                    <tr key={item.clienteId}>
-                                        <td>
-                                            <p className="font-bold" style={{ marginBottom: 0 }}>{item.cliente?.nombre}</p>
-                                            <p className="text-[10px] text-gray-500" style={{ marginBottom: 0 }}>{item.cliente?.sucursales[0]?.direccion}</p>
+                                    <tr key={item.clienteId} style={{ borderBottom: '1px solid var(--pico-muted-border-color)' }}>
+                                        <td style={{ padding: '0.75rem 1rem' }}>
+                                            <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--pico-color)' }}>{item.cliente?.nombre}</p>
+                                            <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--pico-muted-color)' }}>{item.cliente?.sucursales[0]?.direccion}</p>
                                         </td>
-                                        {showRemitosColumn && <td className="text-center font-mono">{item.remitosCount}</td>}
-                                        <td className="text-center">
-                                            <div className="flex flex-col items-center gap-0.5">
+                                        {showRemitosColumn && <td style={{ padding: '0.75rem 1rem', textAlign: 'center', fontFamily: 'var(--pico-font-family-monospace)' }}>{item.remitosCount}</td>}
+                                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem' }}>
                                                 {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.entregados > 0 && (
-                                                    <span key={prodId} className="text-xs text-blue-600 font-bold whitespace-nowrap">
+                                                    <span key={prodId} style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                                         {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {d.entregados}
                                                     </span>
                                                 ))}
-                                                {item.entregados === 0 && <span className="text-gray-300">-</span>}
+                                                {item.entregados === 0 && <span style={{ color: 'var(--pico-muted-border-color)' }}>-</span>}
                                             </div>
                                         </td>
-                                        <td className="text-center">
-                                            <div className="flex flex-col items-center gap-0.5">
+                                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem' }}>
                                                 {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.recibidos > 0 && (
-                                                    <span key={prodId} className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                                                    <span key={prodId} style={{ fontSize: '0.75rem', color: 'var(--pico-muted-color)', fontWeight: '500', whiteSpace: 'nowrap' }}>
                                                         {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {d.recibidos}
                                                     </span>
                                                 ))}
-                                                {item.recibidos === 0 && <span className="text-gray-300">-</span>}
+                                                {item.recibidos === 0 && <span style={{ color: 'var(--pico-muted-border-color)' }}>-</span>}
                                             </div>
                                         </td>
-                                        <td className="text-center">
-                                            <span className={`inline-block px-3 py-1 rounded-full font-black text-xs ${
-                                                item.balance > 0 
-                                                    ? 'bg-red-100 text-red-700' 
-                                                    : item.balance < 0 
-                                                        ? 'bg-green-100 text-green-700' 
-                                                        : 'bg-gray-100 text-gray-600'
-                                            }`}>
+                                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                            <span style={{ 
+                                                display: 'inline-block', 
+                                                padding: '0.25rem 0.75rem', 
+                                                borderRadius: '1rem', 
+                                                fontWeight: 900, 
+                                                fontSize: '0.75rem',
+                                                background: item.balance > 0 ? 'rgba(220, 38, 38, 0.1)' : item.balance < 0 ? 'rgba(22, 163, 74, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                                                color: item.balance > 0 ? '#dc2626' : item.balance < 0 ? '#16a34a' : '#6b7280'
+                                            }}>
                                                 {item.balance > 0 ? `+${item.balance}` : item.balance}
                                             </span>
                                         </td>
@@ -976,43 +1075,40 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                         </tbody>
                     </table>
                 </div>
-            </article>
+            </Card>
             
-            <div className="space-y-4">
-                <hgroup>
-                    <h3>Resumen del Período por Producto</h3>
-                    <p>Totales acumulados según filtros aplicados</p>
-                </hgroup>
-                <div className="responsive-grid">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <h3 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--pico-muted-color)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 0.25rem', margin: 0 }}>Resumen del Período por Producto</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                     {(Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).map(([prodId, totals]) => {
                         const prod = productosMap.get(prodId);
                         return (
-                            <article key={prodId} style={{ padding: '1rem', marginBottom: 0, position: 'relative' }}>
-                                <div className="absolute top-0 left-0 w-1 h-full bg-primary-500"></div>
-                                <p className="text-[10px] font-black uppercase text-gray-400 mb-2 truncate">{prod?.nombre || 'N/A'}</p>
-                                <div className="grid">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-blue-500 uppercase">Entregados</span>
-                                        <span className="text-2xl font-black text-blue-700">{totals.entregados}</span>
+                            <article key={prodId} style={{ margin: 0, padding: '1rem', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--pico-primary)' }}></div>
+                                <p style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--pico-muted-color)', marginBottom: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prod?.nombre || 'N/A'}</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.55rem', fontWeight: 'bold', color: '#3b82f6', textTransform: 'uppercase' }}>Entregados</span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1d4ed8' }}>{totals.entregados}</span>
                                     </div>
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase">Recibidos</span>
-                                        <span className="text-2xl font-black text-gray-600">{totals.recibidos}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                        <span style={{ fontSize: '0.55rem', fontWeight: 'bold', color: 'var(--pico-muted-color)', textTransform: 'uppercase' }}>Recibidos</span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--pico-color)' }}>{totals.recibidos}</span>
                                     </div>
                                 </div>
-                                <footer style={{ padding: '0.5rem 0', marginTop: '0.5rem', borderTop: '1px solid var(--pico-muted-border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Balance Neto</span>
-                                    <span className={`text-lg font-black ${totals.balance > 0 ? 'text-red-600' : totals.balance < 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--pico-muted-border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 'bold', color: 'var(--pico-muted-color)', textTransform: 'uppercase' }}>Balance Neto</span>
+                                    <span style={{ fontSize: '0.875rem', fontWeight: 900, color: totals.balance > 0 ? '#dc2626' : totals.balance < 0 ? '#16a34a' : 'var(--pico-muted-color)' }}>
                                         {totals.balance > 0 ? `+${totals.balance}` : totals.balance}
                                     </span>
-                                </footer>
+                                </div>
                             </article>
                         );
                     })}
                     {Object.keys(periodTotalsByProduct).length === 0 && (
-                        <article className="col-span-full" style={{ textAlign: 'center', padding: '3rem', border: '2px dashed var(--pico-muted-border-color)' }}>
-                            <p className="text-gray-400 italic">No hay datos para el período seleccionado.</p>
-                        </article>
+                        <div style={{ gridColumn: '1 / -1', padding: '2rem', textAlign: 'center', background: 'var(--pico-card-sectioning-background-color)', borderRadius: 'var(--pico-border-radius)', border: '2px dashed var(--pico-muted-border-color)' }}>
+                            <p style={{ color: 'var(--pico-muted-color)', fontSize: '0.875rem', fontStyle: 'italic', margin: 0 }}>No hay datos para el período seleccionado.</p>
+                        </div>
                     )}
                 </div>
             </div>
@@ -1020,15 +1116,31 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       )}
 
       {remitoParaBorrar && (
-        <Modal isOpen={!!remitoParaBorrar} onClose={() => setRemitoParaBorrar(null)}>
-            <div className="p-6 text-center space-y-4">
-                <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
-                <h2 className="text-2xl font-black text-gray-800 dark:text-white pr-12">¿Borrar Remito?</h2>
-                <p className="text-gray-500">
+        <Modal 
+            isOpen={!!remitoParaBorrar} 
+            onClose={() => setRemitoParaBorrar(null)}
+            title="¿Borrar Remito?"
+            style={{ maxWidth: '400px' }}
+        >
+            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                <div style={{ 
+                    margin: '0 auto 1.5rem', 
+                    width: '4rem', 
+                    height: '4rem', 
+                    backgroundColor: 'rgba(211, 47, 47, 0.1)', 
+                    borderRadius: '50%', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    color: '#d32f2f'
+                }}>
+                    <TrashIcon style={{ width: '2rem', height: '2rem' }}/>
+                </div>
+                <p style={{ color: 'var(--pico-muted-color)', marginBottom: '1.5rem' }}>
                     Se eliminará el remito <strong>{remitoParaBorrar.puntoVenta}-{remitoParaBorrar.numero}</strong>.
-                    <br/>Esta acción revertirá el stock y saldo del cliente.
+                    <br/><small>Esta acción revertirá el stock y saldo del cliente.</small>
                 </p>
-                <div className="flex justify-center gap-3">
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
                     <AppButton variant="secondary" onClick={() => setRemitoParaBorrar(null)}>Cancelar</AppButton>
                     <AppButton variant="danger" onClick={handleDeleteConfirm}>Sí, Eliminar</AppButton>
                 </div>
