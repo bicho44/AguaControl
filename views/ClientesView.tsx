@@ -23,8 +23,6 @@ import { fetchDatosPadron } from '../services/afip';
 import { useDataStore } from '../hooks/useDataStore'; 
 import { getLocalDateString } from '../utils/dateUtils';
 
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
-
 interface ClientesViewProps {
   clientes: Cliente[];
   remitos: Remito[];
@@ -331,21 +329,19 @@ const ClienteForm: React.FC<{
     });
   }, [formData, auditStocks, currentBalances, contratosIniciales, contratosAEliminar, onSave]);
 
-  useFormShortcuts({
-    onSave: handleSubmit,
-    onCancel: onClose
-  });
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
         addSucursal();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addSucursal]);
+  }, [handleSubmit, addSucursal]);
 
   const activeProductOptions = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
   const repartidoresOptions = useMemo(() => [
@@ -361,7 +357,7 @@ const ClienteForm: React.FC<{
       <div className="space-y-6">
           <Card title="Información Comercial y Fiscal">
             <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="responsive-grid">
                     <AppInput label="Nombre de Fantasía (Local)" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
                     <div className="flex gap-2 items-end">
                         <div className="flex-1">
@@ -371,11 +367,12 @@ const ClienteForm: React.FC<{
                             type="button" 
                             onClick={handleSearchCuit} 
                             disabled={isSearchingCuit || !formData.cuit || formData.cuit.length < 11}
-                            className="bg-primary-600 text-white p-3 rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all active:scale-95 mb-0.5"
+                            className="primary p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all active:scale-95 mb-0.5"
                             title="Buscar datos Oficiales (Requiere API)"
+                            style={{ width: 'auto' }}
                         >
                             {isSearchingCuit ? (
-                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span aria-busy="true"></span>
                             ) : (
                                 <SearchIcon className="h-5 w-5" />
                             )}
@@ -385,29 +382,29 @@ const ClienteForm: React.FC<{
                 
                 {/* Agregamos inputs de teléfono aquí para que sea más visible, obligatorio si es interno */}
                 {/* Simplificación: Editamos directamente el array telefonos[0] si existe, sino creamos */}
-                <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-dashed dark:border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
+                <div className="responsive-grid">
+                    <div style={{ gridColumn: 'span 1' }}>
                         <AppInput label="Razón Social (Fiscal)" name="nombreFiscal" value={formData.nombreFiscal || ''} onChange={handleChange} placeholder="Ej: Perez Juan SRL" />
                     </div>
                     <AppSelect label="Condición IVA" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
                     
-                    <div className="md:col-span-2">
+                    <div style={{ gridColumn: 'span 1' }}>
                         <AppInput label="Dirección Fiscal (Facturación)" name="direccionFiscal" value={formData.direccionFiscal || ''} onChange={handleChange} placeholder="Calle, Altura, Piso..." />
                     </div>
-                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                    <div className="grid" style={{ gridColumn: 'span 1' }}>
                         <AppInput label="Localidad" name="localidad" value={formData.localidad || ''} onChange={handleChange} />
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid">
                             <AppInput label="Provincia" name="provincia" value={formData.provincia || ''} onChange={handleChange} />
                             <AppInput label="CP" name="codPostal" value={formData.codPostal || ''} onChange={handleChange} />
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="responsive-grid">
                     <AppSelect label="Estado" name="estado" value={formData.estado || EstadoCliente.ACTIVO} onChange={handleChange} options={[{ value: EstadoCliente.ACTIVO, label: 'Activo' }, { value: EstadoCliente.INACTIVO, label: 'Inactivo' }]} />
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600 mt-6 md:mt-0">
-                        <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" />
-                        <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer select-none">Habilitar Cuenta Corriente</label>
+                    <div className="flex items-center gap-3 p-4 rounded-xl border mt-6 md:mt-0">
+                        <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" style={{ marginBottom: 0 }} />
+                        <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold cursor-pointer select-none" style={{ marginBottom: 0 }}>Habilitar Cuenta Corriente</label>
                     </div>
                 </div>
             </div>
@@ -416,11 +413,11 @@ const ClienteForm: React.FC<{
           <Card title="Sucursales de Entrega y Stock">
               <div className="space-y-6">
                   {(formData.sucursales || []).map((suc, index) => (
-                      <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
+                      <div key={suc.id} className="p-5 border rounded-2xl shadow-sm space-y-5 relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1.5 h-full bg-primary-500"></div>
-                          <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2"><TrashIcon className="w-5 h-5"/></button>
+                          <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2" style={{ border: 'none', background: 'none' }}><TrashIcon className="w-5 h-5"/></button>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
+                          <div className="responsive-grid pr-8">
                               <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
                               <div className="relative">
                                   <div className="flex items-end gap-2">
@@ -429,15 +426,15 @@ const ClienteForm: React.FC<{
                                           <AppInput label="Dirección de Entrega" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} required={isInternal} />
                                       </div>
                                       <div className="flex gap-1 mb-1">
-                                          <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg"><SearchIcon className="w-5 h-5"/></button>
-                                          <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-2 rounded-lg transition-colors ${suc.lat ? 'text-white bg-green-600 hover:bg-green-700' : 'text-gray-500 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}><MapIcon className="w-5 h-5"/></button>
+                                          <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="secondary outline p-2 rounded-lg" style={{ marginBottom: '1rem' }}><SearchIcon className="w-5 h-5"/></button>
+                                          <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-2 rounded-lg transition-colors ${suc.lat ? 'primary' : 'secondary outline'}`} style={{ marginBottom: '1rem' }}><MapIcon className="w-5 h-5"/></button>
                                       </div>
                                   </div>
                               </div>
                           </div>
                           
                           {/* REQUISITO 3: Teléfono obligatorio para vendedores internos (agregado dentro de sucursal o global, aqui global visualmente) */}
-                          <div className="grid grid-cols-1 gap-2">
+                          <div className="grid">
                                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Teléfonos de Contacto {isInternal && '*'}</label>
                                 {(formData.telefonos || []).map((tel, i) => (
                                     <div key={i} className="flex gap-2">
@@ -457,23 +454,24 @@ const ClienteForm: React.FC<{
                           </div>
 
                           {/* DÍAS DE REPARTO Y REPARTIDORES */}
-                          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
+                          <div className="p-4 rounded-xl border border-dashed">
                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-3 block">Días de Reparto y Repartidores Asignados</label>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div className="responsive-grid">
                                   {Object.values(DiaSemana).map((day) => {
                                       const isSelected = (suc.diasReparto || []).includes(day);
                                       const assignedRepartidor = suc.repartidoresPorDia?.[day] || '';
                                       
                                       return (
-                                          <div key={day} className={`p-3 rounded-xl border transition-all ${isSelected ? 'bg-white dark:bg-gray-800 border-primary-200 shadow-sm' : 'bg-transparent border-transparent opacity-60'}`}>
+                                          <div key={day} className={`p-3 rounded-xl border transition-all ${isSelected ? 'border-primary-200 shadow-sm' : 'border-transparent opacity-60'}`}>
                                               <div className="flex items-center gap-2 mb-2">
                                                   <input 
                                                       type="checkbox" 
                                                       checked={isSelected} 
                                                       onChange={() => toggleDiaReparto(index, day)}
                                                       className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"
+                                                      style={{ marginBottom: 0 }}
                                                   />
-                                                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{day}</span>
+                                                  <span className="text-xs font-bold">{day}</span>
                                               </div>
                                               {isSelected && (
                                                   <AppSelect 
@@ -495,7 +493,7 @@ const ClienteForm: React.FC<{
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-6">
+                          <div className="grid">
                               {/* STOCK INTEGRADO EN LA SUCURSAL */}
                               <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
                                   <label className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 block flex items-center gap-2">
@@ -554,7 +552,7 @@ const ClienteForm: React.FC<{
                       const prod = productosMap.get(precio.productoId);
                       const precioLista = prod?.precio || 0;
                       return (
-                          <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] gap-3 items-end">
+                          <div key={index} className="responsive-grid" style={{ alignItems: 'end' }}>
                               <SearchableSelect 
                                   options={activeProductOptions}
                                   value={precio.productoId}
@@ -596,7 +594,7 @@ const ClienteForm: React.FC<{
                   {contratosIniciales.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
                           <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest px-1">Nuevos Contratos (A guardar)</label>
-                          <div className="grid grid-cols-1 gap-3">
+                          <div className="grid">
                               {contratosIniciales.map((c, idx) => (
                                   <div key={idx} className="flex justify-between items-center p-3 border rounded-xl shadow-sm bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-900/50 border-l-4 border-l-blue-500">
                                       <div>
@@ -619,7 +617,7 @@ const ClienteForm: React.FC<{
                   {contratosVigentes.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
                           <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Activos</label>
-                          <div className="grid grid-cols-1 gap-3">
+                          <div className="grid">
                               {contratosVigentes.map(c => (
                                   <div key={c.id} className="flex justify-between items-center p-3 border rounded-xl shadow-sm bg-white dark:bg-gray-800 border-green-200 dark:border-green-900/50 border-l-4 border-l-green-500">
                                       <div>
@@ -644,7 +642,7 @@ const ClienteForm: React.FC<{
 
       <div className="flex justify-end gap-3 pt-6">
         <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
 
@@ -853,7 +851,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
       </div>
             
       {/* Listado de clientes */}
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid">
             {filteredClientes.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 font-bold uppercase text-xs">No se encontraron clientes.</div>
             ) : filteredClientes.map(cliente => {
@@ -902,7 +900,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                     {isExpanded && (
                         <div className="px-4 pb-4 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
                             {/* ... (Detalle expandido del cliente se mantiene igual) ... */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid">
                                 <div className="space-y-4">
                                     <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
                                         {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}

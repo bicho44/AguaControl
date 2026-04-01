@@ -1,10 +1,10 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
+import { AppButton, AppInput, AppCard } from '../components/ui';
 
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -35,8 +35,8 @@ const LoginView: React.FC = () => {
     }
   };
 
-  const handleAuth = useCallback(async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     const cleanEmail = email.toLowerCase().trim();
 
@@ -72,7 +72,7 @@ const LoginView: React.FC = () => {
       console.error("Error de autenticación completo:", error);
       let msg = 'Error desconocido de autenticación.';
       
-      // Errores de Permisos (EL TEMA ACTUAL)
+      // Errores de Permisos
       if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
           msg = '⛔ ACCESO DENEGADO A BASE DE DATOS. Ve a Firebase Console -> Firestore -> Reglas y cámbialas a "allow read, write: if true;"';
       }
@@ -93,97 +93,86 @@ const LoginView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, isRegistering, showNotification]);
-
-  useFormShortcuts({
-    onSave: handleAuth
-  });
+  };
 
   return (
-    <main className="container" style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <article style={{ maxWidth: '400px', width: '100%', margin: 0 }}>
-        <header style={{ textAlign: 'center' }}>
-          <div style={{ backgroundColor: 'var(--pico-primary-background)', width: '64px', height: '64px', borderRadius: '1rem', margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg style={{ width: '40px', height: '40px', color: 'var(--pico-primary-inverse)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" />
-            </svg>
+    <main className="container" style={{ maxWidth: '600px', marginTop: '2rem' }}>
+      <AppCard
+        title={
+          <div style={{ textAlign: 'center' }}>
+            <hgroup>
+              <h1>Aguas Puras</h1>
+              <p>{isRegistering ? 'Alta de Nuevo Usuario' : 'Acceso al Sistema'}</p>
+            </hgroup>
           </div>
-          <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '-0.02em', fontStyle: 'italic', fontWeight: 900 }}>Aguas Puras</h2>
-          <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6, letterSpacing: '0.1em' }}>
-            {isRegistering ? 'Alta de Nuevo Usuario' : 'Acceso al Sistema'}
-          </small>
-        </header>
-        
+        }
+      >
         <form onSubmit={handleAuth}>
           {isRegistering && (
-            <label>
-                Nombre Completo
-                <input 
-                  type="text" 
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  required={isRegistering}
-                  placeholder="Tu nombre..."
-                />
-            </label>
+            <AppInput 
+              label="Nombre Completo"
+              type="text" 
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required={isRegistering}
+              placeholder="Tu nombre..."
+            />
           )}
 
-          <label>
-            Correo Electrónico
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="ejemplo@email.com"
-            />
-          </label>
+          <AppInput 
+            label="Correo Electrónico"
+            type="email" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="ejemplo@email.com"
+          />
+
+          <AppInput 
+            label="Contraseña"
+            type="password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+          />
           
-          <label>
-            Contraseña
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-            />
-          </label>
-          
-          <button 
+          <AppButton 
             type="submit" 
-            disabled={isLoading}
-            style={{ width: '100%', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+            isLoading={isLoading}
+            className="w-full"
+            style={{ width: '100%' }}
           >
-            {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')}
-          </button>
-          <div style={{ textAlign: 'center' }}>
-            <small style={{ opacity: 0.5 }}>(Alt+Enter para enviar)</small>
-          </div>
+            {isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema'}
+          </AppButton>
         </form>
 
-        <footer>
-            <button 
-                onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
-                className="contrast outline"
-                style={{ width: '100%', fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '1rem' }}
-            >
-                {isRegistering 
-                    ? '¿Ya tienes cuenta? Iniciar Sesión' 
-                    : '¿No tienes contraseña aún? Regístrate aquí'}
-            </button>
-            
-            <div style={{ textAlign: 'center' }}>
-                <a 
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); handleResetConfig(); }}
-                    style={{ fontSize: '0.625rem', textTransform: 'uppercase', fontWeight: 900, opacity: 0.5, color: 'var(--pico-muted-color)' }}
-                >
-                    Configuración de base de datos
-                </a>
-            </div>
+        <footer style={{ textAlign: 'center', borderTop: 'none', padding: 0, marginTop: '1rem' }}>
+          <AppButton 
+            variant="ghost"
+            onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
+            style={{ fontSize: '0.8rem', width: '100%' }}
+          >
+            {isRegistering 
+                ? '¿Ya tienes cuenta? Iniciar Sesión' 
+                : '¿No tienes contraseña aún? Regístrate aquí'}
+          </AppButton>
+          
+          <AppButton 
+            variant="ghost"
+            onClick={handleResetConfig}
+            style={{ fontSize: '0.7rem', opacity: 0.6, width: '100%', marginTop: '0.5rem' }}
+          >
+            Configuración de base de datos
+          </AppButton>
         </footer>
-      </article>
+      </AppCard>
+      
+      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+        <small style={{ color: 'var(--pico-muted-color)' }}>
+          IMPORTANTE: Si eres vendedor, debes registrarte con el mismo email que te asignó el administrador para heredar tus permisos y rutas.
+        </small>
+      </div>
     </main>
   );
 };

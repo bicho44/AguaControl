@@ -14,8 +14,6 @@ import AppSelect from '../components/ui/AppSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 import LiquidacionAbonosView from './LiquidacionAbonosView';
 
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
-
 interface FacturacionViewProps {
   clientes: Cliente[];
   remitos: Remito[];
@@ -56,21 +54,19 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
         if (pagosValidos.length > 0) onSave(factura.id, fecha, pagosValidos);
     }, [pagos, factura.id, fecha, onSave]);
 
-    useFormShortcuts({
-        onSave: handleSubmit,
-        onCancel: onClose
-    });
-
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.altKey && (e.key === 'p' || e.key === 'P')) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+            } else if (e.altKey && (e.key === 'p' || e.key === 'P')) {
                 e.preventDefault();
                 addPago();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [addPago]);
+    }, [handleSubmit, addPago]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,7 +98,7 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
 
             <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton variant="primary" type="submit">Registrar Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
+                <AppButton variant="primary" type="submit">Registrar Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
             </div>
         </form>
     );
@@ -178,18 +174,20 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter italic">Facturación</h1>
         <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl w-fit">
-            <button 
+            <AppButton 
+                variant={activeTab === 'cuentacorriente' ? 'primary' : 'secondary'}
                 onClick={() => setActiveTab('cuentacorriente')}
-                className={`px-4 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'cuentacorriente' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className="px-4 py-2 text-xs font-black uppercase tracking-widest border-transparent"
             >
                 Cuentas Corrientes
-            </button>
-            <button 
+            </AppButton>
+            <AppButton 
+                variant={activeTab === 'liquidacion' ? 'primary' : 'secondary'}
                 onClick={() => setActiveTab('liquidacion')}
-                className={`px-4 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'liquidacion' ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className="px-4 py-2 text-xs font-black uppercase tracking-widest border-transparent"
             >
                 Liquidación Abonos
-            </button>
+            </AppButton>
         </div>
       </div>
 
@@ -203,18 +201,20 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><SearchIcon className="h-5 w-5 text-gray-400" /></div>
                     </div>
                     <div className="flex gap-2">
-                        <button 
+                        <AppButton 
+                            variant={sortOrder === 'nombre' ? 'primary' : 'secondary'}
                             onClick={() => setSortOrder('nombre')} 
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${sortOrder === 'nombre' ? 'bg-primary-600 text-white border-primary-600' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
+                            className="flex-1 py-1.5 text-xs font-bold"
                         >
                             A-Z (Nombre)
-                        </button>
-                        <button 
+                        </AppButton>
+                        <AppButton 
+                            variant={sortOrder === 'deuda' ? 'primary' : 'secondary'}
                             onClick={() => setSortOrder('deuda')} 
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${sortOrder === 'deuda' ? 'bg-primary-600 text-white border-primary-600' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-600 hover:bg-gray-100'}`}
+                            className="flex-1 py-1.5 text-xs font-bold"
                         >
                             $$$ (Mayor Deuda)
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
                 <div className="max-h-[calc(100vh-20rem)] overflow-y-auto">

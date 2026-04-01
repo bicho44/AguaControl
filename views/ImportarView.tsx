@@ -6,7 +6,6 @@ import { UploadIcon } from '../components/icons/UploadIcon';
 import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
 import AppSelect from '../components/ui/AppSelect';
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 interface ImportarViewProps {
   clientes: Cliente[];
@@ -108,7 +107,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
     }
   };
 
-  const handleExecuteImport = useCallback(async () => {
+  const handleExecuteImport = async () => {
       if (!fileData) return;
       setIsProcessing(true);
       try {
@@ -172,17 +171,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
           showNotification(`Error: ${err.message}`, 'error'); 
       }
       finally { setIsProcessing(false); }
-  }, [fileData, isReplacing, deleteAllClientes, productMapping, ivaMapping, addMultipleClientes, showNotification]);
-
-  useFormShortcuts({
-    onSave: handleExecuteImport,
-    onCancel: () => {
-        if (currentStep === 'mapping') {
-            setCurrentStep('upload');
-            setFileData(null);
-        }
-    }
-  });
+  };
 
   return (
     <div className="space-y-6 pt-12 md:pt-0 pb-12">
@@ -233,13 +222,13 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600">
                       <p className="font-bold text-sm">Modo de Importación</p>
                       <div className="flex gap-2">
-                          <button onClick={() => setIsReplacing(false)} className={`px-4 py-2 rounded-lg text-xs font-bold ${!isReplacing ? 'bg-primary-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500'}`}>Sumar</button>
-                          <button onClick={() => setIsReplacing(true)} className={`px-4 py-2 rounded-lg text-xs font-bold ${isReplacing ? 'bg-red-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500'}`}>REEMPLAZAR</button>
+                          <AppButton onClick={() => setIsReplacing(false)} variant={!isReplacing ? 'primary' : 'secondary'} size="sm" className="px-4 py-2 rounded-lg text-xs font-bold">Sumar</AppButton>
+                          <AppButton onClick={() => setIsReplacing(true)} variant={isReplacing ? 'danger' : 'secondary'} size="sm" className="px-4 py-2 rounded-lg text-xs font-bold">REEMPLAZAR</AppButton>
                       </div>
                   </div>
                   <div className="flex gap-3 justify-end mt-6">
                       <AppButton variant="secondary" onClick={() => setCurrentStep('upload')}>Volver</AppButton>
-                      <AppButton onClick={handleExecuteImport} isLoading={isProcessing} className="px-12">Iniciar <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
+                      <AppButton onClick={handleExecuteImport} isLoading={isProcessing} className="px-12">Iniciar</AppButton>
                   </div>
               </Card>
           </div>

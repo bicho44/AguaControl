@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface AppInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -11,8 +10,8 @@ const AppInput: React.FC<AppInputProps> = ({ label, error, className = '', ...pr
     <label className={className}>
       {label}
       <input
-        aria-invalid={error ? "true" : undefined}
         {...props}
+        aria-invalid={error ? "true" : undefined}
       />
       {error && <small style={{ color: 'var(--pico-error-color)' }}>{error}</small>}
     </label>

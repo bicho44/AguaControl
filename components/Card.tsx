@@ -11,7 +11,7 @@ const Card: React.FC<CardProps> = ({ title, children }) => {
     <article>
       {title && (
         <header>
-          <h2 style={{ margin: 0 }}>{title}</h2>
+          <strong>{title}</strong>
         </header>
       )}
       {children}
