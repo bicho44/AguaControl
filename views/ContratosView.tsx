@@ -11,6 +11,8 @@ import AppButton from '../components/ui/AppButton';
 import ContratoForm from '../components/ContratoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
+// Force sync
+
 interface ContratosViewProps {
   contratos: Contrato[];
   clientes: Cliente[];
@@ -172,27 +174,11 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right flex justify-end gap-2">
-                                                <AppButton 
-                                                    variant="secondary" 
-                                                    size="sm" 
-                                                    onClick={(e) => { e.stopPropagation(); openEditModal(contrato); }} 
-                                                    className="!p-2 border-transparent bg-transparent text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-none"
-                                                    title="Editar Contrato"
-                                                >
-                                                    <PencilIcon />
-                                                </AppButton>
-                                                <AppButton 
-                                                    variant="danger" 
-                                                    size="sm" 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setContratoParaBorrar(contrato);
-                                                    }} 
-                                                    className="!p-2 border-transparent bg-transparent text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"
-                                                    title="Eliminar Contrato"
-                                                >
-                                                    <TrashIcon />
-                                                </AppButton>
+                                                <button onClick={(e) => { e.stopPropagation(); openEditModal(contrato); }} className="text-blue-500 hover:text-blue-700 p-1"><PencilIcon /></button>
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setContratoParaBorrar(contrato);
+                                                }} className="text-red-500 hover:text-red-700 p-1"><TrashIcon /></button>
                                             </td>
                                         </tr>
                                     )})}
@@ -236,15 +222,13 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                     Esta acción no afectará a las facturas ya generadas, pero el servicio no se considerará para futuras facturaciones.
                 </p>
                 <div className="flex justify-center space-x-4">
-                    <AppButton
-                        variant="secondary"
+                    <button
                         onClick={() => setContratoParaBorrar(null)}
-                        className="px-6"
+                        className="px-6 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
                     >
                         Cancelar
-                    </AppButton>
-                    <AppButton
-                        variant="danger"
+                    </button>
+                    <button
                         onClick={() => {
                             if (!contratoParaBorrar) return;
                             try {
@@ -256,10 +240,10 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
                             }
                             setContratoParaBorrar(null);
                         }}
-                        className="px-6"
+                        className="px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
                     >
                         Sí, Eliminar
-                    </AppButton>
+                    </button>
                 </div>
             </div>
         </Modal>

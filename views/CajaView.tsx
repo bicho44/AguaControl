@@ -12,6 +12,8 @@ import AppInput from '../components/ui/AppInput';
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
+// Force sync
+
 interface CajaViewProps {
   registrosPago: RegistroPago[];
   gastos: Gasto[];

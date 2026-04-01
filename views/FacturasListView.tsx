@@ -13,6 +13,8 @@ import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { generateInvoicePDF } from '../utils/invoiceGenerator';
 import { getLocalDateString } from '../utils/dateUtils';
 
+// Force sync
+
 interface FacturasListViewProps {
   facturas: Factura[];
   clientes: Cliente[];

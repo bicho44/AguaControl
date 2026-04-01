@@ -18,6 +18,8 @@ import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
+
+// Force sync
 import ContratoForm from '../components/ContratoForm';
 import { fetchDatosPadron } from '../services/afip'; 
 import { useDataStore } from '../hooks/useDataStore'; 
@@ -642,7 +644,7 @@ const ClienteForm: React.FC<{
 
       <div className="flex justify-end gap-3 pt-6">
         <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios</AppButton>
+        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
 

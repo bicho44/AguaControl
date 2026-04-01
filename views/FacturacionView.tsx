@@ -14,6 +14,8 @@ import AppSelect from '../components/ui/AppSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 import LiquidacionAbonosView from './LiquidacionAbonosView';
 
+// Force sync
+
 interface FacturacionViewProps {
   clientes: Cliente[];
   remitos: Remito[];
@@ -98,7 +100,7 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
 
             <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton variant="primary" type="submit">Registrar Cobro</AppButton>
+                <AppButton variant="primary" type="submit">Registrar Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
             </div>
         </form>
     );
