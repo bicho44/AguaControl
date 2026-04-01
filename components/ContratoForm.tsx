@@ -185,7 +185,7 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
 
       <div className="flex justify-end gap-2 pt-4">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit">Guardar Contrato <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit">Guardar Contrato</AppButton>
       </div>
     </form>
   )

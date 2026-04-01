@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -34,8 +35,8 @@ const LoginView: React.FC = () => {
     }
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAuth = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsLoading(true);
     const cleanEmail = email.toLowerCase().trim();
 
@@ -92,93 +93,98 @@ const LoginView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, password, isRegistering, showNotification]);
+
+  useFormShortcuts({
+    onSave: handleAuth
+  });
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
-        <div className="text-center mb-8">
-          <div className="bg-primary-600 w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-primary-500/30">
-            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <main className="container" style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <article style={{ maxWidth: '400px', width: '100%', margin: 0 }}>
+        <header style={{ textAlign: 'center' }}>
+          <div style={{ backgroundColor: 'var(--pico-primary-background)', width: '64px', height: '64px', borderRadius: '1rem', margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg style={{ width: '40px', height: '40px', color: 'var(--pico-primary-inverse)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" />
             </svg>
           </div>
-          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tighter uppercase italic">Aguas Puras</h1>
-          <p className="text-gray-400 dark:text-gray-500 text-xs font-black uppercase tracking-widest mt-1">
+          <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '-0.02em', fontStyle: 'italic', fontWeight: 900 }}>Aguas Puras</h2>
+          <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6, letterSpacing: '0.1em' }}>
             {isRegistering ? 'Alta de Nuevo Usuario' : 'Acceso al Sistema'}
-          </p>
-        </div>
+          </small>
+        </header>
         
-        <form onSubmit={handleAuth} className="space-y-5">
+        <form onSubmit={handleAuth}>
           {isRegistering && (
-            <div className="animate-fade-in-down">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Nombre Completo</label>
+            <label>
+                Nombre Completo
                 <input 
                   type="text" 
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                   required={isRegistering}
                   placeholder="Tu nombre..."
                 />
-            </div>
+            </label>
           )}
 
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Correo Electrónico</label>
+          <label>
+            Correo Electrónico
             <input 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
               required
               placeholder="ejemplo@email.com"
             />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Contraseña</label>
+          </label>
+          
+          <label>
+            Contraseña
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
               required
               placeholder="••••••••"
             />
-          </div>
+          </label>
           
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full py-4 px-4 bg-primary-600 hover:bg-primary-700 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary-500/20 transition-all transform active:scale-95 disabled:opacity-50"
+            style={{ width: '100%', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}
           >
             {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')}
           </button>
+          <div style={{ textAlign: 'center' }}>
+            <small style={{ opacity: 0.5 }}>(Alt+Enter para enviar)</small>
+          </div>
         </form>
 
-        <div className="mt-8 text-center space-y-4">
+        <footer>
             <button 
                 onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
-                className="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-black uppercase tracking-tighter block w-full"
+                className="contrast outline"
+                style={{ width: '100%', fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '1rem' }}
             >
                 {isRegistering 
                     ? '¿Ya tienes cuenta? Iniciar Sesión' 
                     : '¿No tienes contraseña aún? Regístrate aquí'}
             </button>
             
-            <button 
-                onClick={handleResetConfig}
-                className="text-[9px] text-gray-400 hover:text-red-500 uppercase font-bold tracking-widest pt-4 block mx-auto opacity-50"
-            >
-                Configuración de base de datos
-            </button>
-        </div>
-      </div>
-      
-      <div className="mt-8 max-w-sm text-[10px] text-gray-400 dark:text-gray-500 text-center font-bold uppercase tracking-widest leading-relaxed">
-        <p>IMPORTANTE: Si eres vendedor, debes registrarte con el mismo email que te asignó el administrador para heredar tus permisos y rutas.</p>
-      </div>
-    </div>
+            <div style={{ textAlign: 'center' }}>
+                <a 
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handleResetConfig(); }}
+                    style={{ fontSize: '0.625rem', textTransform: 'uppercase', fontWeight: 900, opacity: 0.5, color: 'var(--pico-muted-color)' }}
+                >
+                    Configuración de base de datos
+                </a>
+            </div>
+        </footer>
+      </article>
+    </main>
   );
 };
 

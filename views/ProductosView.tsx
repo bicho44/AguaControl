@@ -82,7 +82,7 @@ const ProductoForm: React.FC<{
       </div>
       <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto</AppButton>
       </div>
     </form>
   )

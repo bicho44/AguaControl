@@ -1,10 +1,11 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  isCancel?: boolean;
 }
 
 const AppButton: React.FC<AppButtonProps> = ({ 
@@ -12,10 +13,43 @@ const AppButton: React.FC<AppButtonProps> = ({
   variant = 'primary', 
   size = 'md', 
   isLoading, 
+  isCancel,
   className = '', 
   type = 'button', // Ahora por defecto es button, no submit
   ...props 
 }) => {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isLoading || props.disabled) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Submit: Alt + Enter
+      if (type === 'submit' && e.altKey && e.key === 'Enter') {
+        if (buttonRef.current && buttonRef.current.offsetParent !== null) {
+          e.preventDefault();
+          buttonRef.current.click();
+        }
+      }
+      
+      // Cancel: Escape
+      const isCancelButton = isCancel || (
+        (variant === 'secondary' || variant === 'ghost') && 
+        (typeof children === 'string' && ['cancelar', 'cancel', 'cerrar', 'close'].includes(children.toLowerCase().trim()))
+      );
+
+      if (isCancelButton && e.key === 'Escape') {
+        if (buttonRef.current && buttonRef.current.offsetParent !== null) {
+          e.preventDefault();
+          buttonRef.current.click();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [type, isCancel, isLoading, props.disabled, variant, children]);
+
   const baseStyles = "inline-flex items-center justify-center font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-sm";
   
   const variants = {
@@ -34,6 +68,7 @@ const AppButton: React.FC<AppButtonProps> = ({
 
   return (
     <button 
+      ref={buttonRef}
       type={type}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={isLoading || props.disabled}

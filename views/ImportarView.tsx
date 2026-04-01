@@ -6,6 +6,7 @@ import { UploadIcon } from '../components/icons/UploadIcon';
 import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
 import AppSelect from '../components/ui/AppSelect';
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 interface ImportarViewProps {
   clientes: Cliente[];
@@ -107,7 +108,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
     }
   };
 
-  const handleExecuteImport = async () => {
+  const handleExecuteImport = useCallback(async () => {
       if (!fileData) return;
       setIsProcessing(true);
       try {
@@ -171,7 +172,17 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
           showNotification(`Error: ${err.message}`, 'error'); 
       }
       finally { setIsProcessing(false); }
-  };
+  }, [fileData, isReplacing, deleteAllClientes, productMapping, ivaMapping, addMultipleClientes, showNotification]);
+
+  useFormShortcuts({
+    onSave: handleExecuteImport,
+    onCancel: () => {
+        if (currentStep === 'mapping') {
+            setCurrentStep('upload');
+            setFileData(null);
+        }
+    }
+  });
 
   return (
     <div className="space-y-6 pt-12 md:pt-0 pb-12">
@@ -228,7 +239,7 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                   </div>
                   <div className="flex gap-3 justify-end mt-6">
                       <AppButton variant="secondary" onClick={() => setCurrentStep('upload')}>Volver</AppButton>
-                      <AppButton onClick={handleExecuteImport} isLoading={isProcessing} className="px-12">Iniciar</AppButton>
+                      <AppButton onClick={handleExecuteImport} isLoading={isProcessing} className="px-12">Iniciar <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
                   </div>
               </Card>
           </div>

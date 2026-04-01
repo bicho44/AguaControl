@@ -103,7 +103,7 @@ export const useDataStore = () => {
             await addDoc(collection(db, 'system_logs'), {
                 ...logData,
                 timestamp: Date.now(),
-                version: '2.6.0'
+                version: '2.7.6'
             });
         } catch (e) {
             console.error("Error crítico al guardar log:", e);
