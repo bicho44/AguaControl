@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Producto } from '../../types';
-import { AppCard } from '../ui';
 
 interface StatsCardProps {
   title: string;
@@ -17,7 +16,8 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, stats, productos }) => {
   };
 
   return (
-    <AppCard title={title}>
+    <article>
+      <header><h6 style={{ margin: 0 }}>{title}</h6></header>
       <div style={{ minHeight: '120px' }}>
         {Object.keys(stats.byProduct).length > 0 ? (
           Object.entries(stats.byProduct)
@@ -41,7 +41,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, stats, productos }) => {
           </div>
         )}
       </div>
-    </AppCard>
+    </article>
   );
 };
 

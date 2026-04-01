@@ -4,7 +4,6 @@ import { Calendar, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Modal from '../components/Modal';
-import { AppButton, AppCard } from '../components/ui';
 import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PlanillaDiaria, MovimientoStockPlanta, CausaRecambio } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -183,8 +182,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           await addRemito(remito);
           showNotification('Remito creado exitosamente', 'success');
           setIsRemitoModalOpen(false);
-      } catch (e) {
-          showNotification('Error al crear remito', 'error');
+      } catch (e: any) {
+          showNotification(e.message || 'Error al crear remito', 'error');
       }
   };
 
@@ -200,8 +199,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           });
           showNotification('Pago registrado correctamente', 'success');
           setIsPagoModalOpen(false);
-      } catch (e) {
-          showNotification('Error al registrar pago', 'error');
+      } catch (e: any) {
+          showNotification(e.message || 'Error al registrar pago', 'error');
       }
   };
 
@@ -218,8 +217,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           });
           showNotification('Retiro de mercadería registrado.', 'success');
           setIsStockPurchaseModalOpen(false);
-      } catch (e) {
-          showNotification('Error al registrar retiro.', 'error');
+      } catch (e: any) {
+          showNotification(e.message || 'Error al registrar retiro.', 'error');
       }
   };
 

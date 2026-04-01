@@ -3,7 +3,6 @@ import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Usuario, Remito, Producto, PlanillaDiaria, Cliente, DiaSemana, TipoProducto } from '../../types';
 import { getLocalDateString } from '../../utils/dateUtils';
-import { AppButton, AppCard } from '../ui';
 
 const lightTooltipStyle = {
     backgroundColor: '#f3f4f6',
@@ -120,14 +119,15 @@ const InternalVendorDashboard: React.FC<InternalVendorDashboardProps> = ({
                 <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '-0.02em' }}>
                     Rendimiento: <span style={{ color: 'var(--pico-primary)' }}>{user.nombre}</span>
                 </h2>
-                <AppButton onClick={() => onOpenRemito()} style={{ width: '100%' }}>
+                <button onClick={() => onOpenRemito()} style={{ width: '100%' }}>
                     + Nuevo Remito Rápido
-                </AppButton>
+                </button>
             </div>
 
             {visitasDelDia.length > 0 && (
-                <AppCard title={`Ruta del Día (${currentDay})`}>
-                    <div className="grid">
+                <article>
+                    <header><h6 style={{ margin: 0 }}>Ruta del Día ({currentDay})</h6></header>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {visitasDelDia.map(cliente => (
                             <button 
                                 key={cliente.id} 
@@ -157,12 +157,13 @@ const InternalVendorDashboard: React.FC<InternalVendorDashboardProps> = ({
                             </button>
                         ))}
                     </div>
-                </AppCard>
+                </article>
             )}
 
             {cargaStatus && (
-                <AppCard title="Control de Carga (Hoy)">
-                    <div className="grid">
+                <article>
+                    <header><h6 style={{ margin: 0 }}>Control de Carga (Hoy)</h6></header>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
                         {Object.entries(cargaStatus.cargaTotal).map(([prodId, cargaVal]) => {
                             const prod = productosMap.get(prodId);
                             const carga = cargaVal as number;
@@ -192,12 +193,13 @@ const InternalVendorDashboard: React.FC<InternalVendorDashboardProps> = ({
                             );
                         })}
                     </div>
-                </AppCard>
+                </article>
             )}
             
             <div className="grid">
-                <AppCard title="Ritmo de Entrega (Envases)" style={{ padding: 0 }}>
-                    <div className="grid" style={{ padding: '1rem' }}>
+                <article style={{ padding: 0 }}>
+                    <header style={{ padding: '1rem' }}><h6 style={{ margin: 0 }}>Ritmo de Entrega (Envases)</h6></header>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem' }}>
                         <div style={{ textAlign: 'center' }}>
                             <h2 style={{ margin: 0, color: 'var(--pico-primary)' }}>{entregasHoy}</h2>
                             <small style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>Hoy</small>
@@ -207,15 +209,17 @@ const InternalVendorDashboard: React.FC<InternalVendorDashboardProps> = ({
                             <small style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>Ayer</small>
                         </div>
                     </div>
-                </AppCard>
+                </article>
 
-                <AppCard title="Total Mensual" style={{ textAlign: 'center' }}>
+                <article style={{ textAlign: 'center' }}>
+                    <header><h6 style={{ margin: 0 }}>Total Mensual</h6></header>
                     <h1 style={{ margin: '0.5rem 0', color: 'var(--pico-primary)' }}>{entregasTotal}</h1>
                     <small>Productos Retornables</small>
-                </AppCard>
+                </article>
             </div>
 
-            <AppCard title="Progreso Diario de Entregas">
+            <article>
+                <header><h6 style={{ margin: 0 }}>Progreso Diario de Entregas</h6></header>
                 <div style={{ height: '260px' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
@@ -233,7 +237,7 @@ const InternalVendorDashboard: React.FC<InternalVendorDashboardProps> = ({
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-            </AppCard>
+            </article>
         </div>
     );
 };

@@ -11,7 +11,6 @@ import {
   Preforma, Molde, ProduccionSoplado, EntregaSoplado 
 } from '../../plugins/soplado/types';
 import SopladoDashboardWidget from '../../plugins/soplado/SopladoDashboardWidget';
-import { AppButton, AppCard } from '../ui';
 import LeafletMap from '../LeafletMap';
 
 const lightTooltipStyle = {
@@ -106,14 +105,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       <div className="grid">
-          <AppCard style={{ textAlign: 'center', border: '2px solid rgba(0,255,0,0.1)' }}>
+          <article style={{ textAlign: 'center', border: '2px solid rgba(0,255,0,0.1)' }}>
               <small style={{ textTransform: 'uppercase', fontWeight: 900, color: 'green' }}>Efectivo Total</small>
               <h2 style={{ margin: 0 }}>${saldoEfectivo.toLocaleString('es-AR')}</h2>
-          </AppCard>
-          <AppCard style={{ textAlign: 'center', border: '2px solid rgba(0,0,255,0.1)' }}>
+          </article>
+          <article style={{ textAlign: 'center', border: '2px solid rgba(0,0,255,0.1)' }}>
               <small style={{ textTransform: 'uppercase', fontWeight: 900, color: 'blue' }}>Caja Virtual / Bancos</small>
               <h2 style={{ margin: 0 }}>${saldoOtros.toLocaleString('es-AR')}</h2>
-          </AppCard>
+          </article>
       </div>
 
       <section>
@@ -124,8 +123,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </section>
 
       <div className="grid">
-          <div style={{ gridColumn: 'span 2' }}>
-              <AppCard title="Evolución Diaria (Mes Actual vs Anterior)">
+          <div>
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Evolución Diaria (Mes Actual vs Anterior)</h6></header>
                   <div style={{ marginBottom: '1rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                             <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6 }}>Filtro de Productos</small>
@@ -183,11 +183,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </LineChart>
                       </ResponsiveContainer>
                   </div>
-              </AppCard>
+              </article>
           </div>
+      </div>
 
+      <div className="grid">
           <div>
-              <AppCard title="Stock en Planta">
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Stock en Planta</h6></header>
                   <div style={{ overflowY: 'auto', maxHeight: '420px' }}>
                       <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6, display: 'block', marginBottom: '0.5rem' }}>Productos y Envases en Fábrica</small>
                       {productos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).length > 0 ? (
@@ -217,11 +220,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                       )}
                   </div>
-              </AppCard>
+              </article>
           </div>
 
           <div>
-              <AppCard title="Stock en Poder de Clientes">
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Stock en Poder de Clientes</h6></header>
                   <div style={{ overflowY: 'auto', maxHeight: '420px' }}>
                       <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6, display: 'block', marginBottom: '0.5rem' }}>Activos pendientes de devolución</small>
                       {stockEnCalle.length > 0 ? (
@@ -241,11 +245,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                       )}
                   </div>
-              </AppCard>
+              </article>
           </div>
+      </div>
 
-          <div style={{ gridColumn: 'span 2' }}>
-              <AppCard title="Volumen de Ventas (Histórico 12 Meses)">
+      <div className="grid">
+          <div>
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Volumen de Ventas (Histórico 12 Meses)</h6></header>
                   <div style={{ height: '320px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={monthlySalesVolumeChartData}>
@@ -266,11 +273,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </LineChart>
                       </ResponsiveContainer>
                   </div>
-              </AppCard>
+              </article>
           </div>
+      </div>
 
+      <div className="grid">
           <div>
-              <AppCard title="Ventas Productos Descartables">
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Ventas Productos Descartables</h6></header>
                   <div style={{ height: '320px' }}>
                       {nonReturnableMonthlyData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
@@ -290,11 +300,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                       )}
                   </div>
-              </AppCard>
+              </article>
           </div>
 
           <div>
-              <AppCard title="Comisiones Vendedores">
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Comisiones Vendedores</h6></header>
                   <div style={{ overflowY: 'auto', maxHeight: '420px' }}>
                       <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6, display: 'block', marginBottom: '0.5rem' }}>Mes Actual (Internos)</small>
                       {vendedoresComisiones.length > 0 ? (
@@ -314,11 +325,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                       )}
                   </div>
-              </AppCard>
+              </article>
           </div>
 
           <div>
-              <AppCard title="Vendedores Externos">
+              <article>
+                  <header><h6 style={{ margin: 0 }}>Vendedores Externos</h6></header>
                   <div style={{ height: '320px' }}>
                       {externalVendorsPieData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
@@ -347,21 +359,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                       )}
                   </div>
-              </AppCard>
+              </article>
           </div>
       </div>
 
-      <AppCard title={`Ruta de Reparto Estimada (${todayName})`}>
+      <article>
+          <header><h6 style={{ margin: 0 }}>Ruta de Reparto Estimada ({todayName})</h6></header>
           <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <small style={{ textTransform: 'uppercase', fontWeight: 900, opacity: 0.6 }}>{mapMarkers.length} puntos de entrega hoy</small>
-              <AppButton onClick={optimizeRoute} disabled={isOptimized} size="sm">
+              <button onClick={optimizeRoute} disabled={isOptimized} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>
                   {isOptimized ? 'Ruta Optimizada' : 'Optimizar Ruta'}
-              </AppButton>
+              </button>
           </div>
           <div style={{ height: '400px', borderRadius: 'var(--pico-border-radius)', overflow: 'hidden', border: '1px solid var(--pico-muted-border-color)' }}>
               <LeafletMap markers={mapMarkers} routeLine={routeLine} />
           </div>
-      </AppCard>
+      </article>
     </div>
   );
 };

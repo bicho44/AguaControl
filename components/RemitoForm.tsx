@@ -298,7 +298,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         });
         setFormData(prev => ({ ...prev, clienteId: id, sucursalId: 'main' }));
         showNotification('Cliente creado.', 'success');
-    } catch (e) { showNotification('Error.', 'error'); }
+    } catch (e: any) { showNotification(e.message || 'Error.', 'error'); }
   };
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {

@@ -2,7 +2,6 @@
 import React, { useMemo } from 'react';
 import { Usuario, VentaVendedor, RegistroPago, Producto, TipoProducto } from '../../types';
 import { getLocalDateString } from '../../utils/dateUtils';
-import { AppButton, AppCard } from '../ui';
 
 interface ExternalVendorDashboardProps {
     user: Usuario;
@@ -83,27 +82,28 @@ const ExternalVendorDashboard: React.FC<ExternalVendorDashboardProps> = ({
                     Cuenta Corriente: <span style={{ color: 'var(--pico-primary)' }}>{user.nombre}</span>
                 </h2>
                 <div className="grid">
-                    <AppButton onClick={onOpenPago} variant="success">
+                    <button onClick={onOpenPago} style={{ backgroundColor: 'var(--pico-color-green-500)', borderColor: 'var(--pico-color-green-600)' }}>
                         $ Cargar Pago
-                    </AppButton>
-                    <AppButton onClick={onOpenStockPurchase}>
+                    </button>
+                    <button onClick={onOpenStockPurchase}>
                         + Registrar Retiro
-                    </AppButton>
+                    </button>
                 </div>
             </div>
             
             <div className="grid">
-                <AppCard style={{ 
+                <article style={{ 
                   textAlign: 'center', 
                   backgroundColor: saldoPendiente > 0 ? 'rgba(255,0,0,0.05)' : 'rgba(0,255,0,0.05)',
                   border: `2px solid ${saldoPendiente > 0 ? 'rgba(255,0,0,0.2)' : 'rgba(0,255,0,0.2)'}`
                 }}>
                     <small style={{ textTransform: 'uppercase', fontWeight: 900, color: saldoPendiente > 0 ? 'red' : 'green' }}>Saldo Pendiente (Deuda)</small>
                     <h2 style={{ margin: 0, color: saldoPendiente > 0 ? 'red' : 'green' }}>${saldoPendiente.toLocaleString()}</h2>
-                </AppCard>
+                </article>
 
-                <AppCard title="Envases Retirados" style={{ padding: 0 }}>
-                    <div className="grid" style={{ padding: '1rem' }}>
+                <article style={{ padding: 0 }}>
+                    <header style={{ padding: '1rem' }}><h6 style={{ margin: 0 }}>Envases Retirados</h6></header>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem' }}>
                         <div style={{ textAlign: 'center' }}>
                             <h2 style={{ margin: 0, color: 'var(--pico-primary)' }}>{retiradosHoy}</h2>
                             <small style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>Hoy</small>
@@ -113,10 +113,11 @@ const ExternalVendorDashboard: React.FC<ExternalVendorDashboardProps> = ({
                             <small style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>Ayer</small>
                         </div>
                     </div>
-                </AppCard>
+                </article>
             </div>
 
-            <AppCard title="Historial de Movimientos">
+            <article>
+                <header><h6 style={{ margin: 0 }}>Historial de Movimientos</h6></header>
                 <div style={{ overflow: 'auto' }}>
                     <table className="striped">
                         <thead>
@@ -141,7 +142,7 @@ const ExternalVendorDashboard: React.FC<ExternalVendorDashboardProps> = ({
                         </tbody>
                     </table>
                 </div>
-            </AppCard>
+            </article>
         </div>
     );
 };
