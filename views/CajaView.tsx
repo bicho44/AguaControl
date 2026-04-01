@@ -350,7 +350,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                     </td>
                                     <td className="px-4 py-4 text-right flex justify-end items-center gap-2">
                                         {!isEditDisabled && (
-                                            <button type="button" onClick={(e) => { 
+                                            <AppButton type="button" onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 if(mov.type==='gasto') {
                                                     setModalConfig({type:'gasto', isEdit:true, data:mov.original}); 
@@ -363,7 +363,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                     setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
                                                 } 
                                                 setIsModalOpen(true); 
-                                            }} className="text-blue-500 p-1"><PencilIcon /></button>
+                                            }} variant="secondary" size="sm" className="!p-2 border-transparent bg-transparent text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-none" title="Editar"><PencilIcon /></AppButton>
                                         )}
                                         <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                     </td>
@@ -396,7 +396,7 @@ const CajaView: React.FC<CajaViewProps> = ({
             </table>
             {displayedMovements.length < combinedMovements.length && (
                 <div className="text-center p-4">
-                    <button onClick={() => setItemsLimit(prev => prev + 50)} className="text-primary-600 text-sm font-bold hover:underline">Cargar más movimientos...</button>
+                <AppButton onClick={() => setItemsLimit(prev => prev + 50)} variant="secondary" size="sm" className="text-primary-600 text-sm font-bold hover:underline bg-transparent border-transparent shadow-none">Cargar más movimientos...</AppButton>
                 </div>
             )}
         </div>

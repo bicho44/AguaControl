@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
@@ -16,6 +16,49 @@ const AppButton: React.FC<AppButtonProps> = ({
   type = 'button', // Ahora por defecto es button, no submit
   ...props 
 }) => {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Determinar si es un botón de cancelar
+  const isCancel = React.Children.toArray(children).some(
+    child => typeof child === 'string' && (child.toLowerCase().includes('cancelar') || child.toLowerCase().includes('cerrar'))
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!buttonRef.current) return;
+      if (props.disabled || isLoading) return;
+
+      // Solo actuar si el botón es visible
+      if (buttonRef.current.offsetParent === null) return;
+
+      // Si hay un modal abierto, solo los botones dentro del último modal deberían reaccionar
+      const modals = document.querySelectorAll('.fixed.inset-0.z-\\[60\\]');
+      if (modals.length > 0) {
+        const topModal = modals[modals.length - 1];
+        if (!topModal.contains(buttonRef.current)) {
+          return;
+        }
+      }
+
+      // Submit: Alt + Enter
+      if (type === 'submit' && e.altKey && e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        buttonRef.current.click();
+      }
+
+      // Cancel: Esc
+      if (isCancel && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        buttonRef.current.click();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [type, isCancel, props.disabled, isLoading]);
+
   const baseStyles = "inline-flex items-center justify-center font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-sm";
   
   const variants = {
@@ -34,6 +77,7 @@ const AppButton: React.FC<AppButtonProps> = ({
 
   return (
     <button 
+      ref={buttonRef}
       type={type}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={isLoading || props.disabled}
@@ -47,7 +91,17 @@ const AppButton: React.FC<AppButtonProps> = ({
           </svg>
           Cargando...
         </>
-      ) : children}
+      ) : (
+        <>
+          {children}
+          {type === 'submit' && !isCancel && (
+            <span className="opacity-60 text-[10px] ml-1 font-normal hidden sm:inline">(Alt+Enter)</span>
+          )}
+          {isCancel && (
+            <span className="opacity-60 text-[10px] ml-1 font-normal hidden sm:inline">(Esc)</span>
+          )}
+        </>
+      )}
     </button>
   );
 };

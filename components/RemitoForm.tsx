@@ -539,7 +539,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total Remito: ${totalRemito.toLocaleString()}</span></div>
         <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
           <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>}
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito</AppButton>}
         </div>
       </form>
       <QuickClientModal isOpen={isQuickClientOpen} onClose={() => setIsQuickClientOpen(false)} onSave={handleSaveQuickClient} />

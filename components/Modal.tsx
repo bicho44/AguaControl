@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -9,12 +9,23 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        // Solo cerrar si es el modal más superior
+        const modals = document.querySelectorAll('.fixed.inset-0');
+        if (modals.length > 0) {
+            const topModal = modals[modals.length - 1];
+            if (topModal === modalRef.current) {
+                onClose();
+            }
+        } else if (modalRef.current) {
+            onClose();
+        }
       }
     };
 
@@ -32,6 +43,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className }) =
 
   return (
     <div 
+      ref={modalRef}
       className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm px-4 py-6 sm:py-12 flex justify-center items-start sm:items-center"
       onClick={onClose}
     >

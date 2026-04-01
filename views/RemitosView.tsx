@@ -51,7 +51,7 @@ const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                     </div>
                     <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
                         <span className="text-gray-600 dark:text-gray-300">Guardar Remito</span>
-                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Ctrl + Enter</kbd>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + Enter</kbd>
                     </div>
                     <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
                         <span className="text-gray-600 dark:text-gray-300">Agregar Producto</span>

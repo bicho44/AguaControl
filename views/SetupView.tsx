@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { initFirebase } from '../firebase/config';
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 interface SetupViewProps {
     onConfigured: () => void;
@@ -46,7 +47,7 @@ const SetupView: React.FC<SetupViewProps> = ({ onConfigured }) => {
         }
     }, [onConfigured]);
 
-    const handleConnect = () => {
+    const handleConnect = useCallback(() => {
         setError('');
         setIsProcessing(true);
 
@@ -102,7 +103,11 @@ const SetupView: React.FC<SetupViewProps> = ({ onConfigured }) => {
                 setIsProcessing(false);
             }
         }, 500);
-    };
+    }, [input, onConfigured]);
+
+    useFormShortcuts({
+        onSave: handleConnect
+    });
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 font-sans">
@@ -188,7 +193,7 @@ const SetupView: React.FC<SetupViewProps> = ({ onConfigured }) => {
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
-                                CONECTAR SISTEMA
+                                CONECTAR SISTEMA <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span>
                             </>
                         )}
                     </button>
