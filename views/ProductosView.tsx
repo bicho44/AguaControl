@@ -51,36 +51,30 @@ const ProductoForm: React.FC<{
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Ficha de Producto</h2>
       <div className="space-y-4">
-        <div className="responsive-grid">
-            <div style={{ gridColumn: 'span 2' }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
                 <AppInput label="Nombre del Producto" name="nombre" value={formData.nombre || ''} onChange={handleChange} required />
             </div>
             <AppInput label="Abreviatura (Gráficos)" name="abreviatura" value={formData.abreviatura || ''} onChange={handleChange} placeholder="Ej: B20L" />
         </div>
-        <div className="grid">
+        <div className="grid grid-cols-2 gap-4">
             <AppSelect label="Tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} options={Object.values(TipoProducto).map(t=>({value:t, label:t}))} required />
             <AppInput label="Capacidad (Litros)" type="number" name="litros" value={formData.litros ?? ''} onChange={handleChange} required />
         </div>
-        <article style={{ padding: '1rem', marginBottom: 0 }}>
-            <header style={{ padding: '0.5rem 0', marginBottom: '0.5rem', borderBottom: '1px solid var(--pico-muted-border-color)' }}>
-                <span className="text-xs font-bold uppercase text-gray-400">Precios Sugeridos</span>
-            </header>
-            <div className="grid">
+        <Card title="Precios Sugeridos">
+            <div className="grid grid-cols-2 gap-4">
                 <AppInput label="Precio Lista" type="number" name="precio" value={formData.precio ?? ''} onChange={handleChange} step="0.01" required />
                 <AppInput label="Precio Reventa" type="number" name="precioReventa" value={formData.precioReventa ?? ''} onChange={handleChange} step="0.01" />
             </div>
-        </article>
-        <article style={{ padding: '1rem', marginBottom: 0 }}>
-            <header style={{ padding: '0.5rem 0', marginBottom: '0.5rem', borderBottom: '1px solid var(--pico-muted-border-color)' }}>
-                <span className="text-xs font-bold uppercase text-gray-400">Stock Inicial en Planta</span>
-            </header>
-            <div className="grid">
+        </Card>
+        <Card title="Stock Inicial en Planta">
+            <div className="grid grid-cols-2 gap-4">
                 <AppInput label="Stock Llenos" type="number" name="stockPlanta" value={formData.stockPlanta ?? ''} onChange={handleChange} />
                 {formData.tipo === TipoProducto.RETORNABLE && (
                     <AppInput label="Stock Envases Vacíos" type="number" name="stockEnvases" value={formData.stockEnvases ?? ''} onChange={handleChange} />
                 )}
             </div>
-        </article>
+        </Card>
         <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600">
             <label className="text-xs font-black text-gray-500 uppercase px-1">Color en Gráficos</label>
             <input type="color" name="color" value={formData.color || '#3b82f6'} onChange={handleChange} className="h-10 w-20 rounded-xl cursor-pointer border-0 p-1 bg-white shadow-sm" />
@@ -138,26 +132,35 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
             + Nuevo Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span>
         </AppButton>
       </div>
-      <div className="flex gap-2 p-1 rounded-xl w-fit border shadow-sm">
+      <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
         {['Activo', 'Inactivo', 'todos'].map(s => (
-            <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === s ? 'primary' : 'secondary outline'}`} style={{ marginBottom: 0 }}>{s.toUpperCase()}</button>
+            <AppButton 
+                key={s} 
+                variant={statusFilter === s ? 'primary' : 'secondary'}
+                onClick={() => setStatusFilter(s as any)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold border-transparent"
+            >
+                {s.toUpperCase()}
+            </AppButton>
         ))}
       </div>
       <Card>
         <div className="overflow-x-auto p-2">
-          <table className="striped">
-            <thead>
-              <tr><th className="w-10">Icon</th><th>Nombre</th><th className="text-right">Lista</th><th className="text-right">Reventa</th><th className="text-right">Acciones</th></tr>
+          <table className="w-full text-sm text-left">
+            <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700/50">
+              <tr><th className="px-6 py-3 w-10">Icon</th><th className="px-6 py-3">Nombre</th><th className="px-6 py-3 text-right">Lista</th><th className="px-6 py-3 text-right">Reventa</th><th className="px-6 py-3 text-right">Acciones</th></tr>
             </thead>
             <tbody>
               {filteredProductos.map(p => (
-                <tr key={p.id} className={p.estado === 'Inactivo' ? 'opacity-40' : ''}>
-                  <td><div className="w-5 h-5 rounded-full border" style={{ backgroundColor: p.color || '#ccc' }}></div></td>
-                  <td className="font-bold">{p.nombre}</td>
-                  <td className="text-right font-mono">${p.precio.toLocaleString()}</td>
-                  <td className="text-right font-mono text-green-600">${(p.precioReventa || 0).toLocaleString()}</td>
-                  <td className="text-right">
-                    <button onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="contrast outline p-2 rounded-full" style={{ border: 'none', marginBottom: 0 }}><PencilIcon /></button>
+                <tr key={p.id} className={`border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/50 ${p.estado === 'Inactivo' ? 'opacity-40' : ''}`}>
+                  <td className="px-6 py-4"><div className="w-5 h-5 rounded-full border" style={{ backgroundColor: p.color || '#ccc' }}></div></td>
+                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{p.nombre}</td>
+                  <td className="px-6 py-4 text-right font-mono">${p.precio.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-right font-mono text-green-600">${(p.precioReventa || 0).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-right">
+                    <AppButton variant="secondary" size="sm" onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="!p-2 rounded-full border-transparent">
+                        <PencilIcon />
+                    </AppButton>
                   </td>
                 </tr>
               ))}

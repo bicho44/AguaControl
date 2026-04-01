@@ -357,54 +357,53 @@ const ClienteForm: React.FC<{
       <div className="space-y-6">
           <Card title="Información Comercial y Fiscal">
             <div className="space-y-4">
-                <div className="responsive-grid">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <AppInput label="Nombre de Fantasía (Local)" name="nombre" value={formData.nombre || ''} onChange={handleChange} required error={nombreExistente ? `Atención: Ya existe ${nombreExistente}` : undefined} />
                     <div className="flex gap-2 items-end">
                         <div className="flex-1">
                             <AppInput label="CUIT (Sin guiones)" name="cuit" value={formData.cuit || ''} onChange={handleChange} error={cuitExistente ? `CUIT de ${cuitExistente}` : undefined} placeholder="20123456789" />
                         </div>
-                        <button 
+                        <AppButton 
                             type="button" 
                             onClick={handleSearchCuit} 
                             disabled={isSearchingCuit || !formData.cuit || formData.cuit.length < 11}
-                            className="primary p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all active:scale-95 mb-0.5"
+                            className="!p-3 mb-0.5"
                             title="Buscar datos Oficiales (Requiere API)"
-                            style={{ width: 'auto' }}
                         >
                             {isSearchingCuit ? (
-                                <span aria-busy="true"></span>
+                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                             ) : (
                                 <SearchIcon className="h-5 w-5" />
                             )}
-                        </button>
+                        </AppButton>
                     </div>
                 </div>
                 
                 {/* Agregamos inputs de teléfono aquí para que sea más visible, obligatorio si es interno */}
                 {/* Simplificación: Editamos directamente el array telefonos[0] si existe, sino creamos */}
-                <div className="responsive-grid">
-                    <div style={{ gridColumn: 'span 1' }}>
+                <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-dashed dark:border-gray-600 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
                         <AppInput label="Razón Social (Fiscal)" name="nombreFiscal" value={formData.nombreFiscal || ''} onChange={handleChange} placeholder="Ej: Perez Juan SRL" />
                     </div>
                     <AppSelect label="Condición IVA" name="tipoFacturacion" value={formData.tipoFacturacion || ''} onChange={handleChange} options={[{value: '', label: 'Seleccionar...'}, ...Object.values(TipoFacturacion).map(v => ({value: v, label: v}))]} />
                     
-                    <div style={{ gridColumn: 'span 1' }}>
+                    <div className="md:col-span-2">
                         <AppInput label="Dirección Fiscal (Facturación)" name="direccionFiscal" value={formData.direccionFiscal || ''} onChange={handleChange} placeholder="Calle, Altura, Piso..." />
                     </div>
-                    <div className="grid" style={{ gridColumn: 'span 1' }}>
+                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
                         <AppInput label="Localidad" name="localidad" value={formData.localidad || ''} onChange={handleChange} />
-                        <div className="grid">
+                        <div className="grid grid-cols-2 gap-2">
                             <AppInput label="Provincia" name="provincia" value={formData.provincia || ''} onChange={handleChange} />
                             <AppInput label="CP" name="codPostal" value={formData.codPostal || ''} onChange={handleChange} />
                         </div>
                     </div>
                 </div>
 
-                <div className="responsive-grid">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <AppSelect label="Estado" name="estado" value={formData.estado || EstadoCliente.ACTIVO} onChange={handleChange} options={[{ value: EstadoCliente.ACTIVO, label: 'Activo' }, { value: EstadoCliente.INACTIVO, label: 'Inactivo' }]} />
-                    <div className="flex items-center gap-3 p-4 rounded-xl border mt-6 md:mt-0">
-                        <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" style={{ marginBottom: 0 }} />
-                        <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold cursor-pointer select-none" style={{ marginBottom: 0 }}>Habilitar Cuenta Corriente</label>
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600 mt-6 md:mt-0">
+                        <input type="checkbox" id="tieneCuentaCorriente" name="tieneCuentaCorriente" checked={formData.tieneCuentaCorriente || false} onChange={handleCheckboxChange} className="w-5 h-5 rounded text-primary-600 focus:ring-primary-500" />
+                        <label htmlFor="tieneCuentaCorriente" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer select-none">Habilitar Cuenta Corriente</label>
                     </div>
                 </div>
             </div>
@@ -413,11 +412,11 @@ const ClienteForm: React.FC<{
           <Card title="Sucursales de Entrega y Stock">
               <div className="space-y-6">
                   {(formData.sucursales || []).map((suc, index) => (
-                      <div key={suc.id} className="p-5 border rounded-2xl shadow-sm space-y-5 relative overflow-hidden">
+                      <div key={suc.id} className="p-5 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 shadow-sm space-y-5 relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1.5 h-full bg-primary-500"></div>
-                          <button type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors p-2" style={{ border: 'none', background: 'none' }}><TrashIcon className="w-5 h-5"/></button>
+                          <AppButton variant="danger" size="sm" type="button" onClick={() => removeSucursal(index)} className="absolute top-3 right-3 !p-2 border-transparent bg-transparent text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"><TrashIcon className="w-5 h-5"/></AppButton>
                           
-                          <div className="responsive-grid pr-8">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pr-8">
                               <AppInput label="Nombre Sucursal" value={suc.nombre} onChange={(e) => handleSucursalChange(index, 'nombre', e.target.value)} placeholder="Ej: Principal / Depósito" />
                               <div className="relative">
                                   <div className="flex items-end gap-2">
@@ -426,15 +425,15 @@ const ClienteForm: React.FC<{
                                           <AppInput label="Dirección de Entrega" value={suc.direccion} onChange={(e) => handleSucursalChange(index, 'direccion', e.target.value)} required={isInternal} />
                                       </div>
                                       <div className="flex gap-1 mb-1">
-                                          <button type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="secondary outline p-2 rounded-lg" style={{ marginBottom: '1rem' }}><SearchIcon className="w-5 h-5"/></button>
-                                          <button type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className={`p-2 rounded-lg transition-colors ${suc.lat ? 'primary' : 'secondary outline'}`} style={{ marginBottom: '1rem' }}><MapIcon className="w-5 h-5"/></button>
+                                          <AppButton variant="secondary" size="sm" type="button" onClick={() => handleSearchAddress(index)} title="Buscar dirección (Texto)" className="!p-2 border-transparent"><SearchIcon className="w-5 h-5"/></AppButton>
+                                          <AppButton variant={suc.lat ? 'success' : 'secondary'} size="sm" type="button" onClick={() => setMapIndex(index)} title="Ubicar en Mapa" className="!p-2 border-transparent"><MapIcon className="w-5 h-5"/></AppButton>
                                       </div>
                                   </div>
                               </div>
                           </div>
                           
                           {/* REQUISITO 3: Teléfono obligatorio para vendedores internos (agregado dentro de sucursal o global, aqui global visualmente) */}
-                          <div className="grid">
+                          <div className="grid grid-cols-1 gap-2">
                                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Teléfonos de Contacto {isInternal && '*'}</label>
                                 {(formData.telefonos || []).map((tel, i) => (
                                     <div key={i} className="flex gap-2">
@@ -454,24 +453,23 @@ const ClienteForm: React.FC<{
                           </div>
 
                           {/* DÍAS DE REPARTO Y REPARTIDORES */}
-                          <div className="p-4 rounded-xl border border-dashed">
+                          <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-3 block">Días de Reparto y Repartidores Asignados</label>
-                              <div className="responsive-grid">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                   {Object.values(DiaSemana).map((day) => {
                                       const isSelected = (suc.diasReparto || []).includes(day);
                                       const assignedRepartidor = suc.repartidoresPorDia?.[day] || '';
                                       
                                       return (
-                                          <div key={day} className={`p-3 rounded-xl border transition-all ${isSelected ? 'border-primary-200 shadow-sm' : 'border-transparent opacity-60'}`}>
+                                          <div key={day} className={`p-3 rounded-xl border transition-all ${isSelected ? 'bg-white dark:bg-gray-800 border-primary-200 shadow-sm' : 'bg-transparent border-transparent opacity-60'}`}>
                                               <div className="flex items-center gap-2 mb-2">
                                                   <input 
                                                       type="checkbox" 
                                                       checked={isSelected} 
                                                       onChange={() => toggleDiaReparto(index, day)}
                                                       className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"
-                                                      style={{ marginBottom: 0 }}
                                                   />
-                                                  <span className="text-xs font-bold">{day}</span>
+                                                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{day}</span>
                                               </div>
                                               {isSelected && (
                                                   <AppSelect 
@@ -493,7 +491,7 @@ const ClienteForm: React.FC<{
                               </div>
                           </div>
 
-                          <div className="grid">
+                          <div className="grid grid-cols-1 gap-6">
                               {/* STOCK INTEGRADO EN LA SUCURSAL */}
                               <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
                                   <label className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 block flex items-center gap-2">
@@ -516,14 +514,16 @@ const ClienteForm: React.FC<{
                                                   onChange={(e) => handleAuditChange(suc.id, item.productoId, e.target.value)} 
                                                   className="w-20 p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-center font-bold text-gray-800 dark:text-white focus:ring-1 focus:ring-primary-500 outline-none text-sm"
                                               />
-                                              <button 
+                                              <AppButton 
                                                   type="button" 
+                                                  variant="danger"
+                                                  size="sm"
                                                   onClick={() => removeStockItem(suc.id, item.productoId)}
-                                                  className="p-2 text-red-400 hover:text-red-600"
+                                                  className="!p-2 border-transparent bg-transparent text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 shadow-none"
                                                   title="Quitar de la lista"
                                               >
                                                   <TrashIcon className="w-4 h-4" />
-                                              </button>
+                                              </AppButton>
                                           </div>
                                       ))}
                                   </div>
@@ -540,9 +540,9 @@ const ClienteForm: React.FC<{
                           </div>
                       </div>
                   ))}
-                  <button type="button" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 transition-all font-bold text-sm">
+                  <AppButton type="button" variant="secondary" onClick={addSucursal} className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-400 hover:text-primary-600 hover:border-primary-500 transition-all font-bold text-sm bg-transparent">
                       + Agregar Sucursal <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span>
-                  </button>
+                  </AppButton>
               </div>
           </Card>
 
@@ -552,7 +552,7 @@ const ClienteForm: React.FC<{
                       const prod = productosMap.get(precio.productoId);
                       const precioLista = prod?.precio || 0;
                       return (
-                          <div key={index} className="responsive-grid" style={{ alignItems: 'end' }}>
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] gap-3 items-end">
                               <SearchableSelect 
                                   options={activeProductOptions}
                                   value={precio.productoId}
@@ -568,10 +568,10 @@ const ClienteForm: React.FC<{
                                       className="font-black text-green-600"
                                   />
                               </div>
-                              <div className="pb-3 text-xs text-gray-500">
+                              <div className="text-xs text-gray-500">
                                   Ref. Lista: <span className="font-bold">${precioLista.toLocaleString()}</span>
                               </div>
-                              <div className="pb-1">
+                              <div>
                                   <AppButton variant="danger" size="sm" onClick={() => handleRemovePrecioEspecial(index)} className="!p-2"><TrashIcon className="w-5 h-5"/></AppButton>
                               </div>
                           </div>
@@ -594,7 +594,7 @@ const ClienteForm: React.FC<{
                   {contratosIniciales.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
                           <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest px-1">Nuevos Contratos (A guardar)</label>
-                          <div className="grid">
+                          <div className="grid grid-cols-1 gap-3">
                               {contratosIniciales.map((c, idx) => (
                                   <div key={idx} className="flex justify-between items-center p-3 border rounded-xl shadow-sm bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-900/50 border-l-4 border-l-blue-500">
                                       <div>
@@ -605,8 +605,8 @@ const ClienteForm: React.FC<{
                                       </div>
                                       <div className="flex items-center gap-3">
                                           <span className="text-[10px] font-black uppercase bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{c.tipo}</span>
-                                          <button type="button" onClick={() => openEditContratoModal(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon className="w-4 h-4" /></button>
-                                          <button type="button" onClick={() => removeContratoInicial(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-full"><TrashIcon className="w-4 h-4" /></button>
+                                          <AppButton variant="secondary" size="sm" type="button" onClick={() => openEditContratoModal(c)} className="!p-2 text-blue-500 hover:bg-blue-50 rounded-full border-transparent"><PencilIcon className="w-4 h-4" /></AppButton>
+                                          <AppButton variant="danger" size="sm" type="button" onClick={() => removeContratoInicial(idx)} className="!p-2 text-red-500 hover:bg-red-50 rounded-full border-transparent bg-transparent shadow-none"><TrashIcon className="w-4 h-4" /></AppButton>
                                       </div>
                                   </div>
                               ))}
@@ -617,7 +617,7 @@ const ClienteForm: React.FC<{
                   {contratosVigentes.length > 0 && (
                       <div className="space-y-3 mb-6 pb-6 border-b dark:border-gray-700">
                           <label className="text-[10px] font-black text-green-600 uppercase tracking-widest px-1">Contratos Activos</label>
-                          <div className="grid">
+                          <div className="grid grid-cols-1 gap-3">
                               {contratosVigentes.map(c => (
                                   <div key={c.id} className="flex justify-between items-center p-3 border rounded-xl shadow-sm bg-white dark:bg-gray-800 border-green-200 dark:border-green-900/50 border-l-4 border-l-green-500">
                                       <div>
@@ -628,8 +628,8 @@ const ClienteForm: React.FC<{
                                       </div>
                                       <div className="flex items-center gap-3">
                                           <span className="text-[10px] font-black uppercase bg-green-50 text-green-700 px-2 py-0.5 rounded">{c.tipo}</span>
-                                          <button type="button" onClick={() => openEditContratoModal(c)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon className="w-4 h-4" /></button>
-                                          <button type="button" onClick={() => toggleDeleteContrato(c.id)} className={`p-2 rounded-full transition-colors ${contratosAEliminar.has(c.id) ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}><TrashIcon className="w-4 h-4" /></button>
+                                          <AppButton variant="secondary" size="sm" type="button" onClick={() => openEditContratoModal(c)} className="!p-2 text-blue-500 hover:bg-blue-50 rounded-full border-transparent"><PencilIcon className="w-4 h-4" /></AppButton>
+                                          <AppButton variant={contratosAEliminar.has(c.id) ? 'danger' : 'secondary'} size="sm" type="button" onClick={() => toggleDeleteContrato(c.id)} className={`!p-2 rounded-full transition-colors border-transparent ${contratosAEliminar.has(c.id) ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}><TrashIcon className="w-4 h-4" /></AppButton>
                                       </div>
                                   </div>
                               ))}
@@ -839,19 +839,19 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
             <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
                     {['Activo', 'Inactivo', 'todos'].map(s => (
-                        <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>{s === 'todos' ? 'TODOS' : s}</button>
+                        <AppButton key={s} variant={statusFilter === s ? 'primary' : 'secondary'} size="sm" onClick={() => setStatusFilter(s as any)} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">{s === 'todos' ? 'TODOS' : s}</AppButton>
                     ))}
                 </div>
                 <div className="flex items-center space-x-2 bg-white dark:bg-gray-700 p-1 rounded-xl border dark:border-gray-600">
-                    <button onClick={() => setPaymentFilter('todos')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'todos' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>TODOS</button>
-                    <button onClick={() => setPaymentFilter('cta_cte')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'cta_cte' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>CTA. CTE.</button>
-                    <button onClick={() => setPaymentFilter('contado')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase ${paymentFilter === 'contado' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>CONTADO</button>
+                    <AppButton variant={paymentFilter === 'todos' ? 'primary' : 'secondary'} size="sm" onClick={() => setPaymentFilter('todos')} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">TODOS</AppButton>
+                    <AppButton variant={paymentFilter === 'cta_cte' ? 'primary' : 'secondary'} size="sm" onClick={() => setPaymentFilter('cta_cte')} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">CTA. CTE.</AppButton>
+                    <AppButton variant={paymentFilter === 'contado' ? 'primary' : 'secondary'} size="sm" onClick={() => setPaymentFilter('contado')} className="px-4 py-2 rounded-lg text-[10px] font-black transition-colors uppercase border-transparent">CONTADO</AppButton>
                 </div>
             </div>
       </div>
             
       {/* Listado de clientes */}
-      <div className="grid">
+      <div className="grid grid-cols-1 gap-3">
             {filteredClientes.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 font-bold uppercase text-xs">No se encontraron clientes.</div>
             ) : filteredClientes.map(cliente => {
@@ -892,7 +892,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                         <div className="flex items-center gap-1">
                             {/* Ahora los Externos también pueden editar SUS clientes */}
                             {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO || (currentUser?.tipo === TipoVendedor.EXTERNO && cliente.creadoPor === currentUser.id)) && 
-                                <button onClick={(e) => { e.stopPropagation(); setEditingCliente(cliente); setIsModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full"><PencilIcon /></button>
+                                <AppButton variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); setEditingCliente(cliente); setIsModalOpen(true); }} className="!p-2 text-blue-500 hover:bg-blue-50 rounded-full border-transparent"><PencilIcon /></AppButton>
                             }
                             <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         </div>
@@ -900,7 +900,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                     {isExpanded && (
                         <div className="px-4 pb-4 pt-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/20">
                             {/* ... (Detalle expandido del cliente se mantiene igual) ... */}
-                            <div className="grid">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
                                     <ul className="text-sm space-y-1 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
                                         {cliente.nombreFiscal && <li><span className="text-gray-400">Raz. Soc:</span> {cliente.nombreFiscal}</li>}

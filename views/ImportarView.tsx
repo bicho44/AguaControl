@@ -222,8 +222,8 @@ const ImportarView: React.FC<ImportarViewProps> = ({ clientes, remitos, producto
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-600">
                       <p className="font-bold text-sm">Modo de Importación</p>
                       <div className="flex gap-2">
-                          <AppButton onClick={() => setIsReplacing(false)} variant={!isReplacing ? 'primary' : 'secondary'} size="sm" className="px-4 py-2 rounded-lg text-xs font-bold">Sumar</AppButton>
-                          <AppButton onClick={() => setIsReplacing(true)} variant={isReplacing ? 'danger' : 'secondary'} size="sm" className="px-4 py-2 rounded-lg text-xs font-bold">REEMPLAZAR</AppButton>
+                          <button onClick={() => setIsReplacing(false)} className={`px-4 py-2 rounded-lg text-xs font-bold ${!isReplacing ? 'bg-primary-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500'}`}>Sumar</button>
+                          <button onClick={() => setIsReplacing(true)} className={`px-4 py-2 rounded-lg text-xs font-bold ${isReplacing ? 'bg-red-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-500'}`}>REEMPLAZAR</button>
                       </div>
                   </div>
                   <div className="flex gap-3 justify-end mt-6">

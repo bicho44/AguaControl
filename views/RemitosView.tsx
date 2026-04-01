@@ -15,6 +15,7 @@ import AppSelect from '../components/ui/AppSelect';
 import AppInput from '../components/ui/AppInput'; // Requerido para ReassignModal
 import { CogIcon } from '../components/icons/CogIcon';
 import { PdfIcon } from '../components/icons/PdfIcon';
+import { CsvIcon } from '../components/icons/CsvIcon';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -40,26 +41,25 @@ const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-sm">
             <div className="p-4">
-                <hgroup>
-                    <h3 style={{ margin: 0 }}>Atajos de Teclado</h3>
-                    <p>Productividad rápida</p>
-                </hgroup>
+                <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tighter mb-4 flex items-center gap-2">
+                    <span className="bg-gray-200 dark:bg-gray-700 rounded px-2 py-1 text-sm">⌘</span> Atajos de Teclado
+                </h3>
                 <div className="space-y-3 text-sm">
-                    <div className="flex justify-between items-center pb-2 border-b">
-                        <span>Nuevo Remito</span>
-                        <kbd>Alt + N</kbd>
+                    <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                        <span className="text-gray-600 dark:text-gray-300">Nuevo Remito</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + N</kbd>
                     </div>
-                    <div className="flex justify-between items-center pb-2 border-b">
-                        <span>Guardar Remito</span>
-                        <kbd>Ctrl + Enter</kbd>
+                    <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                        <span className="text-gray-600 dark:text-gray-300">Guardar Remito</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Ctrl + Enter</kbd>
                     </div>
-                    <div className="flex justify-between items-center pb-2 border-b">
-                        <span>Agregar Producto</span>
-                        <kbd>Alt + I</kbd>
+                    <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
+                        <span className="text-gray-600 dark:text-gray-300">Agregar Producto</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + I</kbd>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span>Agregar Pago</span>
-                        <kbd>Alt + P</kbd>
+                        <span className="text-gray-600 dark:text-gray-300">Agregar Pago</span>
+                        <kbd className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono font-bold border dark:border-gray-600 text-xs">Alt + P</kbd>
                     </div>
                 </div>
                 <div className="mt-6 text-center">
@@ -113,10 +113,10 @@ const ReassignModal: React.FC<{
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
             <div className="space-y-4">
-                <h2 style={{ margin: 0 }}>Herramienta de Corrección Masiva</h2>
+                <h2 className="text-xl font-black uppercase text-primary-600 pr-12">Herramienta de Corrección Masiva</h2>
                 <p className="text-xs text-gray-500">Reasigna remitos de un vendedor a otro en un rango de fechas.</p>
                 
-                <div className="grid">
+                <div className="grid grid-cols-2 gap-4">
                     <AppInput type="date" label="Desde" value={fromDate} onChange={e => setFromDate(e.target.value)} />
                     <AppInput type="date" label="Hasta" value={toDate} onChange={e => setToDate(e.target.value)} />
                 </div>
@@ -137,23 +137,22 @@ const ReassignModal: React.FC<{
                     />
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-lg border">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <input 
                         type="checkbox" 
                         id="excludeAdj" 
                         checked={excludeAdjustments} 
                         onChange={e => setExcludeAdjustments(e.target.checked)} 
                         className="w-4 h-4 text-primary-600 rounded"
-                        style={{ marginBottom: 0 }}
                     />
-                    <label htmlFor="excludeAdj" className="text-xs font-bold cursor-pointer select-none" style={{ marginBottom: 0 }}>
+                    <label htmlFor="excludeAdj" className="text-xs font-bold text-gray-600 dark:text-gray-300 cursor-pointer select-none">
                         Excluir Cargas Iniciales (Importaciones)
                         <br/><span className="text-[10px] font-normal text-gray-400">Ignora remitos tipo "INI-XXXX" o ajustes de stock.</span>
                     </label>
                 </div>
 
-                <div className="p-3 rounded-lg border" style={{ backgroundColor: 'var(--pico-ins-background-color)', borderColor: 'var(--pico-ins-color)' }}>
-                    <p className="text-sm font-bold text-center" style={{ color: 'var(--pico-ins-color)', marginBottom: 0 }}>
+                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <p className="text-sm font-bold text-yellow-800 text-center">
                         {affectedRemitos.length > 0 ? `Se actualizarán ${affectedRemitos.length} remitos.` : 'No hay remitos que coincidan.'}
                     </p>
                 </div>
@@ -557,213 +556,271 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       </div>
 
       {activeTab === 'listado' ? (
-        <div className="space-y-4">
-          <div className="grid">
-            <SearchableSelect 
-                label="Cliente" 
-                options={filterClienteOptions} 
-                value={clienteFilter} 
-                onChange={setClienteFilter} 
-            />
-            <div className="grid">
-                <AppInput label="Nº Remito" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} placeholder="0001-00001234" />
-                <AppSelect label="Estado Pago" value={paymentStatusFilter} onChange={e => setPaymentStatusFilter(e.target.value as any)} options={[{value:'todos', label:'Todos'}, {value:'pendiente', label:'Pendiente'}, {value:'pagado', label:'Pagado'}, {value:'facturado', label:'Facturado'}, {value:'ajuste', label:'Carga Inicial'}]} />
-            </div>
-            <div className="grid">
-                <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter({ ...dateFilter, from: e.target.value })} />
-                <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={e => setDateFilter({ ...dateFilter, to: e.target.value })} />
-            </div>
-            <div className="flex gap-2 items-end">
-                <AppButton variant="secondary" onClick={() => { setClienteFilter(''); setRemitoNumberFilter(''); setPaymentStatusFilter('todos'); setDateFilter({ from: '', to: '' }); }} className="flex-1">Limpiar</AppButton>
-                {currentUser.rol === Rol.ADMINISTRADOR && (
-                    <button onClick={() => setShowReassignModal(true)} className="secondary outline p-3 rounded-xl" title="Reasignar Vendedor Masivo" style={{ marginBottom: '1rem' }}><CogIcon className="w-5 h-5" /></button>
-                )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {filteredRemitos.map(remito => (
-              <article key={remito.id} style={{ padding: '0.75rem', marginBottom: '0.5rem' }}>
-                  <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
-                      <div className="flex-grow responsive-grid items-center">
-                          <div><p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Fecha</p><p className="font-medium text-sm" style={{ marginBottom: 0 }}>{new Date(remito.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p></div>
-                          <div>
-                              <p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Cliente</p>
-                              <p className="font-bold text-sm truncate" style={{ marginBottom: 0 }}>
-                                  {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
-                                  {remito.sucursalId && (
-                                      <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                                          {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
-                                      </span>
-                                  )}
-                              </p>
-                          </div>
-                          <div><p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Número</p><p className="font-medium text-sm font-mono" style={{ marginBottom: 0 }}>{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
-                          <div><p className="text-[10px] text-gray-500 uppercase font-bold" style={{ marginBottom: 0 }}>Estado</p><PaymentStatusBadge remito={remito} /></div>
-                      </div>
-                      <div className="flex gap-2">
-                          <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="contrast outline p-2 rounded-full" style={{ border: 'none', background: 'none', marginBottom: 0 }} disabled={!remito.canBeEdited}><PencilIcon className="w-4 h-4" /></button>
-                          {currentUser.rol === Rol.ADMINISTRADOR && (
-                              <button
-                                  onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
-                                  className="contrast outline p-2 rounded-full text-red-500"
-                                  style={{ border: 'none', background: 'none', marginBottom: 0 }}
-                                  disabled={!remito.canBeDeleted}
-                                  title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
-                              >
-                                  <TrashIcon className="w-4 h-4" />
-                              </button>
-                          )}
-                          <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
-                      </div>
-                  </div>
-                  {expandedRemitoId === remito.id && (
-                      <div className="p-4 border-t mt-4 animate-fade-in">
-                          <table className="striped" style={{ marginBottom: 0 }}>
-                              <thead><tr><th>Producto</th><th className="text-center">Entregados</th><th className="text-center">Retirados</th></tr></thead>
-                              <tbody>{remito.movimientos.map((m, i)=>(<tr key={i}><td>{productosMap.get(m.productoId)?.nombre}</td><td className="text-center font-bold text-blue-600">{m.entregados}</td><td className="text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
-                          </table>
-                      </div>
-                  )}
-              </article>
-            ))}
-            {filteredRemitos.length === 0 && <Card><p className="text-center py-12 text-gray-400">No se encontraron remitos con los filtros aplicados.</p></Card>}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-            <div className="grid">
-                <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
-                <div className="grid">
-                    <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
-                    <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={e => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+        <>
+          <Card>
+            <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                    <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                 </div>
-                <div className="grid">
-                    <AppSelect 
-                        label="Filtrar Balance"
-                        value={balanceFilter}
-                        onChange={(e) => setBalanceFilter(e.target.value as any)}
-                        options={[
-                            { value: 'todos', label: 'Todos' },
-                            { value: 'perdidos', label: 'Solo Perdidos' },
-                            { value: 'recuperados', label: 'Solo Recuperados' },
-                            { value: 'ambos', label: 'Perdidos y Recuperados' }
-                        ]}
-                    />
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold uppercase text-gray-400">Columnas</label>
+                <div className="flex-1 min-w-[150px]">
+                    <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                    <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
+                </div>
+                <div className="flex-1 min-w-[280px]">
+                    <div className="flex gap-2 w-full">
+                        <div className="flex-1">
+                            <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
+                        </div>
+                        <div className="flex-1">
+                            <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className="space-y-2 p-2">
+              {filteredRemitos.map(remito => (
+                <div key={remito.id} className="bg-white dark:bg-gray-800 rounded-md border dark:border-gray-700 overflow-hidden">
+                    <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedRemitoId(expandedRemitoId === remito.id ? null : remito.id)}>
+                        <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
+                            <div><p className="text-[10px] text-gray-500 uppercase font-bold">Fecha</p><p className="font-medium text-sm">{new Date(remito.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p></div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p>
+                                <p className="font-bold text-sm truncate">
+                                    {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
+                                    {remito.sucursalId && (
+                                        <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                                            {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <div><p className="text-[10px] text-gray-500 uppercase font-bold">Número</p><p className="font-medium text-sm font-mono">{remito.puntoVenta.padStart(4,'0')}-{remito.numero.padStart(8,'0')}</p></div>
+                            <div><p className="text-[10px] text-gray-500 uppercase font-bold">Estado</p><PaymentStatusBadge remito={remito} /></div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); setEditingRemito(remito); setIsFormOpen(true); }} className="text-blue-500 p-2 hover:bg-blue-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed" disabled={!remito.canBeEdited}><PencilIcon/></button>
+                            {currentUser.rol === Rol.ADMINISTRADOR && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setRemitoParaBorrar(remito); }}
+                                    className="text-red-500 p-2 hover:bg-red-50 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
+                                    disabled={!remito.canBeDeleted}
+                                    title={!remito.canBeDeleted ? "No se puede borrar: tiene pagos o factura asociada" : "Borrar Remito"}
+                                >
+                                    <TrashIcon />
+                                </button>
+                            )}
+                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${expandedRemitoId === remito.id ? 'rotate-180' : ''}`} />
+                        </div>
+                    </div>
+                    {expandedRemitoId === remito.id && (
+                        <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+                            <table className="w-full text-xs text-left">
+                                <thead className="text-gray-400 uppercase font-black"><tr><th className="py-2">Producto</th><th className="py-2 text-center">Entregados</th><th className="py-2 text-center">Retirados</th></tr></thead>
+                                <tbody>{remito.movimientos.map((m, i)=>(<tr key={i} className="border-t dark:border-gray-700"><td className="py-2">{productosMap.get(m.productoId)?.nombre}</td><td className="py-2 text-center font-bold text-blue-600">{m.entregados}</td><td className="py-2 text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      ) : (
+        <div className="space-y-4">
+            <Card>
+                <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[200px]">
+                        <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
+                    </div>
+                    <div className="flex-1 min-w-[280px]">
+                        <div className="flex gap-2 w-full">
+                            <div className="flex-1">
+                                <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
+                            </div>
+                            <div className="flex-1">
+                                <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="w-48">
+                        <AppSelect 
+                            label="Filtrar Balance"
+                            value={balanceFilter}
+                            onChange={(e) => setBalanceFilter(e.target.value as any)}
+                            options={[
+                                { value: 'todos', label: 'Todos' },
+                                { value: 'perdidos', label: 'Solo Perdidos' },
+                                { value: 'recuperados', label: 'Solo Recuperados' },
+                                { value: 'ambos', label: 'Perdidos y Recuperados' }
+                            ]}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Columnas</label>
                         <AppButton 
                             variant="secondary" 
-                            size="sm"
                             onClick={() => setShowRemitosColumn(!showRemitosColumn)}
                             className={showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-700' : ''}
                         >
                             {showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
                         </AppButton>
                     </div>
-                </div>
-                <div className="flex gap-2 items-end">
-                    <AppButton variant="secondary" onClick={() => {
-                        const doc = new jsPDF();
-                        const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
-                        
-                        const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
-                        const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
-                        const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
+                    <div className="flex gap-2">
+                        <AppButton variant="secondary" onClick={() => {
+                            const doc = new jsPDF();
+                            const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
+                            
+                            const totalEntregados = balanceData.reduce((sum, d) => sum + d.entregados, 0);
+                            const totalRecibidos = balanceData.reduce((sum, d) => sum + d.recibidos, 0);
+                            const totalBalance = balanceData.reduce((sum, d) => sum + d.balance, 0);
 
-                        doc.setFontSize(20);
-                        doc.setTextColor(0, 102, 204);
-                        doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
-                        
-                        if (empresaSettings.logo) {
-                            try {
-                                const imgProps = doc.getImageProperties(empresaSettings.logo);
-                                const maxWidth = 40;
-                                const maxHeight = 25;
-                                const ratio = imgProps.width / imgProps.height;
-                                
-                                let imgWidth = maxWidth;
-                                let imgHeight = maxWidth / ratio;
-                                
-                                if (imgHeight > maxHeight) {
-                                    imgHeight = maxHeight;
-                                    imgWidth = maxHeight * ratio;
+                            doc.setFontSize(20);
+                            doc.setTextColor(0, 102, 204);
+                            doc.text('REPORTE DE ENVASES PENDIENTES', 14, 20);
+                            
+                            if (empresaSettings.logo) {
+                                try {
+                                    const imgProps = doc.getImageProperties(empresaSettings.logo);
+                                    const maxWidth = 40;
+                                    const maxHeight = 25;
+                                    const ratio = imgProps.width / imgProps.height;
+                                    
+                                    let imgWidth = maxWidth;
+                                    let imgHeight = maxWidth / ratio;
+                                    
+                                    if (imgHeight > maxHeight) {
+                                        imgHeight = maxHeight;
+                                        imgWidth = maxHeight * ratio;
+                                    }
+                                    
+                                    doc.addImage(empresaSettings.logo, 'PNG', 196 - imgWidth, 10, imgWidth, imgHeight);
+                                } catch (e) {
+                                    console.error("Error adding logo to PDF", e);
                                 }
-                                
-                                doc.addImage(empresaSettings.logo, 'PNG', 196 - imgWidth, 10, imgWidth, imgHeight);
-                            } catch (e) {
-                                console.error("Error adding logo to PDF", e);
                             }
-                        }
-                        
-                        doc.setFontSize(10);
-                        doc.setTextColor(100, 100, 100);
-                        doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, 14, 27);
-                        doc.text(`Período: ${dateFilter.from || 'Inicio'} al ${dateFilter.to || 'Hoy'}`, 14, 32);
-                        
-                        // Resumen de Totales
-                        doc.setDrawColor(200, 200, 200);
-                        doc.line(14, 38, 196, 38);
-                        
-                        doc.setFontSize(11);
-                        doc.setTextColor(0, 0, 0);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('RESUMEN DEL PERÍODO POR PRODUCTO:', 14, 45);
-                        
-                        doc.setFontSize(9);
-                        doc.setFont('helvetica', 'normal');
-                        let summaryY = 52;
-                            (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
-                                const prod = productosMap.get(prodId);
-                                if (summaryY > 260) {
-                                    doc.addPage();
-                                    summaryY = 20;
+                            
+                            doc.setFontSize(10);
+                            doc.setTextColor(100, 100, 100);
+                            doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, 14, 27);
+                            doc.text(`Período: ${dateFilter.from || 'Inicio'} al ${dateFilter.to || 'Hoy'}`, 14, 32);
+                            
+                            // Resumen de Totales
+                            doc.setDrawColor(200, 200, 200);
+                            doc.line(14, 38, 196, 38);
+                            
+                            doc.setFontSize(11);
+                            doc.setTextColor(0, 0, 0);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text('RESUMEN DEL PERÍODO POR PRODUCTO:', 14, 45);
+                            
+                            doc.setFontSize(9);
+                            doc.setFont('helvetica', 'normal');
+                            let summaryY = 52;
+                                (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
+                                    const prod = productosMap.get(prodId);
+                                    if (summaryY > 260) {
+                                        doc.addPage();
+                                        summaryY = 20;
+                                    }
+                                    doc.setTextColor(0, 0, 0);
+                                    doc.text(`${prod?.nombre || 'N/A'}:`, 14, summaryY);
+                                    doc.setTextColor(0, 102, 204);
+                                    doc.text(`Entregados: ${totals.entregados}`, 70, summaryY);
+                                    doc.setTextColor(100, 100, 100);
+                                    doc.text(`Recibidos: ${totals.recibidos}`, 110, summaryY);
+                                    doc.setTextColor(totals.balance > 0 ? 200 : 0, totals.balance < 0 ? 150 : 0, 0);
+                                    doc.text(`Balance: ${totals.balance > 0 ? '+' : ''}${totals.balance}`, 150, summaryY);
+                                    summaryY += 6;
+                                });
+                            
+                            doc.setTextColor(0, 0, 0);
+                            doc.line(14, summaryY + 2, 196, summaryY + 2);
+
+                            let currentY = summaryY + 12;
+
+                            days.forEach(day => {
+                                const clientsForDay = balanceData.filter(d => {
+                                    return d.cliente?.sucursales.some(suc => suc.diasReparto?.includes(day));
+                                });
+
+                                if (clientsForDay.length > 0) {
+                                    if (currentY > 230) {
+                                        doc.addPage();
+                                        currentY = 20;
+                                    }
+                                    
+                                    doc.setFontSize(14);
+                                    doc.setTextColor(0, 102, 204);
+                                    doc.text(`REPARTO: ${day.toUpperCase()}`, 14, currentY);
+                                    doc.setTextColor(0, 0, 0);
+                                    
+                                    autoTable(doc, {
+                                        startY: currentY + 5,
+                                        head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
+                                        body: clientsForDay.map(d => {
+                                            const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.entregados > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
+                                                .join('\n');
+                                            
+                                            const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.recibidos > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
+                                                .join('\n');
+
+                                            return [
+                                                d.cliente?.nombre || 'N/A',
+                                                d.cliente?.sucursales[0]?.direccion || '',
+                                                { content: entregadosDetalle || '0', styles: { fontSize: 7 } },
+                                                { content: recibidosDetalle || '0', styles: { fontSize: 7 } },
+                                                { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
+                                            ];
+                                        }),
+                                        theme: 'grid',
+                                        headStyles: { fillColor: [0, 102, 204], fontSize: 9 },
+                                        bodyStyles: { fontSize: 8 },
+                                        columnStyles: {
+                                            2: { halign: 'center' },
+                                            3: { halign: 'center' },
+                                            4: { halign: 'center' }
+                                        },
+                                        margin: { left: 14, right: 14 }
+                                    });
+                                    
+                                    currentY = (doc as any).lastAutoTable.finalY + 15;
                                 }
-                                doc.setTextColor(0, 0, 0);
-                                doc.text(`${prod?.nombre || 'N/A'}:`, 14, summaryY);
-                                doc.setTextColor(0, 102, 204);
-                                doc.text(`Entregados: ${totals.entregados}`, 70, summaryY);
-                                doc.setTextColor(100, 100, 100);
-                                doc.text(`Recibidos: ${totals.recibidos}`, 110, summaryY);
-                                doc.setTextColor(totals.balance > 0 ? 200 : 0, totals.balance < 0 ? 150 : 0, 0);
-                                doc.text(`Balance: ${totals.balance > 0 ? '+' : ''}${totals.balance}`, 150, summaryY);
-                                summaryY += 6;
-                            });
-                        
-                        doc.setTextColor(0, 0, 0);
-                        doc.line(14, summaryY + 2, 196, summaryY + 2);
-
-                        let currentY = summaryY + 12;
-
-                        days.forEach(day => {
-                            const clientsForDay = balanceData.filter(d => {
-                                return d.cliente?.sucursales.some(suc => suc.diasReparto?.includes(day));
                             });
 
-                            if (clientsForDay.length > 0) {
+                            // Clientes sin día asignado
+                            const clientsNoDay = balanceData.filter(d => {
+                                return !d.cliente?.sucursales.some(suc => suc.diasReparto && suc.diasReparto.length > 0);
+                            });
+
+                            if (clientsNoDay.length > 0) {
                                 if (currentY > 230) {
                                     doc.addPage();
                                     currentY = 20;
                                 }
-                                
                                 doc.setFontSize(14);
-                                doc.setTextColor(0, 102, 204);
-                                doc.text(`REPARTO: ${day.toUpperCase()}`, 14, currentY);
+                                doc.setTextColor(100, 100, 100);
+                                doc.text('CLIENTES SIN DÍA ASIGNADO', 14, currentY);
                                 doc.setTextColor(0, 0, 0);
-                                
+
                                 autoTable(doc, {
                                     startY: currentY + 5,
                                     head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
-                                    body: clientsForDay.map(d => {
-                                        const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.entregados > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
-                                            .join('\n');
-                                        
-                                        const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.recibidos > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
-                                            .join('\n');
+                                        body: clientsNoDay.map(d => {
+                                            const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.entregados > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
+                                                .join('\n');
+                                            
+                                            const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                                .filter(([_, det]) => det.recibidos > 0)
+                                                .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
+                                                .join('\n');
 
                                         return [
                                             d.cliente?.nombre || 'N/A',
@@ -774,7 +831,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                         ];
                                     }),
                                     theme: 'grid',
-                                    headStyles: { fillColor: [0, 102, 204], fontSize: 9 },
+                                    headStyles: { fillColor: [100, 100, 100], fontSize: 9 },
                                     bodyStyles: { fontSize: 8 },
                                     columnStyles: {
                                         2: { halign: 'center' },
@@ -783,163 +840,108 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                     },
                                     margin: { left: 14, right: 14 }
                                 });
-                                
-                                currentY = (doc as any).lastAutoTable.finalY + 15;
                             }
-                        });
 
-                        // Clientes sin día asignado
-                        const clientsNoDay = balanceData.filter(d => {
-                            return !d.cliente?.sucursales.some(suc => suc.diasReparto && suc.diasReparto.length > 0);
-                        });
-
-                        if (clientsNoDay.length > 0) {
-                            if (currentY > 230) {
-                                doc.addPage();
-                                currentY = 20;
-                            }
-                            doc.setFontSize(14);
-                            doc.setTextColor(100, 100, 100);
-                            doc.text('CLIENTES SIN DÍA ASIGNADO', 14, currentY);
-                            doc.setTextColor(0, 0, 0);
-
-                            autoTable(doc, {
-                                startY: currentY + 5,
-                                head: [['Cliente', 'Dirección', 'Entregados', 'Recibidos', 'Balance']],
-                                    body: clientsNoDay.map(d => {
-                                        const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.entregados > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
-                                            .join('\n');
-                                        
-                                        const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
-                                            .filter(([_, det]) => det.recibidos > 0)
-                                            .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
-                                            .join('\n');
-
-                                    return [
-                                        d.cliente?.nombre || 'N/A',
-                                        d.cliente?.sucursales[0]?.direccion || '',
-                                        { content: entregadosDetalle || '0', styles: { fontSize: 7 } },
-                                        { content: recibidosDetalle || '0', styles: { fontSize: 7 } },
-                                        { content: d.balance > 0 ? `+${d.balance}` : d.balance, styles: { fontStyle: 'bold', textColor: d.balance > 0 ? [200, 0, 0] : [0, 150, 0] } }
-                                    ];
-                                }),
-                                theme: 'grid',
-                                headStyles: { fillColor: [100, 100, 100], fontSize: 9 },
-                                bodyStyles: { fontSize: 8 },
-                                columnStyles: {
-                                    2: { halign: 'center' },
-                                    3: { halign: 'center' },
-                                    4: { halign: 'center' }
-                                },
-                                margin: { left: 14, right: 14 }
-                            });
-                        }
-
-                        doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
-                    }} icon={<PdfIcon className="w-4 h-4" />}>PDF</AppButton>
-                    <AppButton variant="secondary" onClick={() => {
-                        const csvRows = [
-                            ['RESUMEN DEL PERÍODO POR PRODUCTO'],
-                            ['Producto', 'Entregados', 'Recibidos', 'Balance Neto']
-                        ];
-
-                        (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
-                            const prod = productosMap.get(prodId);
-                            csvRows.push([
-                                `"${prod?.nombre || 'N/A'}"`,
-                                totals.entregados.toString(),
-                                totals.recibidos.toString(),
-                                totals.balance.toString()
-                            ]);
-                        });
-
-                        csvRows.push([]);
-                        csvRows.push(['DETALLE POR CLIENTE']);
-                        
-                        const headers = ['Cliente', 'Dirección'];
-                        if (showRemitosColumn) headers.push('Remitos');
-                        headers.push('Entregados', 'Recibidos', 'Balance');
-                        csvRows.push(headers);
-
-                        balanceData.forEach(d => {
-                            const row = [
-                                `"${d.cliente?.nombre || 'N/A'}"`,
-                                `"${d.cliente?.sucursales[0]?.direccion || ''}"`
+                            doc.save(`balance_envases_${new Date().toISOString().split('T')[0]}.pdf`);
+                        }} title="Generar PDF" className="!px-3"><PdfIcon className="w-5 h-5"/></AppButton>
+                        <AppButton variant="secondary" onClick={() => {
+                            const csvRows = [
+                                ['RESUMEN DEL PERÍODO POR PRODUCTO'],
+                                ['Producto', 'Entregados', 'Recibidos', 'Balance Neto']
                             ];
-                            if (showRemitosColumn) row.push(d.remitosCount.toString());
-                            row.push(
-                                d.entregados.toString(),
-                                d.recibidos.toString(),
-                                d.balance.toString()
-                            );
-                            csvRows.push(row);
-                        });
 
-                        const csv = csvRows.map(row => row.join(',')).join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
-                        link.click();
-                    }} className="flex-1">CSV</AppButton>
+                            (Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).forEach(([prodId, totals]) => {
+                                const prod = productosMap.get(prodId);
+                                csvRows.push([
+                                    `"${prod?.nombre || 'N/A'}"`,
+                                    totals.entregados.toString(),
+                                    totals.recibidos.toString(),
+                                    totals.balance.toString()
+                                ]);
+                            });
+
+                            csvRows.push([]);
+                            csvRows.push(['DETALLE POR CLIENTE']);
+                            
+                            const headers = ['Cliente', 'Dirección'];
+                            if (showRemitosColumn) headers.push('Remitos');
+                            headers.push('Entregados', 'Recibidos', 'Balance');
+                            csvRows.push(headers);
+
+                            balanceData.forEach(d => {
+                                const row = [
+                                    `"${d.cliente?.nombre || 'N/A'}"`,
+                                    `"${d.cliente?.sucursales[0]?.direccion || ''}"`
+                                ];
+                                if (showRemitosColumn) row.push(d.remitosCount.toString());
+                                row.push(
+                                    d.entregados.toString(),
+                                    d.recibidos.toString(),
+                                    d.balance.toString()
+                                );
+                                csvRows.push(row);
+                            });
+
+                            const csv = csvRows.map(row => row.join(',')).join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = `balance_envases_${dateFilter.from || 'inicio'}_${dateFilter.to || 'fin'}.csv`;
+                            link.click();
+                        }} title="Exportar CSV" className="!px-3"><CsvIcon className="w-5 h-5"/></AppButton>
+                    </div>
                 </div>
-            </div>
-            
-            {/* Stock en Planta Legend */}
-            <div className="responsive-grid">
-                {stockPlantaSummary.map(s => (
-                    <article key={s.id} style={{ padding: '1rem', marginBottom: 0 }}>
-                        <header style={{ padding: '0.5rem 0', marginBottom: '0.5rem', borderBottom: '1px solid var(--pico-muted-border-color)' }}>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{s.nombre}</span>
-                        </header>
-                        <div className="flex justify-between items-end">
-                            <div className="flex flex-col">
-                                <span className="text-2xl font-black text-blue-600 leading-none">{s.stock}</span>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Llenos</span>
-                                    {s.hoyEntregados > 0 && <span className="text-[10px] font-black text-red-500">(-{s.hoyEntregados})</span>}
+                
+                {/* Stock en Planta Legend */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 border-b dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/10">
+                    {stockPlantaSummary.map(s => (
+                        <div key={s.id} className="flex flex-col p-3 rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate">{s.nombre}</span>
+                            <div className="flex justify-between items-end">
+                                <div className="flex flex-col">
+                                    <span className="text-xl font-black text-blue-600 leading-none">{s.stock}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Llenos</span>
+                                        {s.hoyEntregados > 0 && <span className="text-[8px] font-black text-red-500">(-{s.hoyEntregados})</span>}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-xl font-black text-gray-500 leading-none">{s.envases}</span>
-                                <div className="flex items-center gap-1">
-                                    {s.hoyRecibidos > 0 && <span className="text-[10px] font-black text-green-600">(+{s.hoyRecibidos})</span>}
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Vacíos</span>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-lg font-black text-gray-500 leading-none">{s.envases}</span>
+                                    <div className="flex items-center gap-1">
+                                        {s.hoyRecibidos > 0 && <span className="text-[8px] font-black text-green-600">(+{s.hoyRecibidos})</span>}
+                                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Vacíos</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </article>
-                ))}
-            </div>
+                    ))}
+                </div>
 
-            <article style={{ padding: 0, overflow: 'hidden' }}>
                 <div className="overflow-x-auto">
-                    <table className="striped" style={{ marginBottom: 0 }}>
-                        <thead>
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-[10px] text-gray-400 uppercase font-black bg-gray-50 dark:bg-gray-800/50">
                             <tr>
-                                <th>Cliente</th>
-                                {showRemitosColumn && <th className="text-center">Remitos</th>}
-                                <th className="text-center">Entregados</th>
-                                <th className="text-center">Recibidos</th>
-                                <th className="text-center">Balance Neto</th>
+                                <th className="px-4 py-3">Cliente</th>
+                                {showRemitosColumn && <th className="px-4 py-3 text-center">Remitos</th>}
+                                <th className="px-4 py-3 text-center">Entregados</th>
+                                <th className="px-4 py-3 text-center">Recibidos</th>
+                                <th className="px-4 py-3 text-center">Balance Neto</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y dark:divide-gray-700">
                             {balanceData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={showRemitosColumn ? 5 : 4} className="text-center py-12 text-gray-400 italic">No hay movimientos de envases retornables en este período.</td>
+                                    <td colSpan={showRemitosColumn ? 5 : 4} className="px-4 py-8 text-center text-gray-500 italic">No hay movimientos de envases retornables en este período.</td>
                                 </tr>
                             ) : (
                                 balanceData.map((item) => (
-                                    <tr key={item.clienteId}>
-                                        <td>
-                                            <p className="font-bold" style={{ marginBottom: 0 }}>{item.cliente?.nombre}</p>
-                                            <p className="text-[10px] text-gray-500" style={{ marginBottom: 0 }}>{item.cliente?.sucursales[0]?.direccion}</p>
+                                    <tr key={item.clienteId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                        <td className="px-4 py-3">
+                                            <p className="font-bold text-gray-800 dark:text-white">{item.cliente?.nombre}</p>
+                                            <p className="text-[10px] text-gray-500">{item.cliente?.sucursales[0]?.direccion}</p>
                                         </td>
-                                        {showRemitosColumn && <td className="text-center font-mono">{item.remitosCount}</td>}
-                                        <td className="text-center">
+                                        {showRemitosColumn && <td className="px-4 py-3 text-center font-mono">{item.remitosCount}</td>}
+                                        <td className="px-4 py-3 text-center">
                                             <div className="flex flex-col items-center gap-0.5">
                                                 {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.entregados > 0 && (
                                                     <span key={prodId} className="text-xs text-blue-600 font-bold whitespace-nowrap">
@@ -949,7 +951,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                                 {item.entregados === 0 && <span className="text-gray-300">-</span>}
                                             </div>
                                         </td>
-                                        <td className="text-center">
+                                        <td className="px-4 py-3 text-center">
                                             <div className="flex flex-col items-center gap-0.5">
                                                 {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => d.recibidos > 0 && (
                                                     <span key={prodId} className="text-xs text-gray-500 font-medium whitespace-nowrap">
@@ -959,7 +961,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                                 {item.recibidos === 0 && <span className="text-gray-300">-</span>}
                                             </div>
                                         </td>
-                                        <td className="text-center">
+                                        <td className="px-4 py-3 text-center">
                                             <span className={`inline-block px-3 py-1 rounded-full font-black text-xs ${
                                                 item.balance > 0 
                                                     ? 'bg-red-100 text-red-700' 
@@ -976,43 +978,40 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                         </tbody>
                     </table>
                 </div>
-            </article>
+            </Card>
             
             <div className="space-y-4">
-                <hgroup>
-                    <h3>Resumen del Período por Producto</h3>
-                    <p>Totales acumulados según filtros aplicados</p>
-                </hgroup>
-                <div className="responsive-grid">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Resumen del Período por Producto</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {(Object.entries(periodTotalsByProduct) as [string, { entregados: number; recibidos: number; balance: number }][]).map(([prodId, totals]) => {
                         const prod = productosMap.get(prodId);
                         return (
-                            <article key={prodId} style={{ padding: '1rem', marginBottom: 0, position: 'relative' }}>
+                            <Card key={prodId} className="p-4 overflow-hidden relative">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-primary-500"></div>
                                 <p className="text-[10px] font-black uppercase text-gray-400 mb-2 truncate">{prod?.nombre || 'N/A'}</p>
-                                <div className="grid">
+                                <div className="grid grid-cols-2 gap-2">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-blue-500 uppercase">Entregados</span>
-                                        <span className="text-2xl font-black text-blue-700">{totals.entregados}</span>
+                                        <span className="text-[9px] font-bold text-blue-500 uppercase">Entregados</span>
+                                        <span className="text-xl font-black text-blue-700">{totals.entregados}</span>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase">Recibidos</span>
-                                        <span className="text-2xl font-black text-gray-600">{totals.recibidos}</span>
+                                        <span className="text-[9px] font-bold text-gray-400 uppercase">Recibidos</span>
+                                        <span className="text-xl font-black text-gray-600">{totals.recibidos}</span>
                                     </div>
                                 </div>
-                                <footer style={{ padding: '0.5rem 0', marginTop: '0.5rem', borderTop: '1px solid var(--pico-muted-border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Balance Neto</span>
-                                    <span className={`text-lg font-black ${totals.balance > 0 ? 'text-red-600' : totals.balance < 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                <div className="mt-2 pt-2 border-t dark:border-gray-700 flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Balance Neto</span>
+                                    <span className={`text-sm font-black ${totals.balance > 0 ? 'text-red-600' : totals.balance < 0 ? 'text-green-600' : 'text-gray-400'}`}>
                                         {totals.balance > 0 ? `+${totals.balance}` : totals.balance}
                                     </span>
-                                </footer>
-                            </article>
+                                </div>
+                            </Card>
                         );
                     })}
                     {Object.keys(periodTotalsByProduct).length === 0 && (
-                        <article className="col-span-full" style={{ textAlign: 'center', padding: '3rem', border: '2px dashed var(--pico-muted-border-color)' }}>
-                            <p className="text-gray-400 italic">No hay datos para el período seleccionado.</p>
-                        </article>
+                        <div className="col-span-full p-8 text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                            <p className="text-gray-400 text-sm italic">No hay datos para el período seleccionado.</p>
+                        </div>
                     )}
                 </div>
             </div>

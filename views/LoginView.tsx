@@ -4,7 +4,6 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
-import { AppButton, AppInput, AppCard } from '../components/ui';
 
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -72,7 +71,7 @@ const LoginView: React.FC = () => {
       console.error("Error de autenticación completo:", error);
       let msg = 'Error desconocido de autenticación.';
       
-      // Errores de Permisos
+      // Errores de Permisos (EL TEMA ACTUAL)
       if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
           msg = '⛔ ACCESO DENEGADO A BASE DE DATOS. Ve a Firebase Console -> Firestore -> Reglas y cámbialas a "allow read, write: if true;"';
       }
@@ -96,84 +95,90 @@ const LoginView: React.FC = () => {
   };
 
   return (
-    <main className="container" style={{ maxWidth: '600px', marginTop: '2rem' }}>
-      <AppCard
-        title={
-          <div style={{ textAlign: 'center' }}>
-            <hgroup>
-              <h1>Aguas Puras</h1>
-              <p>{isRegistering ? 'Alta de Nuevo Usuario' : 'Acceso al Sistema'}</p>
-            </hgroup>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
+        <div className="text-center mb-8">
+          <div className="bg-primary-600 w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-primary-500/30">
+            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" />
+            </svg>
           </div>
-        }
-      >
-        <form onSubmit={handleAuth}>
+          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tighter uppercase italic">Aguas Puras</h1>
+          <p className="text-gray-400 dark:text-gray-500 text-xs font-black uppercase tracking-widest mt-1">
+            {isRegistering ? 'Alta de Nuevo Usuario' : 'Acceso al Sistema'}
+          </p>
+        </div>
+        
+        <form onSubmit={handleAuth} className="space-y-5">
           {isRegistering && (
-            <AppInput 
-              label="Nombre Completo"
-              type="text" 
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              required={isRegistering}
-              placeholder="Tu nombre..."
-            />
+            <div className="animate-fade-in-down">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Nombre Completo</label>
+                <input 
+                  type="text" 
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                  required={isRegistering}
+                  placeholder="Tu nombre..."
+                />
+            </div>
           )}
 
-          <AppInput 
-            label="Correo Electrónico"
-            type="email" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="ejemplo@email.com"
-          />
-
-          <AppInput 
-            label="Contraseña"
-            type="password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="••••••••"
-          />
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Correo Electrónico</label>
+            <input 
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+              required
+              placeholder="ejemplo@email.com"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Contraseña</label>
+            <input 
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+              required
+              placeholder="••••••••"
+            />
+          </div>
           
-          <AppButton 
+          <button 
             type="submit" 
-            isLoading={isLoading}
-            className="w-full"
-            style={{ width: '100%' }}
+            disabled={isLoading}
+            className="w-full py-4 px-4 bg-primary-600 hover:bg-primary-700 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary-500/20 transition-all transform active:scale-95 disabled:opacity-50"
           >
-            {isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema'}
-          </AppButton>
+            {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')}
+          </button>
         </form>
 
-        <footer style={{ textAlign: 'center', borderTop: 'none', padding: 0, marginTop: '1rem' }}>
-          <AppButton 
-            variant="ghost"
-            onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
-            style={{ fontSize: '0.8rem', width: '100%' }}
-          >
-            {isRegistering 
-                ? '¿Ya tienes cuenta? Iniciar Sesión' 
-                : '¿No tienes contraseña aún? Regístrate aquí'}
-          </AppButton>
-          
-          <AppButton 
-            variant="ghost"
-            onClick={handleResetConfig}
-            style={{ fontSize: '0.7rem', opacity: 0.6, width: '100%', marginTop: '0.5rem' }}
-          >
-            Configuración de base de datos
-          </AppButton>
-        </footer>
-      </AppCard>
-      
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-        <small style={{ color: 'var(--pico-muted-color)' }}>
-          IMPORTANTE: Si eres vendedor, debes registrarte con el mismo email que te asignó el administrador para heredar tus permisos y rutas.
-        </small>
+        <div className="mt-8 text-center space-y-4">
+            <button 
+                onClick={() => { setIsRegistering(!isRegistering); setNombre(''); setEmail(''); setPassword(''); }}
+                className="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 font-black uppercase tracking-tighter block w-full"
+            >
+                {isRegistering 
+                    ? '¿Ya tienes cuenta? Iniciar Sesión' 
+                    : '¿No tienes contraseña aún? Regístrate aquí'}
+            </button>
+            
+            <button 
+                onClick={handleResetConfig}
+                className="text-[9px] text-gray-400 hover:text-red-500 uppercase font-bold tracking-widest pt-4 block mx-auto opacity-50"
+            >
+                Configuración de base de datos
+            </button>
+        </div>
       </div>
-    </main>
+      
+      <div className="mt-8 max-w-sm text-[10px] text-gray-400 dark:text-gray-500 text-center font-bold uppercase tracking-widest leading-relaxed">
+        <p>IMPORTANTE: Si eres vendedor, debes registrarte con el mismo email que te asignó el administrador para heredar tus permisos y rutas.</p>
+      </div>
+    </div>
   );
 };
 

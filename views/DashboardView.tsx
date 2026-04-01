@@ -59,19 +59,20 @@ const StatsCard: React.FC<{
 
   return (
     <Card title={title}>
-      <div style={{ minHeight: '120px' }}>
+      <div className="space-y-2 min-h-[120px]">
         {Object.keys(stats.byProduct).length > 0 ? (
           Object.entries(stats.byProduct)
           .sort(([, valueA], [, valueB]) => (valueB as number) - (valueA as number))
           .map(([name, value]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-              <span style={{ opacity: 0.8, fontSize: '0.9rem' }}>{shortName(name)}</span>
-              <strong style={{ color: 'var(--pico-primary)', fontSize: '1.1rem' }}>{value}</strong>
+            <div key={name} className="flex justify-between items-center text-base">
+              <span className="text-gray-600 dark:text-gray-300 truncate pr-2 font-medium">{shortName(name)}</span>
+              <span className="font-black text-lg text-primary-600 dark:text-primary-400">{value}</span>
             </div>
           ))
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '120px', opacity: 0.4 }}>
-            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Sin movimientos</p>
+          <div className="flex flex-col items-center justify-center h-[120px] opacity-40">
+             <svg className="w-8 h-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-3.586 3.586a2 2 0 01-2.828 0L7 14m10 0v1a2 2 0 01-2 2H9a2 2 0 01-2-2v-1" /></svg>
+            <p className="text-center text-[10px] uppercase font-black tracking-tighter">Sin movimientos</p>
           </div>
         )}
       </div>
@@ -202,60 +203,53 @@ const InternalVendorDashboard: React.FC<{
     }, [user.id, clientes, currentDay, misRemitos, todayStr]);
 
     return (
-        <div className="animate-fade-in">
-            <div className="grid">
-                <hgroup>
-                    <h2 style={{ margin: 0 }}>
-                        Rendimiento: <span style={{ color: 'var(--pico-primary)' }}>{user.nombre}</span>
-                    </h2>
-                    <p>Panel de control de repartidor</p>
-                </hgroup>
-                <div style={{ textAlign: 'right' }}>
-                    <AppButton onClick={() => onOpenRemito()}>
-                        + Nuevo Remito Rápido
-                    </AppButton>
-                </div>
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pr-0 md:pr-12">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+                    Rendimiento: <span className="text-primary-600">{user.nombre}</span>
+                </h2>
+                <AppButton onClick={() => onOpenRemito()} className="shadow-lg transform active:scale-95 w-full sm:w-auto">
+                    + Nuevo Remito Rápido
+                </AppButton>
             </div>
 
             {/* CLIENTES A VISITAR HOY */}
             {visitasDelDia.length > 0 && (
-                <Card title={`Ruta del Día (${currentDay})`}>
-                    <div className="responsive-grid">
+                <Card title={`Ruta del Día (${currentDay})`} compact>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                         {visitasDelDia.map(cliente => (
-                            <article 
+                            <button 
                                 key={cliente.id} 
                                 onClick={() => !cliente.visitado && onOpenRemito(cliente.id)}
-                                style={{ 
-                                    padding: '1rem', 
-                                    cursor: cliente.visitado ? 'default' : 'pointer',
-                                    opacity: cliente.visitado ? 0.6 : 1,
-                                    marginBottom: '1rem'
-                                }}
+                                className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between gap-2 h-full ${
+                                    cliente.visitado 
+                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800 opacity-60 cursor-default' 
+                                    : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:border-primary-300 active:scale-[0.98]'
+                                }`}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <strong style={{ textDecoration: cliente.visitado ? 'line-through' : 'none' }}>
-                                            {cliente.nombre}
-                                        </strong>
-                                        <br />
-                                        <small>{cliente.sucursales[0]?.direccion}</small>
-                                    </div>
-                                    {cliente.visitado ? (
-                                        <ins>✓</ins>
-                                    ) : (
-                                        <mark style={{ fontSize: '0.7rem' }}>VISITAR</mark>
-                                    )}
+                                <div className="flex-1 min-w-0">
+                                    <p className={`font-bold text-xs truncate ${cliente.visitado ? 'text-green-700 dark:text-green-400 line-through' : 'text-gray-800 dark:text-white'}`}>
+                                        {cliente.nombre}
+                                    </p>
+                                    <p className="text-[9px] text-gray-500 truncate">{cliente.sucursales[0]?.direccion}</p>
                                 </div>
-                            </article>
+                                {cliente.visitado ? (
+                                    <span className="bg-green-500 text-white p-0.5 rounded-full flex-shrink-0">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                ) : (
+                                    <span className="text-[8px] font-black text-primary-600 uppercase tracking-tighter bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded flex-shrink-0">Visitar</span>
+                                )}
+                            </button>
                         ))}
                     </div>
                 </Card>
             )}
 
-            {/* CONTROL DE CARGA COMPACTO */}
+            {/* CONTROL DE CARGA COMPACTO (DEBAJO DE RUTA) */}
             {cargaStatus && (
-                <Card title="Control de Carga (Hoy)">
-                    <div className="responsive-grid">
+                <Card title="Control de Carga (Hoy)" compact>
+                    <div className="flex flex-wrap gap-2">
                         {Object.entries(cargaStatus.cargaTotal).map(([prodId, cargaVal]) => {
                             const prod = productosMap.get(prodId);
                             const carga = cargaVal as number;
@@ -263,63 +257,67 @@ const InternalVendorDashboard: React.FC<{
                             const disponible = carga - entregado;
                             
                             return (
-                                <article key={prodId} style={{ padding: '0.5rem', marginBottom: '0.5rem' }}>
-                                    <small><strong>{prod?.nombre}</strong></small>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                        <span>{entregado} / {carga}</span>
-                                        <mark style={{ backgroundColor: disponible <= 5 ? 'var(--pico-error-color)' : 'var(--pico-primary)' }}>
-                                            Disp: {disponible}
-                                        </mark>
+                                <div key={prodId} className="bg-gray-50 dark:bg-gray-700/30 px-3 py-1.5 rounded-xl border dark:border-gray-700 flex items-center gap-2 min-w-[140px] flex-1 sm:flex-none">
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                        <span className="text-[9px] font-black text-gray-400 uppercase truncate leading-tight">{prod?.nombre}</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-sm font-black leading-none">{entregado}</span>
+                                            <span className="text-[9px] text-gray-400">/ {carga}</span>
+                                        </div>
                                     </div>
-                                </article>
+                                    <div className={`flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg border flex-shrink-0 ${disponible <= 5 ? 'bg-red-50 border-red-100 text-red-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                                        <span className="text-[8px] font-black uppercase leading-none">Disp.</span>
+                                        <span className="text-xs font-black leading-none">{disponible}</span>
+                                    </div>
+                                </div>
                             );
                         })}
                     </div>
                 </Card>
             )}
             
-            <div className="grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* CARD DE ENTREGAS HOY/AYER */}
-                <article>
-                    <header style={{ textAlign: 'center' }}>
-                        <small><strong>Ritmo de Entrega (Envases)</strong></small>
-                    </header>
-                    <div className="grid" style={{ textAlign: 'center' }}>
-                        <div>
-                            <h2 style={{ color: 'var(--pico-primary)', margin: 0 }}>{entregasHoy}</h2>
-                            <small>Hoy</small>
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Ritmo de Entrega (Envases)</h3>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-blue-600">{entregasHoy}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
                         </div>
-                        <div>
-                            <h2 style={{ opacity: 0.5, margin: 0 }}>{entregasAyer}</h2>
-                            <small>Ayer</small>
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-gray-400">{entregasAyer}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
                         </div>
                     </div>
-                </article>
+                </div>
 
-                <article style={{ textAlign: 'center' }}>
-                    <header>
-                        <small><strong>Total Mensual</strong></small>
-                    </header>
-                    <h2 style={{ color: 'var(--pico-primary)', margin: 0 }}>{entregasTotal}</h2>
-                    <small>Envases retornables</small>
-                </article>
+                <Card>
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Mensual</p>
+                        <p className="text-5xl font-black text-blue-600">{entregasTotal}</p>
+                        <p className="text-xs text-gray-400 mt-2">Productos Retornables</p>
+                    </div>
+                </Card>
             </div>
 
             <Card title="Progreso Diario de Entregas">
-                <div style={{ height: '260px' }}>
+                <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
                             <defs>
                                 <linearGradient id="colorEntregas" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="var(--pico-primary)" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="var(--pico-primary)" stopOpacity={0}/>
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
                             <YAxis axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={lightTooltipStyle} />
-                            <Area type="monotone" dataKey="entregas" stroke="var(--pico-primary)" fillOpacity={1} fill="url(#colorEntregas)" strokeWidth={3} />
+                            <Area type="monotone" dataKey="entregas" stroke="#3b82f6" fillOpacity={1} fill="url(#colorEntregas)" strokeWidth={3} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -409,77 +407,59 @@ const ExternalVendorDashboard: React.FC<{
     }, [misVentas, pagos, user.id, productosMap, user.preciosEspeciales]);
 
     return (
-        <div className="animate-fade-in">
-            <div className="grid">
-                <hgroup>
-                    <h2 style={{ margin: 0 }}>
-                        Cuenta Corriente: <span style={{ color: 'var(--pico-primary)' }}>{user.nombre}</span>
-                    </h2>
-                    <p>Panel de control de vendedor externo</p>
-                </hgroup>
-                <div style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <AppButton onClick={onOpenPago} variant="success">
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pr-0 md:pr-12">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
+                    Cuenta Corriente: <span className="text-primary-600">{user.nombre}</span>
+                </h2>
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <AppButton onClick={onOpenPago} variant="success" className="shadow-lg flex-1 sm:flex-none">
                         $ Cargar Pago
                     </AppButton>
-                    <AppButton onClick={onOpenStockPurchase}>
+                    <AppButton onClick={onOpenStockPurchase} className="shadow-lg flex-1 sm:flex-none">
                         + Registrar Retiro
                     </AppButton>
                 </div>
             </div>
             
-            <div className="grid">
-                <article style={{ 
-                    textAlign: 'center', 
-                    border: '2px solid',
-                    borderColor: saldoPendiente > 0 ? 'var(--pico-error-color)' : 'var(--pico-primary)',
-                    backgroundColor: saldoPendiente > 0 ? 'rgba(255,0,0,0.05)' : 'rgba(0,255,0,0.05)'
-                }}>
-                    <small><strong>Saldo Pendiente (Deuda)</strong></small>
-                    <h2 style={{ 
-                        margin: 0,
-                        color: saldoPendiente > 0 ? 'var(--pico-error-color)' : 'var(--pico-primary)'
-                    }}>
-                        ${saldoPendiente.toLocaleString()}
-                    </h2>
-                </article>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className={`p-6 rounded-2xl border-2 shadow-xl flex flex-col items-center justify-center transition-all md:col-span-2 ${saldoPendiente > 0 ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${saldoPendiente > 0 ? 'text-red-600' : 'text-green-600'}`}>Saldo Pendiente (Deuda)</p>
+                    <p className={`text-3xl md:text-4xl font-black tracking-tighter ${saldoPendiente > 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>${saldoPendiente.toLocaleString()}</p>
+                </div>
 
                 {/* CARD DE RETIROS HOY/AYER (EXTERNO) */}
-                <article>
-                    <header style={{ textAlign: 'center' }}>
-                        <small><strong>Envases Retirados</strong></small>
-                    </header>
-                    <div className="grid" style={{ textAlign: 'center' }}>
-                        <div>
-                            <h2 style={{ color: 'var(--pico-primary)', margin: 0 }}>{retiradosHoy}</h2>
-                            <small>Hoy</small>
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col md:col-span-2">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Envases Retirados</h3>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-primary-600">{retiradosHoy}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
                         </div>
-                        <div>
-                            <h2 style={{ opacity: 0.5, margin: 0 }}>{retiradosAyer}</h2>
-                            <small>Ayer</small>
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <span className="text-4xl font-black text-gray-400">{retiradosAyer}</span>
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
                         </div>
                     </div>
-                </article>
+                </div>
             </div>
 
             <Card title="Historial de Movimientos">
-                <div className="overflow-auto">
-                    <table className="striped">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Concepto</th>
-                                <th>Detalle</th>
-                                <th style={{ textAlign: 'right' }}>Monto</th>
-                            </tr>
+                <div className="overflow-x-auto max-h-96">
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+                            <tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Concepto</th><th className="px-4 py-3">Detalle</th><th className="px-4 py-3 text-right">Monto</th></tr>
                         </thead>
                         <tbody>
                             {historial.map((h, i) => (
-                                <tr key={i}>
-                                    <td><small>{new Date(h.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</small></td>
-                                    <td><strong>{h.concepto}</strong></td>
-                                    <td><small>{h.detalle}</small></td>
-                                    <td style={{ textAlign: 'right', color: h.monto < 0 ? 'var(--pico-error-color)' : 'var(--pico-primary)' }}>
-                                        <strong>{h.monto < 0 ? '-' : '+'}${Math.abs(h.monto).toLocaleString()}</strong>
+                                <tr key={i} className="border-b dark:border-gray-700">
+                                    <td className="px-4 py-3 font-mono text-xs">{new Date(h.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
+                                    <td className="px-4 py-3 font-bold">{h.concepto}</td>
+                                    <td className="px-4 py-3 text-gray-500 text-xs">{h.detalle}</td>
+                                    <td className={`px-4 py-3 text-right font-bold ${h.monto < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                        {h.monto < 0 ? '-' : '+'}${Math.abs(h.monto).toLocaleString()}
                                     </td>
                                 </tr>
                             ))}
@@ -1113,13 +1093,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // RENDER PRINCIPAL CON SWITCH SEGÚN ROL
   // ----------------------------------------------------------------------
 
-  if (!user) return <article style={{ padding: '2rem', textAlign: 'center' }}>Cargando perfil...</article>;
+  if (!user) return <div className="p-4">Cargando perfil...</div>;
 
   // Render para Vendedores (usando los nuevos modales)
   const vendorDashboard = (
       <>
         {user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.INTERNO && (
-            <div style={{ paddingTop: '2rem' }}>
+            <div className="space-y-4 pt-12 md:pt-0">
                 <InternalVendorDashboard 
                     user={user} 
                     remitos={remitos} 
@@ -1132,7 +1112,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         )}
         
         {user.rol === Rol.REPARTIDOR && user.tipo === TipoVendedor.EXTERNO && (
-            <div style={{ paddingTop: '2rem' }}>
+            <div className="space-y-4 pt-12 md:pt-0">
                 <ExternalVendorDashboard 
                     user={user} 
                     ventas={ventasVendedor} 
@@ -1165,7 +1145,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* MODAL PAGO CAJA (Para Externos) */}
         {isPagoModalOpen && (
-            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)}>
+            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-4xl">
                 <MovimientoCajaForm 
                     type="ingreso" // Vendedor carga plata (pago de su deuda)
                     movimiento={newPagoData} 
@@ -1183,7 +1163,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* NUEVO MODAL COMPRA STOCK (Para Externos) */}
         {isStockPurchaseModalOpen && (
-            <Modal isOpen={isStockPurchaseModalOpen} onClose={() => setIsStockPurchaseModalOpen(false)}>
+            <Modal isOpen={isStockPurchaseModalOpen} onClose={() => setIsStockPurchaseModalOpen(false)} className="max-w-4xl">
                 <MovimientoCajaForm 
                     type="ingreso" // Contextual: Es un "ingreso" de venta para la empresa
                     movimiento={newStockPurchaseData} 
@@ -1205,16 +1185,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   if (user.rol === Rol.SOPLADOR) {
     return (
-      <main className="container animate-fade-in">
-        <header className="grid">
-          <hgroup>
-            <h1 style={{ fontStyle: 'italic', textTransform: 'uppercase' }}>Panel de Soplado</h1>
-            <p>Bienvenido, {user.nombre}</p>
-          </hgroup>
-          <div style={{ textAlign: 'right' }}>
-            <article style={{ display: 'inline-block', padding: '0.5rem 1rem', margin: 0 }}>
-              <small><strong>{format(new Date(), "EEEE, d 'de' MMMM", { locale: es }).toUpperCase()}</strong></small>
-            </article>
+      <div className="space-y-6 pt-12 md:pt-0 pb-12">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Panel de Soplado</h1>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">Bienvenido, {user.nombre}</p>
+          </div>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-2xl shadow-sm border-2 border-primary-100 dark:border-primary-900/30">
+            <Calendar className="h-5 w-5 text-primary-600" />
+            <span className="font-bold text-sm uppercase tracking-tighter">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</span>
           </div>
         </header>
 
@@ -1228,11 +1207,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             onAction={handleSopladoAction}
           />
         ) : (
-          <article style={{ backgroundColor: 'var(--pico-ins-color)', color: 'var(--pico-contrast)' }}>
-            <p><strong>⚠️ El plugin de soplado está desactivado.</strong> Contacte al administrador para habilitarlo.</p>
-          </article>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-6 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              <p className="text-sm font-bold text-yellow-700 dark:text-yellow-400 uppercase tracking-tight">
+                El plugin de soplado está desactivado. Contacte al administrador para habilitarlo.
+              </p>
+            </div>
+          </div>
         )}
-      </main>
+      </div>
     );
   }
 
@@ -1240,12 +1224,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // 3. DASHBOARD ADMINISTRADOR
   return (
-    <main className="container animate-fade-in">
-      <h1 style={{ fontStyle: 'italic', textTransform: 'uppercase' }}>Dashboard Operativo</h1>
+    <div className="space-y-8 pt-12 md:pt-0 pb-12">
+      <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
       
       {/* Widget de Soplado (Solo si está habilitado) */}
       {empresaSettings?.sopladoConfig?.enabled && (
-        <div style={{ marginBottom: '2rem' }}>
+        <div className="mb-2">
           <SopladoDashboardWidget 
             preformas={preformas || []}
             moldes={moldes || []}
@@ -1257,72 +1241,76 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      <div className="grid">
-          <article style={{ textAlign: 'center', border: '2px solid var(--pico-primary)', backgroundColor: 'rgba(0,255,0,0.05)' }}>
-              <small><strong>Efectivo Total</strong></small>
-              <h2 style={{ margin: 0 }}>${saldoEfectivo.toLocaleString('es-AR')}</h2>
-          </article>
-          <article style={{ textAlign: 'center', border: '2px solid var(--pico-secondary)', backgroundColor: 'rgba(0,0,255,0.05)' }}>
-              <small><strong>Caja Virtual / Bancos</strong></small>
-              <h2 style={{ margin: 0 }}>${saldoOtros.toLocaleString('es-AR')}</h2>
-          </article>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+          <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+              <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
+              <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoEfectivo.toLocaleString('es-AR')}</p>
+          </div>
+          <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-blue-100 dark:border-blue-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Caja Virtual / Bancos</p>
+              <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
+          </div>
       </div>
 
-      <section>
-        <small style={{ textTransform: 'uppercase', fontWeight: 'bold', opacity: 0.5 }}>Entregas Consolidadas</small>
-        <div className="responsive-grid">
+      <div>
+        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Entregas Consolidadas</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6">
             {metricsOrder.map(key => <div key={key}>{metricsComponents[key]}</div>)}
         </div>
-      </section>
+      </div>
 
-      <div className="grid">
-          <div style={{ gridColumn: 'span 2' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
               <Card title="Evolución Diaria (Mes Actual vs Anterior)">
-                  <div style={{ padding: '0 1rem 1rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <small style={{ textTransform: 'uppercase', fontWeight: 'bold', opacity: 0.5 }}>Filtro de Productos</small>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <small>● Mes Actual</small>
-                                <small style={{ opacity: 0.5 }}>○ Mes Anterior</small>
+                  <div className="px-4 pb-4">
+                        <div className="flex justify-between items-center mb-3">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filtro de Productos</p>
+                            <div className="flex gap-4 text-[9px] font-bold uppercase tracking-tighter">
+                                <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-current opacity-100"></div> Mes Actual</div>
+                                <div className="flex items-center gap-1"><div className="w-3 h-0.5 border-b border-dashed opacity-50"></div> Mes Anterior</div>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div className="flex flex-wrap gap-2">
                             {returnableProductNames.map(name => {
                                 const isVisible = visibleProducts.includes(name);
                                 return (
-                                    <AppButton
+                                    <button
                                         key={name}
                                         onClick={() => toggleProductVisibility(name)}
+                                        className={`px-3 py-1.5 text-[11px] font-black rounded-xl border transition-all duration-200 flex items-center gap-2 ${
+                                            isVisible 
+                                            ? 'text-white shadow-md scale-105' 
+                                            : 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-700/50 dark:text-gray-500 dark:border-gray-700 opacity-60 grayscale'
+                                        }`}
                                         style={{ 
-                                            padding: '0.25rem 0.75rem',
-                                            fontSize: '0.7rem',
-                                            backgroundColor: isVisible ? productColors[name] : 'var(--pico-secondary-background)',
-                                            borderColor: isVisible ? productColors[name] : 'var(--pico-border-color)',
-                                            color: isVisible ? 'white' : 'var(--pico-muted-color)',
-                                            opacity: isVisible ? 1 : 0.5
+                                            backgroundColor: isVisible ? productColors[name] : undefined,
+                                            borderColor: isVisible ? productColors[name] : undefined
                                         }}
                                     >
+                                        <div className="w-2 h-2 rounded-full bg-white/40"></div>
                                         {shortName(name).toUpperCase()}
-                                    </AppButton>
+                                    </button>
                                 );
                             })}
                         </div>
                     </div>
-                  <div style={{ height: '320px' }}>
+                  <div className="h-80 px-2">
                       <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={currentMonthDailySalesData}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} label={{ value: 'Día', position: 'insideBottom', offset: -5, fontSize: 10 }} />
                               <YAxis axisLine={false} tickLine={false} />
                               <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
                               <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                               
+                              {/* Líneas de Totales Generales */}
                               <Line type="monotone" dataKey="Total Mes Actual" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 TOTAL ACTUAL" />
                               <Line type="monotone" dataKey="Internos Mes Actual" stroke="#10b981" strokeWidth={2} dot={false} name="👤 INTERNOS ACTUAL" />
                               <Line type="monotone" dataKey="Externos Mes Actual" stroke="#f59e0b" strokeWidth={2} dot={false} name="🤝 EXTERNOS ACTUAL" />
                               
                               <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
 
+                              {/* Líneas por Producto */}
                               {returnableProductNames.map(name => visibleProducts.includes(name) ? (
                                   <React.Fragment key={name}>
                                       <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={false} name={shortName(name)} />
@@ -1334,76 +1322,83 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               </Card>
           </div>
 
-          <div>
+          <div className="lg:col-span-1">
               <Card title="Stock Permanente en Planta">
-                  <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <div className="overflow-y-auto max-h-[420px] pr-2">
+                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Productos y Envases en Fábrica</p>
                       {productos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).length > 0 ? (
-                          <table className="striped">
-                              <thead>
+                          <table className="w-full text-sm">
+                              <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                                   <tr>
-                                      <th>Producto</th>
-                                      <th style={{ textAlign: 'right' }}>Llenos</th>
-                                      <th style={{ textAlign: 'right' }}>Vacíos</th>
+                                      <th className="py-2 text-left">Producto</th>
+                                      <th className="py-2 text-right">Llenos</th>
+                                      <th className="py-2 text-right">Vacíos</th>
                                   </tr>
                               </thead>
                               <tbody>
                                   {productos
                                     .filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE)
                                     .map(p => (
-                                      <tr key={p.id}>
-                                          <td><small>{p.abreviatura || p.nombre}</small></td>
-                                          <td style={{ textAlign: 'right', color: 'var(--pico-primary)', fontWeight: 'bold' }}>{p.stockPlanta || 0}</td>
-                                          <td style={{ textAlign: 'right', color: 'var(--pico-secondary)', fontWeight: 'bold' }}>{p.tipo === TipoProducto.RETORNABLE ? (p.stockEnvases || 0) : '-'}</td>
+                                      <tr key={p.id} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{p.abreviatura || p.nombre}</td>
+                                          <td className="py-3 text-right font-black text-blue-600 dark:text-blue-400 text-base">{p.stockPlanta || 0}</td>
+                                          <td className="py-3 text-right font-black text-yellow-600 dark:text-yellow-400 text-base">{p.tipo === TipoProducto.RETORNABLE ? (p.stockEnvases || 0) : '-'}</td>
                                       </tr>
                                   ))}
                               </tbody>
                           </table>
                       ) : (
-                          <p style={{ textAlign: 'center', opacity: 0.5 }}>Sin productos registrados</p>
+                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                              <p className="text-xs font-bold uppercase">Sin productos registrados</p>
+                          </div>
                       )}
                   </div>
               </Card>
           </div>
 
-          <div>
+          <div className="lg:col-span-1">
               <Card title="Stock en Poder de Clientes">
-                  <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <div className="overflow-y-auto max-h-[420px] pr-2">
+                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Activos pendientes de devolución</p>
                       {stockEnCalle.length > 0 ? (
-                          <table className="striped">
+                          <table className="w-full text-sm">
                               <tbody>
                                   {stockEnCalle.map(([name, count]) => (
-                                      <tr key={name}>
-                                          <td><small>{shortName(name)}</small></td>
-                                          <td style={{ textAlign: 'right', color: 'var(--pico-primary)', fontWeight: 'bold' }}>{count.toLocaleString()}</td>
+                                      <tr key={name} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{shortName(name)}</td>
+                                          <td className="py-3 text-right font-black text-primary-600 dark:text-primary-400 text-base">{count.toLocaleString()}</td>
                                       </tr>
                                   ))}
                               </tbody>
                           </table>
                       ) : (
-                          <p style={{ textAlign: 'center', opacity: 0.5 }}>Sin stock pendiente</p>
+                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                              <p className="text-xs font-bold uppercase">Sin stock pendiente</p>
+                          </div>
                       )}
                   </div>
               </Card>
           </div>
 
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="lg:col-span-2">
               <Card title="Volumen de Ventas (Histórico 12 Meses)">
-                  <div style={{ height: '320px' }}>
+                  <div className="h-80 px-2">
                       <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={monthlySalesVolumeChartData}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                              <YAxis axisLine={false} tickLine={false} />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
                               <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
-                              <Legend iconType="circle" />
+                              <Legend iconType="circle" formatter={(v) => v} />
                               
+                              {/* Líneas de Totales Generales */}
                               <Line type="monotone" dataKey="Total General" stroke="#111827" strokeWidth={4} dot={{ r: 5 }} name="📈 TOTAL VENTAS" />
                               <Line type="monotone" dataKey="Internos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="👤 INTERNOS" />
                               <Line type="monotone" dataKey="Externos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="🤝 EXTERNOS" />
 
                               {returnableProductNames.map(name => {
                                   if (!visibleProducts.includes(name)) return null;
-                                  return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} />;
+                                  return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
                               })}
                           </LineChart>
                       </ResponsiveContainer>
@@ -1411,52 +1406,55 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               </Card>
           </div>
 
-          <div>
+          <div className="lg:col-span-1">
               <Card title="Ventas Productos Descartables">
-                  <div style={{ height: '320px' }}>
+                  <div className="h-80 px-2">
                       {nonReturnableMonthlyData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={nonReturnableMonthlyData} layout="vertical">
+                              <AreaChart data={nonReturnableMonthlyData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
                                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(128, 128, 128, 0.1)" />
                                   <XAxis type="number" hide />
-                                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={80} />
-                                  <Tooltip contentStyle={lightTooltipStyle} />
-                                  <Legend verticalAlign="top" />
+                                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} width={80} />
+                                  <Tooltip contentStyle={lightTooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                                  <Legend verticalAlign="top" height={36} />
                                   <Area dataKey="actual" name="Mes Actual" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
                                   <Area dataKey="anterior" name="Mes Anterior" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
                               </AreaChart>
                           </ResponsiveContainer>
                       ) : (
-                          <p style={{ textAlign: 'center', opacity: 0.5 }}>Sin ventas descartables</p>
+                          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas descartables</div>
                       )}
                   </div>
               </Card>
           </div>
 
-          <div>
+          <div className="lg:col-span-1">
               <Card title="Comisiones Vendedores">
-                  <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <div className="overflow-y-auto max-h-[420px] pr-2">
+                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Mes Actual (Internos)</p>
                       {vendedoresComisiones.length > 0 ? (
-                          <table className="striped">
+                          <table className="w-full text-sm">
                               <tbody>
                                   {vendedoresComisiones.map(v => (
-                                      <tr key={v.nombre}>
-                                          <td><small>{v.nombre}</small></td>
-                                          <td style={{ textAlign: 'right', color: 'var(--pico-primary)', fontWeight: 'bold' }}>${v.monto.toLocaleString()}</td>
+                                      <tr key={v.nombre} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{v.nombre}</td>
+                                          <td className="py-3 text-right font-black text-green-600 dark:text-green-400 text-base">${v.monto.toLocaleString()}</td>
                                       </tr>
                                   ))}
                               </tbody>
                           </table>
                       ) : (
-                          <p style={{ textAlign: 'center', opacity: 0.5 }}>Sin comisiones este mes</p>
+                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                              <p className="text-xs font-bold uppercase">Sin comisiones este mes</p>
+                          </div>
                       )}
                   </div>
               </Card>
           </div>
 
-          <div>
+          <div className="lg:col-span-1">
               <Card title="Vendedores Externos">
-                  <div style={{ height: '320px' }}>
+                  <div className="h-80 px-2 flex flex-col">
                       {externalVendorsPieData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
@@ -1468,42 +1466,42 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                       outerRadius={80}
                                       paddingAngle={5}
                                       dataKey="value"
-                                      label={({ value }) => `${value}`}
+                                      label={({ value }) => `${value}`} // ETIQUETAS SIEMPRE VISIBLES
                                   >
                                       {externalVendorsPieData.map((entry, index) => (
                                           <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                       ))}
                                   </Pie>
                                   <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
-                                  <Legend verticalAlign="bottom" />
+                                  <Legend verticalAlign="bottom" height={36} />
                               </PieChart>
                           </ResponsiveContainer>
                       ) : (
-                          <p style={{ textAlign: 'center', opacity: 0.5 }}>Sin ventas externas</p>
+                          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas externas</div>
                       )}
                   </div>
               </Card>
           </div>
       </div>
 
-      <section>
+      <div className="space-y-6">
           <Card title={`Ruta de Reparto: ${todayName}`}>
-            <div style={{ padding: '1rem' }}>
+            <div className="p-2 space-y-4">
                 {mapMarkers.length > 0 ? (
                     <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <small style={{ fontWeight: 'bold', opacity: 0.5 }}>{mapMarkers.length} Puntos Georeferenciados.</small>
-                            <AppButton onClick={optimizeRoute} style={{ fontSize: '0.7rem', padding: '0.25rem 1rem' }}>
+                        <div className="flex justify-between items-center px-2">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{mapMarkers.length} Puntos Georeferenciados.</p>
+                            <button onClick={optimizeRoute} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full transition-all ${isOptimized ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white shadow-md'}`}>
                                 {isOptimized ? 'Ruta Optimizada ✓' : 'Optimizar Recorrido'}
-                            </AppButton>
+                            </button>
                         </div>
                         <LeafletMap markers={mapMarkers} height="450px" route={routeLine} />
                     </>
-                ) : <div style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed var(--pico-border-color)', borderRadius: '1rem', opacity: 0.5 }}>Sin repartos hoy</div>}
+                ) : <div className="h-40 flex items-center justify-center text-gray-400 border-2 border-dashed rounded-2xl">Sin repartos hoy</div>}
             </div>
           </Card>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 };
 
