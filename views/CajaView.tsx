@@ -308,16 +308,16 @@ const CajaView: React.FC<CajaViewProps> = ({
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
       <div className="flex flex-col md:flex-row justify-end items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
-          <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
-              <div className="flex flex-col flex-1 min-w-[140px]">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Desde</span>
-                  <input type="date" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none" />
+          <div className="flex flex-wrap gap-2 items-end w-full md:w-auto">
+              <div className="flex-1 min-w-[140px]">
+                  <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} />
               </div>
-              <div className="flex flex-col flex-1 min-w-[140px]">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1">Hasta</span>
-                  <input type="date" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} className="w-full p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none" />
+              <div className="flex-1 min-w-[140px]">
+                  <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={e => setDateFilter({...dateFilter, to: e.target.value})} />
               </div>
-              <button onClick={() => setDateFilter({from: '', to: ''})} className="mt-4 p-2 text-gray-400 hover:text-red-500 transition-colors" title="Limpiar Filtros">✕</button>
+              <div>
+                  <AppButton variant="secondary" onClick={() => setDateFilter({from: '', to: ''})} title="Limpiar Filtros">Limpiar</AppButton>
+              </div>
           </div>
       </div>
 
@@ -350,7 +350,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                     </td>
                                     <td className="px-4 py-4 text-right flex justify-end items-center gap-2">
                                         {!isEditDisabled && (
-                                            <button type="button" onClick={(e) => { 
+                                            <AppButton type="button" onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 if(mov.type==='gasto') {
                                                     setModalConfig({type:'gasto', isEdit:true, data:mov.original}); 
@@ -363,7 +363,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                     setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
                                                 } 
                                                 setIsModalOpen(true); 
-                                            }} className="text-blue-500 p-1"><PencilIcon /></button>
+                                            }} variant="secondary" size="sm" className="!p-2 border-transparent bg-transparent text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-none" title="Editar"><PencilIcon /></AppButton>
                                         )}
                                         <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                     </td>
@@ -396,7 +396,7 @@ const CajaView: React.FC<CajaViewProps> = ({
             </table>
             {displayedMovements.length < combinedMovements.length && (
                 <div className="text-center p-4">
-                    <button onClick={() => setItemsLimit(prev => prev + 50)} className="text-primary-600 text-sm font-bold hover:underline">Cargar más movimientos...</button>
+                <AppButton onClick={() => setItemsLimit(prev => prev + 50)} variant="secondary" size="sm" className="text-primary-600 text-sm font-bold hover:underline bg-transparent border-transparent shadow-none">Cargar más movimientos...</AppButton>
                 </div>
             )}
         </div>

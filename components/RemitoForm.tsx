@@ -9,6 +9,8 @@ import { TrashIcon } from './icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import QuickClientModal from './QuickClientModal';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface RemitoFormProps {
   remito: Partial<Remito> & { pagos?: PagoDetalle[] };
   clientes: Cliente[];
@@ -346,14 +348,11 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     setIsSaving(false);
   }, [formData, isReadOnly, onSave, showNotification, remitos]);
 
+  useFormShortcuts({ onSave: handleSubmit, onCancel: onClose, isDisabled: isReadOnly });
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit();
-        return;
-      }
       if (e.altKey && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
         addMovimiento();
@@ -369,7 +368,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isReadOnly, addMovimiento, addPago, handleSubmit, isCtaCte, formData]);
+  }, [isReadOnly, addMovimiento, addPago, isCtaCte, formData]);
   
   return (
     <>
@@ -539,7 +538,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total Remito: ${totalRemito.toLocaleString()}</span></div>
         <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
           <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>}
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>}
         </div>
       </form>
       <QuickClientModal isOpen={isQuickClientOpen} onClose={() => setIsQuickClientOpen(false)} onSave={handleSaveQuickClient} />

@@ -23,6 +23,8 @@ import { fetchDatosPadron } from '../services/afip';
 import { useDataStore } from '../hooks/useDataStore'; 
 import { getLocalDateString } from '../utils/dateUtils';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface ClientesViewProps {
   clientes: Cliente[];
   remitos: Remito[];
@@ -329,19 +331,21 @@ const ClienteForm: React.FC<{
     });
   }, [formData, auditStocks, currentBalances, contratosIniciales, contratosAEliminar, onSave]);
 
+  useFormShortcuts({
+    onSave: handleSubmit,
+    onCancel: onClose
+  });
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit();
-      } else if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+      if (e.altKey && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
         addSucursal();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSubmit, addSucursal]);
+  }, [addSucursal]);
 
   const activeProductOptions = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
   const repartidoresOptions = useMemo(() => [
@@ -640,7 +644,7 @@ const ClienteForm: React.FC<{
 
       <div className="flex justify-end gap-3 pt-6">
         <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Guardar Cambios <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
       </div>
     </form>
 

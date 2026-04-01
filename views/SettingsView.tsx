@@ -16,6 +16,8 @@ import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import plugins from '../plugins';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface SettingsViewProps {
   settings: EmpresaSettings;
   updateSettings: (settings: EmpresaSettings) => void;
@@ -102,6 +104,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
     updateSettings(formData);
     showNotification('Configuración guardada.', 'success');
   };
+
+  useFormShortcuts({
+    onSave: handleSubmit
+  });
 
   const handleAddCausa = async () => {
     if (!newCausa.nombre) return;
@@ -371,7 +377,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
         )}
 
         <div className="flex justify-end sticky bottom-4 z-10">
-          <AppButton onClick={() => handleSubmit()} size="lg" className="shadow-2xl px-12">Guardar Todo</AppButton>
+          <AppButton onClick={() => handleSubmit()} size="lg" className="shadow-2xl px-12">Guardar Todo <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
         </div>
       </div>
 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Contrato, Cliente, Producto, Servicio, Sucursal, TipoServicio, TipoProducto, EstadoContrato, EstadoServicio, EstadoProducto } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
 import { getLocalDateString } from '../utils/dateUtils';
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 interface ContratoFormProps {
   contrato?: Partial<Contrato>;
@@ -82,10 +83,15 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onSave(formData as Contrato);
-  };
+  }, [formData, onSave]);
+
+  useFormShortcuts({
+    onSave: handleSubmit,
+    onCancel: onClose
+  });
 
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const servicioOptions = useMemo(() => {
@@ -181,7 +187,7 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
 
       <div className="flex justify-end gap-2 pt-4">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit">Guardar Contrato <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit">Guardar Contrato <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
       </div>
     </form>
   )

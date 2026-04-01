@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Modal from './Modal';
 import AppInput from './ui/AppInput';
 import AppButton from './ui/AppButton';
 import { MapIcon } from './icons/MapIcon';
 import { useNotification } from '../context/NotificationContext';
 import { TipoTelefono } from '../types';
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 interface QuickClientModalProps {
     isOpen: boolean;
@@ -51,8 +52,10 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
         );
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); e.stopPropagation();
+    const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+        if (e) {
+            e.preventDefault(); e.stopPropagation();
+        }
         if (!nombre.trim()) return;
         setIsSaving(true);
         try {
@@ -60,7 +63,12 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
             setNombre(''); setDireccion(''); setTelefono(''); setCoords({});
             onClose();
         } catch (error) { console.error(error); } finally { setIsSaving(false); }
-    };
+    }, [nombre, direccion, telefono, coords, onSave, onClose]);
+
+    useFormShortcuts({
+        onSave: handleSubmit,
+        onCancel: onClose
+    });
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
@@ -74,7 +82,7 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
                 <AppInput label="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} />
                 <div className="flex justify-end gap-2 pt-4">
                     <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear</AppButton>
+                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
                 </div>
             </form>
         </Modal>

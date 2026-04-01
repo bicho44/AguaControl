@@ -8,6 +8,8 @@ import AppInput from './ui/AppInput';
 import AppSelect from './ui/AppSelect';
 import { TrashIcon } from './icons/TrashIcon';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface MovimientoCajaFormProps {
   movimiento: any;
   type: 'ingreso' | 'gasto';
@@ -152,6 +154,8 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
     }
   }, [formData, isVentaMode, movimientosVenta, onSave, isEdit, productosMap, selectedCliente, selectedVendedor]);
 
+  useFormShortcuts({ onSave: handleSubmit, onCancel: onClose });
+
   const vendedorOptions = useMemo(() => vendedores.map(v => ({ value: v.id, label: v.nombre })), [vendedores]);
   const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
   const productosOptions = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO).map(p => ({ value: p.id, label: p.nombre })), [productos]);
@@ -261,7 +265,9 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
 
         <div className="flex justify-end gap-3 pt-6 border-t dark:border-gray-700">
             <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-            <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Confirmar Operación</AppButton>
+            <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">
+                Confirmar Operación <span className="ml-2 text-[10px] opacity-50 hidden md:inline">(Alt + Enter)</span>
+            </AppButton>
         </div>
       </form>
     </div>

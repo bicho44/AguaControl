@@ -28,6 +28,8 @@ import AppSelect from '../components/ui/AppSelect';
 import { getLocalDateString, formatDate } from '../utils/dateUtils';
 import SearchableSelect from '../components/SearchableSelect';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface GestionStockViewProps {
   planillas: PlanillaDiaria[];
   movimientosPlanta: MovimientoStockPlanta[];
@@ -83,8 +85,8 @@ const PlanillaForm: React.FC<{
         setItems(newItems);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         const itemsValidos = items.filter(i => i.productoId && i.cantidad > 0);
 
         if (!repartidorId || itemsValidos.length === 0) return;
@@ -96,6 +98,11 @@ const PlanillaForm: React.FC<{
             cargaInicial: itemsValidos,
         });
     };
+
+    useFormShortcuts({
+        onSave: handleSubmit,
+        onCancel: onClose
+    });
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -185,7 +192,7 @@ const PlanillaForm: React.FC<{
 
             <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton type="submit" className="px-8">Abrir Reparto</AppButton>
+                <AppButton type="submit" className="px-8">Abrir Reparto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
             </div>
         </form>
     );
@@ -229,6 +236,11 @@ const RecargaModal: React.FC<{
         if (cargaValida.length === 0 && descargaValida.length === 0) return;
         onSave(cargaValida, descargaValida);
     };
+
+    useFormShortcuts({
+        onSave: handleSave,
+        onCancel: onClose
+    });
 
     return (
         <div className="space-y-8">
@@ -305,7 +317,7 @@ const RecargaModal: React.FC<{
 
             <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton onClick={handleSave} className="px-8">Guardar Recarga</AppButton>
+                <AppButton onClick={handleSave} className="px-8">Guardar Recarga <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
             </div>
         </div>
     );

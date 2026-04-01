@@ -157,7 +157,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         <input
             ref={inputRef}
             type="text"
-            className="w-full px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
+            className="w-full h-[46px] px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
             value={displayValue}
             onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -227,7 +227,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             <div className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto" style={dropdownStyle}>
                 <ul className="py-1">
                     {filteredOptions.length > 0 ? filteredOptions.map((opt, idx) => (
-                        <li key={opt.value} onClick={() => handleSelect(opt.value)} onMouseEnter={() => setHighlightedIndex(idx)} className={`px-4 py-2.5 cursor-pointer text-sm ${idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''} ${opt.value === value ? 'font-bold bg-blue-100 text-blue-700' : ''}`}>
+                        <li key={opt.value} onClick={() => handleSelect(opt.value)} onMouseEnter={() => setHighlightedIndex(idx)} className={`px-4 py-2.5 cursor-pointer text-sm ${idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''} ${opt.value === value ? 'font-bold bg-primary-100 text-primary-700' : ''}`}>
                             {opt.label}
                         </li>
                     )) : <li className="px-4 py-3 text-gray-400 text-center">Sin resultados</li>}

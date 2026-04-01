@@ -14,6 +14,8 @@ import AppSelect from '../components/ui/AppSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 import LiquidacionAbonosView from './LiquidacionAbonosView';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface FacturacionViewProps {
   clientes: Cliente[];
   remitos: Remito[];
@@ -54,19 +56,21 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
         if (pagosValidos.length > 0) onSave(factura.id, fecha, pagosValidos);
     }, [pagos, factura.id, fecha, onSave]);
 
+    useFormShortcuts({
+        onSave: handleSubmit,
+        onCancel: onClose
+    });
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                handleSubmit();
-            } else if (e.altKey && (e.key === 'p' || e.key === 'P')) {
+            if (e.altKey && (e.key === 'p' || e.key === 'P')) {
                 e.preventDefault();
                 addPago();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleSubmit, addPago]);
+    }, [addPago]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,7 +102,7 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
 
             <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                 <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                <AppButton variant="primary" type="submit">Registrar Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
+                <AppButton variant="primary" type="submit">Registrar Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
             </div>
         </form>
     );

@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNotification } from '../context/NotificationContext';
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
 
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -34,8 +35,8 @@ const LoginView: React.FC = () => {
     }
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAuth = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsLoading(true);
     const cleanEmail = email.toLowerCase().trim();
 
@@ -92,7 +93,11 @@ const LoginView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, password, isRegistering, showNotification]);
+
+  useFormShortcuts({
+    onSave: handleAuth
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -152,7 +157,7 @@ const LoginView: React.FC = () => {
             disabled={isLoading}
             className="w-full py-4 px-4 bg-primary-600 hover:bg-primary-700 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary-500/20 transition-all transform active:scale-95 disabled:opacity-50"
           >
-            {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')}
+            {isLoading ? 'Procesando...' : (isRegistering ? 'Crear mi Acceso' : 'Entrar al Sistema')} <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span>
           </button>
         </form>
 
