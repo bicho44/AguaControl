@@ -16,6 +16,8 @@ import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import plugins from '../plugins';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface SettingsViewProps {
   settings: EmpresaSettings;
   updateSettings: (settings: EmpresaSettings) => void;
@@ -102,6 +104,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
     updateSettings(formData);
     showNotification('Configuración guardada.', 'success');
   };
+
+  useFormShortcuts({
+    onSave: handleSubmit
+  });
 
   const handleAddCausa = async () => {
     if (!newCausa.nombre) return;
@@ -249,7 +255,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                                     {formData.afipConfig?.cert && <span className="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded">CARGADO</span>}
                                 </div>
                                 <label className="cursor-pointer block">
-                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-primary-500 transition-colors">
+                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-blue-500 transition-colors">
                                         <UploadIcon /> <span className="text-xs font-bold">Subir archivo .CRT</span>
                                     </div>
                                     <input type="file" accept=".crt,.pem" className="hidden" onChange={(e) => handleFileUpload(e, 'cert')} />
@@ -268,7 +274,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                                     {formData.afipConfig?.key && <span className="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded">CARGADO</span>}
                                 </div>
                                 <label className="cursor-pointer block">
-                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-primary-500 transition-colors">
+                                    <div className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-700 rounded-lg border hover:border-blue-500 transition-colors">
                                         <UploadIcon /> <span className="text-xs font-bold">Subir archivo .KEY</span>
                                     </div>
                                     <input type="file" accept=".key" className="hidden" onChange={(e) => handleFileUpload(e, 'key')} />
@@ -371,7 +377,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
         )}
 
         <div className="flex justify-end sticky bottom-4 z-10">
-          <AppButton onClick={() => handleSubmit()} size="lg" className="shadow-2xl px-12">Guardar Todo</AppButton>
+          <AppButton onClick={() => handleSubmit()} size="lg" className="shadow-2xl px-12">Guardar Todo <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
         </div>
       </div>
 
