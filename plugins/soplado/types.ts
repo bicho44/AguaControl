@@ -35,10 +35,7 @@ export interface EntregaSoplado {
 }
 
 export interface SopladoDashboardSettings {
-    enabled?: boolean;
-    integratedWithPlant?: boolean;
-    dashboardCards?: string[];
-    showProductionChart?: boolean;
-    showStockAlerts?: boolean;
-    showDailyGoals?: boolean;
+    showProductionChart: boolean;
+    showStockAlerts: boolean;
+    showDailyGoals: boolean;
 }

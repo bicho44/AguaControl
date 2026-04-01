@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useDataStore } from '../../hooks/useDataStore';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
@@ -56,7 +57,7 @@ const SopladoDashboardWidget: React.FC<SopladoDashboardWidgetProps> = ({
             {isSoplador && (
                 <div className="grid">
                     <AppButton 
-                        onClick={() => onAction?.('produccion')}
+                        onClick={() => onAction('produccion')}
                         style={{ height: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderRadius: 'var(--pico-border-radius)' }}
                     >
                         <svg style={{ width: '32px', height: '32px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -66,7 +67,7 @@ const SopladoDashboardWidget: React.FC<SopladoDashboardWidgetProps> = ({
                     </AppButton>
                     <AppButton 
                         variant="secondary"
-                        onClick={() => onAction?.('entrega')}
+                        onClick={() => onAction('entrega')}
                         style={{ height: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderRadius: 'var(--pico-border-radius)' }}
                     >
                         <svg style={{ width: '32px', height: '32px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">

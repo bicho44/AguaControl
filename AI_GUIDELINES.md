@@ -42,3 +42,4 @@ Cuando el usuario pida un cambio, **ejecutar la modificación en los archivos in
 1.  **Analizar el requerimiento.**
 2.  **EJECUCIÓN INMEDIATA:** Generar código XML.
 3.  Si el cambio es visualmente complejo, explicar brevemente *después* del código.
+4.  No borrar datos de prueba (`mockData`) a menos que se solicite explícitamente.

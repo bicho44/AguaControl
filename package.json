@@ -1,7 +1,7 @@
 {
   "name": "control-de-remitos-de-bidones",
   "private": true,
-  "version": "2.7.6",
+  "version": "2.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "@tailwindcss/vite": "^4.2.2",
     "date-fns": "^4.1.0",
     "firebase": "^12.8.0",
     "framer-motion": "^12.35.0",
@@ -21,7 +23,8 @@
     "motion-react": "^0.15.0-alpha.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "recharts": "2.12.7"
+    "recharts": "2.12.7",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

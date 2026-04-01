@@ -9,6 +9,8 @@ import { TrashIcon } from './icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import QuickClientModal from './QuickClientModal';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface RemitoFormProps {
   remito: Partial<Remito> & { pagos?: PagoDetalle[] };
   clientes: Cliente[];
@@ -296,7 +298,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         });
         setFormData(prev => ({ ...prev, clienteId: id, sucursalId: 'main' }));
         showNotification('Cliente creado.', 'success');
-    } catch (e) { showNotification('Error.', 'error'); }
+    } catch (e: any) { showNotification(e.message || 'Error.', 'error'); }
   };
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -346,14 +348,11 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     setIsSaving(false);
   }, [formData, isReadOnly, onSave, showNotification, remitos]);
 
+  useFormShortcuts({ onSave: handleSubmit, onCancel: onClose, isDisabled: isReadOnly });
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit();
-        return;
-      }
       if (e.altKey && (e.key === 'i' || e.key === 'I')) {
         e.preventDefault();
         addMovimiento();
@@ -369,25 +368,25 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isReadOnly, addMovimiento, addPago, handleSubmit, isCtaCte, formData]);
+  }, [isReadOnly, addMovimiento, addPago, isCtaCte, formData]);
   
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
-        <div className="flex flex-col mb-2">
-            <div className="flex justify-between items-start">
+      <form onSubmit={handleSubmit} style={{ maxHeight: '85vh', overflowY: 'auto', paddingRight: '0.5rem', margin: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                    <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter flex items-center gap-2 flex-wrap">
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 900, textTransform: 'uppercase', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <span>{remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}</span>
                         {!isAdmin && formData.fecha && (
-                            <span className="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md normal-case tracking-normal">
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--pico-muted-color)', backgroundColor: 'var(--pico-secondary-background)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', textTransform: 'none' }}>
                                 {formData.fecha.split('-').reverse().join('/')}
                             </span>
                         )}
                     </h2>
                 </div>
                 {isAdmin && !isReadOnly && (
-                    <div className="w-1/2 max-w-[160px]">
+                    <div style={{ width: '50%', maxWidth: '160px' }}>
                         <SearchableSelect 
                             label="" 
                             placeholder="Vendedor" 
@@ -399,26 +398,33 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 )}
             </div>
             
-            <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3">
-                <div className="flex-1 min-w-[80px]">
-                    <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+            <div className="grid" style={{ marginTop: '0.75rem', gap: '0.5rem' }}>
+                <div style={{ minWidth: '80px' }}>
+                    <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}/>
                 </div>
-                <div className="flex-1 min-w-[120px]">
-                    <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                <div style={{ minWidth: '120px' }}>
+                    <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}/>
                 </div>
             </div>
             {isAdmin && (
-                <div className="mt-2">
-                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                <div style={{ marginTop: '0.5rem' }}>
+                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }}/>
                 </div>
             )}
         </div>
 
-        {deudaPendiente > 0 && <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold text-sm">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
+        {deudaPendiente > 0 && (
+            <div style={{ padding: '0.75rem', backgroundColor: '#fef3c7', borderLeft: '4px solid #f59e0b', color: '#b45309', borderRadius: '0.375rem', marginBottom: '1rem' }}>
+                <p style={{ fontWeight: 'bold', fontSize: '0.875rem', margin: 0 }}>Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p>
+            </div>
+        )}
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="relative">
-                <div className="flex justify-between items-end mb-1"><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 ml-1 uppercase tracking-wider">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo</button>}</div>
+        <div className="grid" style={{ gap: '0.75rem' }}>
+            <div style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', margin: 0 }}>Cliente</label>
+                    {!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="outline" style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', padding: '0.125rem 0.25rem', width: 'auto', margin: 0, border: 'none' }}>+ Nuevo</button>}
+                </div>
                 <SearchableSelect 
                   options={clienteOptions} 
                   value={formData.clienteId || ''} 
@@ -427,13 +433,22 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                   autoFocus={!isReadOnly && !formData.clienteId}
                 />
                 {Object.keys(clientStock).length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
+                  <div style={{ marginTop: '0.375rem', display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                     {Object.entries(clientStock).map(([prodId, cant]) => {
                       const prod = productosMap.get(prodId);
                       const cantidad = cant as number;
                       if (cantidad === 0) return null;
                       return (
-                        <span key={prodId} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cantidad > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                        <span key={prodId} style={{ 
+                            fontSize: '0.65rem', 
+                            fontWeight: 'bold', 
+                            padding: '0.125rem 0.5rem', 
+                            borderRadius: '9999px', 
+                            border: '1px solid',
+                            backgroundColor: cantidad > 0 ? '#eff6ff' : '#fef2f2',
+                            color: cantidad > 0 ? '#1d4ed8' : '#b91c1c',
+                            borderColor: cantidad > 0 ? '#bfdbfe' : '#fecaca'
+                        }}>
                           {prod?.nombre}: {cantidad}
                         </span>
                       );
@@ -441,22 +456,26 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                   </div>
                 )}
                 {currentAddress && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1 truncate">
-                        <span className="font-bold">Dirección:</span> {currentAddress}
+                    <p style={{ fontSize: '0.75rem', color: 'var(--pico-muted-color)', marginTop: '0.25rem', marginLeft: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 'bold' }}>Dirección:</span> {currentAddress}
                     </p>
                 )}
             </div>
-            {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required className="!py-1.5 !text-sm" /></div>}
+            {clienteSucursales.length > 1 && (
+                <div>
+                    <AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem' }} />
+                </div>
+            )}
         </div>
 
-        <fieldset className="border-t dark:border-gray-600 pt-3">
-          <legend className="text-sm font-black text-gray-800 dark:text-white px-2 mb-2 uppercase tracking-wider">Movimientos</legend>
+        <fieldset style={{ borderTop: '1px solid var(--pico-muted-border-color)', paddingTop: '0.75rem', marginTop: '1rem' }}>
+          <legend style={{ fontSize: '0.875rem', fontWeight: 900, textTransform: 'uppercase', padding: '0 0.5rem' }}>Movimientos</legend>
           {(formData.movimientos || []).map((mov, index) => (
-              <div key={index} className="flex flex-col gap-2 mb-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+              <article key={index} style={{ marginBottom: '0.75rem', padding: '0.75rem', backgroundColor: 'var(--pico-card-background-color)', border: '1px solid var(--pico-muted-border-color)' }}>
                   <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
-                  <div className="flex gap-2 items-start">
-                      <div className="flex-1">
-                          <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block ml-1">Entrega</label>
+                  <div className="grid" style={{ marginTop: '0.5rem', gap: '0.5rem', alignItems: 'flex-end' }}>
+                      <div>
+                          <label style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--pico-muted-color)', marginBottom: '0.25rem', display: 'block' }}>Entrega</label>
                           <AppInput 
                             id={index === 0 ? "primer-input-cantidad" : undefined}
                             type="number" 
@@ -465,36 +484,36 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                             required 
                             disabled={isReadOnly} 
                             autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
-                            className="text-center font-bold text-lg !py-1.5"
+                            style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.125rem', padding: '0.375rem' }}
                           />
                       </div>
-                      <div className="flex-1">
-                          <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block ml-1">Recibe</label>
+                      <div>
+                          <label style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--pico-muted-color)', marginBottom: '0.25rem', display: 'block' }}>Recibe</label>
                           <AppInput 
                             type="number" 
                             value={mov.recibidos} 
                             onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
                             required 
                             disabled={isReadOnly} 
-                            className="text-center font-bold text-lg !py-1.5"
+                            style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.125rem', padding: '0.375rem' }}
                           />
                       </div>
-                      <div className="pt-5">
-                          <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2 h-[38px] w-[38px] flex items-center justify-center" type="button"><TrashIcon/></AppButton>
+                      <div style={{ paddingBottom: '1rem' }}>
+                          <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} style={{ padding: '0.5rem', height: '2.5rem', width: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} type="button"><TrashIcon/></AppButton>
                       </div>
                   </div>
-              </div>
+              </article>
           ))}
-          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full border-dashed border-2 !py-1.5">+ Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span></AppButton>}
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addMovimiento} style={{ width: '100%', borderStyle: 'dashed', borderWidth: '2px', padding: '0.375rem 0.75rem' }}>+ Agregar Item <small style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: '0.25rem', fontWeight: 'normal' }}>(Alt+I)</small></AppButton>}
         </fieldset>
 
-        <fieldset className="border-t dark:border-gray-600 pt-4 mt-4">
-          <legend className="text-lg font-bold text-orange-600 dark:text-orange-400 px-2 mb-2 flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+        <fieldset style={{ borderTop: '1px solid var(--pico-muted-border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
+          <legend style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#ea580c', padding: '0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             Recambios (Sin Cargo)
           </legend>
           {(formData.recambios || []).map((rec, index) => (
-              <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,2fr,auto] items-end md:items-center gap-2 mb-2 bg-orange-50 dark:bg-orange-900/10 p-2 rounded-lg">
+              <div key={index} className="grid" style={{ alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', backgroundColor: 'rgba(234, 88, 12, 0.05)', padding: '0.5rem', borderRadius: '0.5rem' }}>
                   <SearchableSelect options={productosOptions} value={rec.productoId} onChange={(v) => handleRecambioChange(index, 'productoId', v)} disabled={isReadOnly} />
                   <AppInput type="number" value={rec.cantidad} onChange={(e) => handleRecambioChange(index, 'cantidad', e.target.value)} required disabled={isReadOnly} />
                   <AppSelect 
@@ -503,18 +522,18 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     options={causasRecambio.map(c => ({ value: c.id, label: c.nombre }))}
                     disabled={isReadOnly}
                   />
-                  <AppButton variant="danger" size="sm" onClick={() => removeRecambio(index)} disabled={isReadOnly} className="!p-2" type="button"><TrashIcon/></AppButton>
+                  <AppButton variant="danger" size="sm" onClick={() => removeRecambio(index)} disabled={isReadOnly} style={{ padding: '0.5rem' }} type="button"><TrashIcon/></AppButton>
               </div>
           ))}
-          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addRecambio} className="w-full border-dashed border-2 border-orange-200 dark:border-orange-800 text-orange-600">+ Agregar Recambio</AppButton>}
+          {!isReadOnly && <AppButton variant="secondary" size="sm" onClick={addRecambio} style={{ width: '100%', borderStyle: 'dashed', borderWidth: '2px', borderColor: '#fed7aa', color: '#ea580c' }}>+ Agregar Recambio</AppButton>}
         </fieldset>
 
         {(!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
-            <fieldset className="border-t dark:border-gray-600 pt-6">
-                <legend className="text-lg font-black text-primary-600 uppercase tracking-tighter px-2 mb-4">Información de Cobro</legend>
-                <div className="space-y-3 bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl border border-primary-100 dark:border-primary-800">
+            <fieldset style={{ borderTop: '1px solid var(--pico-muted-border-color)', paddingTop: '1.5rem', marginTop: '1rem' }}>
+                <legend style={{ fontSize: '1.125rem', fontWeight: 900, color: 'var(--pico-primary)', textTransform: 'uppercase', padding: '0 0.5rem' }}>Información de Cobro</legend>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'rgba(var(--pico-primary-rgb), 0.05)', padding: '1rem', borderRadius: '1rem', border: '1px solid var(--pico-primary-border)' }}>
                     {(formData.pagos || []).map((pago, index) => (
-                        <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3 items-end">
+                        <div key={index} className="grid" style={{ gap: '0.75rem', alignItems: 'flex-end' }}>
                             <AppInput 
                                 id={`pago-monto-${index}`}
                                 label={index === 0 ? "Monto Pagado" : ""} 
@@ -522,25 +541,27 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                                 value={pago.monto} 
                                 onChange={(e) => handlePagoChange(index, 'monto', e.target.value)} 
                                 step="0.01" 
-                                className="font-black text-green-600" 
+                                style={{ fontWeight: 900, color: '#16a34a' }} 
                                 disabled={isReadOnly} 
                             />
                             <AppSelect label={index === 0 ? "Método" : ""} value={pago.metodo} onChange={(e) => handlePagoChange(index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} disabled={isReadOnly} />
-                            <AppButton variant="danger" size="sm" onClick={() => removePago(index)} disabled={isReadOnly} className="!p-2 mb-1"><TrashIcon className="w-5 h-5"/></AppButton>
+                            <AppButton variant="danger" size="sm" onClick={() => removePago(index)} disabled={isReadOnly} style={{ padding: '0.5rem', marginBottom: '1rem' }}><TrashIcon style={{ width: '1.25rem', height: '1.25rem' }}/></AppButton>
                         </div>
                     ))}
                     {!isReadOnly && (
-                        <AppButton variant="secondary" size="sm" onClick={addPago} className="w-full border-dashed border-2 bg-white/50">+ Agregar Pago / Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+P)</span></AppButton>
+                        <AppButton variant="secondary" size="sm" onClick={addPago} style={{ width: '100%', borderStyle: 'dashed', borderWidth: '2px', backgroundColor: 'rgba(255, 255, 255, 0.5)' }}>+ Agregar Pago / Cobro <small style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: '0.25rem', fontWeight: 'normal' }}>(Alt+P)</small></AppButton>
                     )}
                 </div>
             </fieldset>
         )}
 
-        <div className="flex justify-end items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg"><span className="text-xl font-black">Total Remito: ${totalRemito.toLocaleString()}</span></div>
-        <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
-          <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
-          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito</AppButton>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '1rem', backgroundColor: 'var(--pico-secondary-background)', borderRadius: '0.5rem', marginTop: '1rem' }}>
+            <span style={{ fontSize: '1.25rem', fontWeight: 900 }}>Total Remito: ${totalRemito.toLocaleString()}</span>
         </div>
+        <footer style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: '1rem', borderTop: '1px solid var(--pico-muted-border-color)', marginTop: '1rem' }}>
+          <AppButton variant="secondary" onClick={onClose}>{isReadOnly ? 'Cerrar' : 'Cancelar'}</AppButton>
+          {!isReadOnly && <AppButton variant="primary" type="submit" disabled={isSaving}>Guardar Remito <small style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: '0.25rem', fontWeight: 'normal' }}>(Alt+Enter)</small></AppButton>}
+        </footer>
       </form>
       <QuickClientModal isOpen={isQuickClientOpen} onClose={() => setIsQuickClientOpen(false)} onSave={handleSaveQuickClient} />
     </>

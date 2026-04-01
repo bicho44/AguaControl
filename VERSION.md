@@ -1,10 +1,3 @@
-# Versión 2.7.6 (No DaisyUi)
-
-Este archivo marca el punto de referencia para la versión **v2.7.6** del proyecto. Se ha eliminado DaisyUI para construir un framework CSS propio.
-Fecha de guardado: 2026-04-01
-
----
-
 # Versión 2.75
 
 Este archivo marca el punto de referencia para la versión **v2.75** del proyecto.

@@ -10,6 +10,8 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 
+import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
 interface ProductosViewProps {
   productos: Producto[];
   addProducto: (producto: Omit<Producto, 'id' | 'estado'>) => void;
@@ -36,16 +38,10 @@ const ProductoForm: React.FC<{
     onSave(formData as Producto);
   }, [formData, onSave]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSubmit]);
+  useFormShortcuts({
+    onSave: handleSubmit,
+    onCancel: onClose
+  });
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -82,7 +78,7 @@ const ProductoForm: React.FC<{
       </div>
       <div className="flex justify-end gap-2 pt-6 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto</AppButton>
+        <AppButton variant="primary" type="submit" className="px-12">Guardar Producto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
       </div>
     </form>
   )
@@ -134,14 +130,7 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
       </div>
       <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit border dark:border-gray-700 shadow-sm">
         {['Activo', 'Inactivo', 'todos'].map(s => (
-            <AppButton 
-                key={s} 
-                variant={statusFilter === s ? 'primary' : 'secondary'}
-                onClick={() => setStatusFilter(s as any)} 
-                className="px-4 py-2 rounded-lg text-xs font-bold border-transparent"
-            >
-                {s.toUpperCase()}
-            </AppButton>
+            <button key={s} onClick={() => setStatusFilter(s as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === s ? 'bg-primary-600 text-white' : 'text-gray-500'}`}>{s.toUpperCase()}</button>
         ))}
       </div>
       <Card>
@@ -158,9 +147,7 @@ const ProductosView: React.FC<ProductosViewProps> = ({ productos, addProducto, u
                   <td className="px-6 py-4 text-right font-mono">${p.precio.toLocaleString()}</td>
                   <td className="px-6 py-4 text-right font-mono text-green-600">${(p.precioReventa || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-right">
-                    <AppButton variant="secondary" size="sm" onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="!p-2 rounded-full border-transparent">
-                        <PencilIcon />
-                    </AppButton>
+                    <button onClick={() => {setEditingProducto(p); setIsModalOpen(true);}} className="text-primary-600 p-2 hover:bg-primary-50 rounded-full"><PencilIcon /></button>
                   </td>
                 </tr>
               ))}
