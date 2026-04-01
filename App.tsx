@@ -33,7 +33,7 @@ const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
 
   return (
-    <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '0.5rem', pointerEvents: 'none' }}>
+    <div className="fixed top-4 right-4 z-[100] space-y-2">
       {notifications.map(notification => (
         <Notification
           key={notification.id}
@@ -94,11 +94,7 @@ function AppContent() {
   }, [user]);
 
   if (authLoading) {
-      return (
-        <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-          <div aria-busy="true">Cargando...</div>
-        </div>
-      );
+      return <div className="flex h-screen items-center justify-center dark:bg-gray-900"><div className="text-primary-600 dark:text-white">Cargando...</div></div>;
   }
 
   if (!user) {
@@ -325,7 +321,15 @@ function AppContent() {
   };
 
   return (
-    <div id="root">
+    <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen relative overflow-x-hidden">
+      {/* Backdrop para cerrar el menú en móviles */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar 
         currentView={currentView} 
         setCurrentView={setCurrentView} 
@@ -336,33 +340,25 @@ function AppContent() {
         appVersion={APP_VERSION}
       />
 
-      <main className="container">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--pico-spacing)', padding: '1rem 0' }}>
+      <div className="md:ml-64 p-4 sm:p-6 lg:p-8">
+        <div className="flex justify-between items-center mb-4">
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)} 
-                className="outline"
-                style={{ marginBottom: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0 }}
+                className="md:hidden p-2 bg-white dark:bg-gray-800 shadow-sm rounded-md border dark:border-gray-700"
             >
-                <svg style={{ width: '24px', height: '24px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-6 w-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
                 </svg>
             </button>
-            <h4 style={{ margin: 0, flex: 1, textAlign: 'center', padding: '0 1rem' }}>
-              {dataStore.empresaSettings.nombreFantasia || dataStore.empresaSettings.nombre}
-            </h4>
             <button 
                 onClick={logout} 
-                className="contrast outline"
-                style={{ marginBottom: 0, fontSize: '0.75rem', padding: '0.5rem 1rem' }}
+                className="ml-auto px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
             >
-                Salir
+                Cerrar Sesión
             </button>
-        </header>
-        
-        <div className="animate-fade-in">
-          {renderView()}
         </div>
-      </main>
+        <main>{renderView()}</main>
+      </div>
     </div>
   );
 }

@@ -9,8 +9,6 @@ import SearchableSelect from '../components/SearchableSelect';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
 import AppButton from '../components/ui/AppButton';
 
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
-
 interface ServiciosViewProps {
   servicios: Servicio[];
   productos: Producto[];
@@ -43,10 +41,16 @@ const ServicioForm: React.FC<{
     onSave(formData as Servicio);
   }, [formData, onSave]);
 
-  useFormShortcuts({
-    onSave: handleSubmit,
-    onCancel: onClose
-  });
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit]);
 
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
   const equiposOptions = useMemo(() => productosActivos.filter(p => p.tipo === TipoProducto.EQUIPO).map(p => ({ value: p.id, label: p.nombre })), [productosActivos]);
@@ -111,7 +115,7 @@ const ServicioForm: React.FC<{
 
       <div className="flex justify-end gap-2 pt-4">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit">Guardar Servicio <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit">Guardar Servicio <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )

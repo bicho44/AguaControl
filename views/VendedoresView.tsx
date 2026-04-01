@@ -11,8 +11,6 @@ import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import SearchableSelect from '../components/SearchableSelect';
 
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
-
 interface UsuariosViewProps {
   usuarios: Usuario[];
   registrosPago: RegistroPago[];
@@ -55,10 +53,16 @@ const UsuarioForm: React.FC<{
     onSave(formData as Usuario);
   }, [formData, onSave]);
 
-  useFormShortcuts({
-    onSave: handleSubmit,
-    onCancel: onClose
-  });
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit]);
 
   const productosActivos = useMemo(() => productos.filter(p => p.estado === EstadoProducto.ACTIVO), [productos]);
 
@@ -112,7 +116,7 @@ const UsuarioForm: React.FC<{
 
       <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-700">
         <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-        <AppButton variant="primary" type="submit" className="px-8">Guardar Usuario <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+Enter)</span></AppButton>
+        <AppButton variant="primary" type="submit" className="px-8">Guardar Usuario <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span></AppButton>
       </div>
     </form>
   )

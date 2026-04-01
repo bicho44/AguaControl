@@ -52,15 +52,15 @@ const SopladoDashboardWidget: React.FC<SopladoDashboardWidgetProps> = ({
     const lowStockPreformas = preformas.filter(p => p.stockActual <= p.puntoReposicion);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="space-y-4">
             {/* Quick Actions for Soplador */}
             {isSoplador && (
-                <div className="grid">
+                <div className="grid grid-cols-2 gap-3">
                     <AppButton 
                         onClick={() => onAction('produccion')}
-                        style={{ height: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderRadius: 'var(--pico-border-radius)' }}
+                        className="h-24 flex flex-col gap-2 rounded-2xl shadow-lg shadow-primary-500/20"
                     >
-                        <svg style={{ width: '32px', height: '32px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         <span>Cargar Soplado</span>
@@ -68,27 +68,27 @@ const SopladoDashboardWidget: React.FC<SopladoDashboardWidgetProps> = ({
                     <AppButton 
                         variant="secondary"
                         onClick={() => onAction('entrega')}
-                        style={{ height: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderRadius: 'var(--pico-border-radius)' }}
+                        className="h-24 flex flex-col gap-2 rounded-2xl border-2 border-primary-100 dark:border-gray-700"
                     >
-                        <svg style={{ width: '32px', height: '32px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>
-                        <span>Registrar Entrega</span>
+                        <span className="text-primary-600">Registrar Entrega</span>
                     </AppButton>
                 </div>
             )}
 
             {/* Stock Alerts */}
             {lowStockPreformas.length > 0 && (
-                <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.1)', border: '1px solid rgba(255, 0, 0, 0.2)', padding: '1rem', borderRadius: 'var(--pico-border-radius)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#d32f2f', marginBottom: '0.5rem' }}>
-                        <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        <span style={{ fontWeight: 'bold', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Alerta de Stock Crítico</span>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-xl">
+                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        <span className="font-bold text-sm uppercase tracking-wider">Alerta de Stock Crítico</span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div className="space-y-1">
                         {lowStockPreformas.map(p => (
-                            <p key={p.id} style={{ fontSize: '0.75rem', color: '#b71c1c', margin: 0 }}>
-                                <span style={{ fontWeight: 'bold' }}>{p.color} ({p.peso}g)</span>: Quedan solo {p.stockActual} unidades.
+                            <p key={p.id} className="text-xs text-red-700 dark:text-red-300">
+                                <span className="font-bold">{p.color} ({p.peso}g)</span>: Quedan solo {p.stockActual} unidades.
                             </p>
                         ))}
                     </div>
@@ -97,15 +97,15 @@ const SopladoDashboardWidget: React.FC<SopladoDashboardWidgetProps> = ({
 
             {/* Production Chart */}
             <Card title="Evolución de Soplado (7 días)">
-                <div style={{ height: '260px', marginTop: '1rem' }}>
+                <div className="h-64 mt-4">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: 'var(--pico-muted-color)'}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: 'var(--pico-muted-color)'}} />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#999'}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#999'}} />
                             <Tooltip 
-                                contentStyle={{borderRadius: 'var(--pico-border-radius)', border: '1px solid var(--pico-muted-border-color)', backgroundColor: 'var(--pico-card-background-color)'}}
-                                cursor={{fill: 'rgba(0,0,0,0.05)'}}
+                                contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}}
+                                cursor={{fill: '#f3f4f6'}}
                             />
                             <Legend iconType="circle" wrapperStyle={{fontSize: 12, paddingTop: 10}} />
                             <Bar dataKey="Producción" fill="#0ea5e9" radius={[4, 4, 0, 0]} />

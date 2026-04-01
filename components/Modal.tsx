@@ -5,12 +5,10 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  title?: string;
-  footer?: React.ReactNode;
-  style?: React.CSSProperties;
+  className?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, footer, style }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className }) => {
   useEffect(() => {
     if (!isOpen) return;
 
@@ -33,25 +31,28 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title, footer,
   if (!isOpen) return null;
 
   return (
-    <dialog open={isOpen} onClick={onClose}>
-      <article 
+    <div 
+      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm px-4 py-6 sm:py-12 flex justify-center items-start sm:items-center"
+      onClick={onClose}
+    >
+      <div 
+        className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full relative transform transition-all animate-fade-in-up ${className || 'max-w-2xl'}`}
         onClick={e => e.stopPropagation()}
-        style={{ width: '100%', ...style }}
       >
-        <header>
-          <button 
-            aria-label="Close" 
-            rel="prev" 
-            onClick={onClose}
-          ></button>
-          {title && <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, textTransform: 'uppercase' }}>{title}</h3>}
-        </header>
-        <div style={{ maxHeight: '75vh', overflowY: 'auto' }}>
-          {children}
-        </div>
-        {footer && <footer>{footer}</footer>}
-      </article>
-    </dialog>
+        {/* Botón de cierre rápido en la esquina superior derecha */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-label="Cerrar modal"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {children}
+      </div>
+    </div>
   );
 };
 

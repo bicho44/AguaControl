@@ -1,4 +1,5 @@
-/* Global CSS Fixes for Aguas Puras - Pico.css v2.0 */
+
+/* Global CSS Fixes for Aguas Puras */
 
 /* Ensure all elements use border-box */
 *, ::before, ::after {
@@ -8,7 +9,6 @@
 /* Prevent date inputs from being too small to read */
 input[type="date"] {
   min-width: 130px;
-  background-color: white !important; /* Fix for dark mode visibility in some browsers */
 }
 
 /* Fix for mobile scrolling and layout */
@@ -34,7 +34,7 @@ html, body {
   background: transparent;
 }
 
-[data-theme="dark"] ::-webkit-scrollbar-track {
+.dark ::-webkit-scrollbar-track {
   background: #1f2937;
 }
 
@@ -43,7 +43,7 @@ html, body {
   border-radius: 4px;
 }
 
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
+.dark ::-webkit-scrollbar-thumb {
   background: #4b5563;
 }
 
@@ -66,105 +66,5 @@ html, body {
   
   .filter-item-responsive {
     flex: 1 1 200px !important;
-  }
-}
-
-/* Custom styles for Pico.css components to match the app's look */
-article {
-  margin-bottom: var(--pico-spacing);
-}
-
-.grid {
-  grid-column-gap: var(--pico-spacing);
-}
-
-/* Sidebar and Layout specific styles */
-#root {
-  display: flex;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-aside {
-  width: 260px;
-  height: 100vh;
-  position: sticky;
-  top: 0;
-  overflow-y: auto;
-  border-right: 1px solid var(--pico-muted-border-color);
-  background-color: var(--pico-card-background-color);
-  transition: transform 0.3s ease;
-  z-index: 1000;
-  flex-shrink: 0;
-}
-
-aside nav {
-  padding: var(--pico-spacing);
-}
-
-aside nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-aside nav ul li {
-  margin-bottom: 0.5rem;
-}
-
-aside nav ul li a {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--pico-border-radius);
-  color: var(--pico-color);
-  text-decoration: none;
-  transition: background-color 0.2s ease;
-}
-
-aside nav ul li a:hover {
-  background-color: var(--pico-secondary-hover-background);
-}
-
-aside nav ul li a.active {
-  background-color: var(--pico-primary-background);
-  color: var(--pico-primary-inverse);
-}
-
-aside nav ul li a svg {
-  margin-right: 0.75rem;
-  width: 20px;
-  height: 20px;
-}
-
-main.container-fluid {
-  flex: 1;
-  padding: var(--pico-spacing);
-  overflow-x: hidden;
-}
-
-/* Mobile Sidebar */
-@media (max-width: 992px) {
-  aside {
-    position: fixed;
-    left: 0;
-    transform: translateX(-100%);
-  }
-  
-  aside.open {
-    transform: translateX(0);
-  }
-  
-  main.container-fluid {
-    margin-left: 0;
-  }
-}
-
-@media (min-width: 993px) {
-  .md\:hidden {
-    display: none !important;
-  }
-  .md\:block {
-    display: block !important;
   }
 }
