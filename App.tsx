@@ -27,7 +27,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.7.6 (No DaisyUi)';
+const APP_VERSION = '2.7.6 (Sync)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
