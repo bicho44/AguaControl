@@ -207,8 +207,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                     <AppInput label="CBU / CVU" name="cbu" value={formData.cbu || ''} onChange={handleChange} />
                     <AppInput label="Alias" name="alias" value={formData.alias || ''} onChange={handleChange} />
                     <div className="md:col-span-3">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Pie de Página de Factura (Términos, horarios, etc.)</label>
-                        <textarea name="observacionesFactura" value={formData.observacionesFactura || ''} onChange={handleChange} rows={3} className="w-full p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-2xl outline-none focus:ring-2 focus:ring-primary-500" />
+                        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Pie de Página de Factura (Términos, horarios, etc.)</label>
+                        <textarea name="observacionesFactura" value={formData.observacionesFactura || ''} onChange={handleChange} rows={3} className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all" />
                     </div>
                 </div>
             </Card>

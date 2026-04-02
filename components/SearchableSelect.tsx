@@ -151,7 +151,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   return (
     <div className="w-full relative" ref={wrapperRef}>
       {label && (
-        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
+        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">
           {label}
         </label>
       )}

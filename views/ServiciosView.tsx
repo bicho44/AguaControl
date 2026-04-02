@@ -8,6 +8,8 @@ import { useNotification } from '../context/NotificationContext';
 import SearchableSelect from '../components/SearchableSelect';
 import { ReplyIcon } from '../components/icons/ReplyIcon';
 import AppButton from '../components/ui/AppButton';
+import AppInput from '../components/ui/AppInput';
+import AppSelect from '../components/ui/AppSelect';
 
 // Force sync
 
@@ -66,22 +68,32 @@ const ServicioForm: React.FC<{
     <form onSubmit={handleSubmit} className="space-y-4">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">{servicio.id ? 'Editar' : 'Nuevo'} Servicio</h2>
       
-      <div>
-        <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Servicio</label>
-        <input id="nombre" type="text" name="nombre" placeholder="Ej: Abono 4 Bidones" value={formData.nombre || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-      </div>
+      <AppInput 
+        label="Nombre del Servicio"
+        id="nombre" 
+        type="text" 
+        name="nombre" 
+        placeholder="Ej: Abono 4 Bidones" 
+        value={formData.nombre || ''} 
+        onChange={handleChange} 
+        required 
+      />
 
-      <div>
-        <label htmlFor="tipo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Servicio</label>
-        <select id="tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} required className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-          <option value="">Seleccionar tipo</option>
-          {Object.values(TipoServicio).map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </div>
+      <AppSelect 
+        label="Tipo de Servicio"
+        id="tipo" 
+        name="tipo" 
+        value={formData.tipo || ''} 
+        onChange={handleChange} 
+        required
+      >
+        <option value="">Seleccionar tipo</option>
+        {Object.values(TipoServicio).map(t => <option key={t} value={t}>{t}</option>)}
+      </AppSelect>
       
       <div>
-        <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción (Opcional)</label>
-        <textarea id="descripcion" name="descripcion" placeholder="Detalles del servicio..." value={formData.descripcion || ''} onChange={handleChange} rows={2} className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
+        <label htmlFor="descripcion" className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Descripción (Opcional)</label>
+        <textarea id="descripcion" name="descripcion" placeholder="Detalles del servicio..." value={formData.descripcion || ''} onChange={handleChange} rows={2} className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all" />
       </div>
 
       <fieldset className="border-t dark:border-gray-600 pt-4 space-y-4">
@@ -89,28 +101,39 @@ const ServicioForm: React.FC<{
         
         {showEquipo && (
           <div>
-            <label htmlFor="productoId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Equipo por Defecto</label>
-            <SearchableSelect options={equiposOptions} value={formData.productoId || ''} onChange={(value) => handleSelectChange('productoId', value)} placeholder="Seleccionar Equipo" />
+            <SearchableSelect label="Equipo por Defecto" options={equiposOptions} value={formData.productoId || ''} onChange={(value) => handleSelectChange('productoId', value)} placeholder="Seleccionar Equipo" />
           </div>
         )}
         
         {showMonto && (
-          <div>
-            <label htmlFor="montoMensual" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto Mensual por Defecto ($)</label>
-            <input id="montoMensual" type="number" name="montoMensual" placeholder="5000" value={formData.montoMensual ?? ''} onChange={handleChange} min="0" step="0.01" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-          </div>
+          <AppInput 
+            label="Monto Mensual por Defecto ($)"
+            id="montoMensual" 
+            type="number" 
+            name="montoMensual" 
+            placeholder="5000" 
+            value={formData.montoMensual ?? ''} 
+            onChange={handleChange} 
+            min="0" 
+            step="0.01" 
+          />
         )}
 
         {showConsumo && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="productoConsumoId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto de Consumo</label>
-              <SearchableSelect options={consumoOptions} value={formData.productoConsumoId || ''} onChange={(value) => handleSelectChange('productoConsumoId', value)} placeholder="Seleccionar Producto" />
+              <SearchableSelect label="Producto de Consumo" options={consumoOptions} value={formData.productoConsumoId || ''} onChange={(value) => handleSelectChange('productoConsumoId', value)} placeholder="Seleccionar Producto" />
             </div>
-            <div>
-              <label htmlFor="consumoIncluido" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad Incluida</label>
-              <input id="consumoIncluido" type="number" name="consumoIncluido" placeholder="4" value={formData.consumoIncluido ?? ''} onChange={handleChange} min="0" className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md" />
-            </div>
+            <AppInput 
+              label="Cantidad Incluida"
+              id="consumoIncluido" 
+              type="number" 
+              name="consumoIncluido" 
+              placeholder="4" 
+              value={formData.consumoIncluido ?? ''} 
+              onChange={handleChange} 
+              min="0" 
+            />
           </div>
         )}
       </fieldset>

@@ -8,6 +8,7 @@ import { TrashIcon } from '../components/icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import AppButton from '../components/ui/AppButton';
+import AppInput from '../components/ui/AppInput';
 import ContratoForm from '../components/ContratoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -123,12 +124,11 @@ const ContratosView: React.FC<ContratosViewProps> = ({ contratos, clientes, prod
 
       <Card>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <input
+          <AppInput
             type="text"
             placeholder="Buscar por cliente..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-md"
           />
         </div>
         <div className="space-y-2 p-2">

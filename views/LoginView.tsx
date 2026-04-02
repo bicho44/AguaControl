@@ -6,6 +6,7 @@ import { auth, db } from '../firebase/config';
 
 // Force sync
 import { useNotification } from '../context/NotificationContext';
+import AppInput from '../components/ui/AppInput';
 //
 const LoginView: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -114,40 +115,34 @@ const LoginView: React.FC = () => {
         <form onSubmit={handleAuth} className="space-y-5">
           {isRegistering && (
             <div className="animate-fade-in-down">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Nombre Completo</label>
-                <input 
+                <AppInput 
+                  label="Nombre Completo"
                   type="text" 
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                   required={isRegistering}
                   placeholder="Tu nombre..."
                 />
             </div>
           )}
 
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Correo Electrónico</label>
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-              required
-              placeholder="ejemplo@email.com"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Contraseña</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-              required
-              placeholder="••••••••"
-            />
-          </div>
+          <AppInput 
+            label="Correo Electrónico"
+            type="email" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="ejemplo@email.com"
+          />
+          
+          <AppInput 
+            label="Contraseña"
+            type="password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+          />
           
           <button 
             type="submit" 

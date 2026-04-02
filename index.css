@@ -8,7 +8,11 @@
 /* Prevent date inputs from being too small to read */
 input[type="date"] {
   min-width: 130px;
-  background-color: white !important; /* Fix for dark mode visibility in some browsers */
+}
+
+/* Fix for dark mode visibility of date picker icon in some browsers */
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
 }
 
 /* Fix for mobile scrolling and layout */
