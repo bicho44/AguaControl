@@ -24,8 +24,8 @@ const AppButton: React.FC<AppButtonProps> = ({
     if (isLoading || props.disabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Submit: Alt + Enter
-      if (type === 'submit' && e.altKey && e.key === 'Enter') {
+      // Submit: Ctrl + Enter, Meta + Enter, or Alt + Enter
+      if (type === 'submit' && (e.ctrlKey || e.metaKey || e.altKey) && e.key === 'Enter') {
         if (buttonRef.current && buttonRef.current.offsetParent !== null) {
           e.preventDefault();
           buttonRef.current.click();

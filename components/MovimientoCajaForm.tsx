@@ -277,7 +277,9 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
 
         <div className="flex justify-end gap-3 pt-6 border-t dark:border-gray-700">
             <AppButton variant="secondary" onClick={onClose} size="lg">Cancelar</AppButton>
-            <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">Confirmar Operación</AppButton>
+            <AppButton variant="primary" type="submit" size="lg" className="px-12 shadow-xl">
+                Confirmar Operación <span className="opacity-60 text-[10px] ml-1 font-normal">(Ctrl+Enter)</span>
+            </AppButton>
         </div>
       </form>
     </div>
