@@ -8,6 +8,8 @@ import AppInput from './ui/AppInput';
 import AppSelect from './ui/AppSelect';
 import { TrashIcon } from './icons/TrashIcon';
 
+// Force sync
+
 interface MovimientoCajaFormProps {
   movimiento: any;
   type: 'ingreso' | 'gasto';

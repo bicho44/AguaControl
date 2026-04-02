@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import Modal from './Modal';
 import LeafletMap from './LeafletMap';
 import { SearchIcon } from './icons/SearchIcon';
-import AppButton from './ui/AppButton';
+
+// Force sync
 
 interface MapPickerModalProps {
     initialLat?: number;
@@ -181,17 +182,16 @@ const MapPickerModal: React.FC<MapPickerModalProps> = ({
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                    <AppButton type="button" variant="secondary" onClick={onClose}>
+                    <button onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 font-medium text-sm">
                         Cancelar
-                    </AppButton>
-                    <AppButton 
-                        type="button"
-                        variant="primary"
+                    </button>
+                    <button 
                         onClick={handleConfirm}
                         disabled={!currentPos}
+                        className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-bold text-sm shadow-lg shadow-primary-500/30 transition-all active:scale-95"
                     >
                         Confirmar Ubicación
-                    </AppButton>
+                    </button>
                 </div>
             </div>
         </Modal>

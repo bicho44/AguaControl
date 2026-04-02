@@ -1,12 +1,13 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
 import AppInput from './ui/AppInput';
 import AppButton from './ui/AppButton';
 import { MapIcon } from './icons/MapIcon';
 import { useNotification } from '../context/NotificationContext';
 import { TipoTelefono } from '../types';
-import { useFormShortcuts } from '../hooks/useFormShortcuts';
+
+// Force sync
 
 interface QuickClientModalProps {
     isOpen: boolean;
@@ -52,10 +53,8 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
         );
     };
 
-    const handleSubmit = useCallback(async (e?: React.FormEvent) => {
-        if (e) {
-            e.preventDefault(); e.stopPropagation();
-        }
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault(); e.stopPropagation();
         if (!nombre.trim()) return;
         setIsSaving(true);
         try {
@@ -63,50 +62,21 @@ const QuickClientModal: React.FC<QuickClientModalProps> = ({ isOpen, onClose, on
             setNombre(''); setDireccion(''); setTelefono(''); setCoords({});
             onClose();
         } catch (error) { console.error(error); } finally { setIsSaving(false); }
-    }, [nombre, direccion, telefono, coords, onSave, onClose]);
-
-    useFormShortcuts({
-        onSave: handleSubmit,
-        onCancel: onClose
-    });
+    };
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title="Nuevo Cliente Rápido"
-            style={{ maxWidth: '450px' }}
-        >
-            <form onSubmit={handleSubmit} style={{ margin: 0 }}>
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-md">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Nuevo Cliente Rápido</h3>
                 <AppInput label="Nombre del Cliente" value={nombre} onChange={e => setNombre(e.target.value)} required />
-                <div style={{ position: 'relative' }}>
+                <div className="relative">
                     <AppInput label="Dirección de Entrega" value={direccion} onChange={e => setDireccion(e.target.value)} />
-                    <button 
-                        type="button" 
-                        onClick={handleGetLocation} 
-                        disabled={isLocating} 
-                        className="outline"
-                        style={{ 
-                            position: 'absolute', 
-                            right: '0.5rem', 
-                            top: '2.25rem', 
-                            padding: '0.25rem', 
-                            margin: 0, 
-                            width: 'auto', 
-                            border: 'none', 
-                            background: 'transparent',
-                            color: 'var(--pico-muted-color)'
-                        }}
-                    >
-                        <MapIcon style={{ width: '1.5rem', height: '1.5rem' }} />
-                    </button>
+                    <button type="button" onClick={handleGetLocation} disabled={isLocating} className="absolute right-2 top-8 p-1.5 rounded-lg text-gray-400 hover:text-primary-600"><MapIcon className="w-6 h-6" /></button>
                 </div>
                 <AppInput label="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
+                <div className="flex justify-end gap-2 pt-4">
                     <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                    <AppButton variant="primary" type="submit" isLoading={isSaving}>
-                        Crear <small style={{ opacity: 0.6, fontSize: '0.65rem', marginLeft: '0.25rem', fontWeight: 'normal' }}>(Alt+Enter)</small>
-                    </AppButton>
+                    <AppButton variant="primary" type="submit" isLoading={isSaving}>Crear</AppButton>
                 </div>
             </form>
         </Modal>

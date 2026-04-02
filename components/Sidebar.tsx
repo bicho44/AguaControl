@@ -8,6 +8,8 @@ import { UploadIcon } from './icons/UploadIcon';
 import { CubeIcon } from './icons/CubeIcon';
 import { CashIcon } from './icons/CashIcon';
 import { BookOpenIcon } from './icons/BookOpenIcon';
+
+// Force sync
 import { ReceiptIcon } from './icons/ReceiptIcon';
 import { CogIcon } from './icons/CogIcon';
 import { HandshakeIcon } from './icons/HandshakeIcon';
@@ -65,7 +67,7 @@ const systemNavItems: NavItem[] = [
   { view: 'usuarios', label: 'Usuarios', icon: <TruckIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'importar', label: 'Imp./Exp. Datos', icon: <UploadIcon />, roles: [Rol.ADMINISTRADOR] },
   { view: 'settings', label: 'Configuración', icon: <CogIcon />, roles: [Rol.ADMINISTRADOR] },
-  { view: 'logs', label: 'Logs de Sistema', icon: <div style={{ fontSize: '0.625rem', fontFamily: 'var(--pico-font-family-mono)', fontWeight: 'bold', backgroundColor: 'var(--pico-muted-background-color)', borderRadius: '4px', padding: '0 4px' }}>LOG</div>, roles: [Rol.ADMINISTRADOR] },
+  { view: 'logs', label: 'Logs de Sistema', icon: <div className="text-xs font-mono font-bold bg-gray-200 dark:bg-gray-600 rounded px-1">LOG</div>, roles: [Rol.ADMINISTRADOR] },
 ];
 
 
@@ -98,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   };
 
   const renderNavList = (items: NavItem[]) => (
-    <ul>
+    <ul className="space-y-2 font-medium">
       {items.map(item => (
         <li key={item.view}>
           <a
@@ -107,10 +109,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
               e.preventDefault();
               handleNavClick(item.view);
             }}
-            className={currentView === item.view ? 'active' : ''}
+            className={`flex items-center p-2 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group ${
+              currentView === item.view ? 'bg-gray-200 dark:bg-gray-700' : ''
+            }`}
           >
-            {item.icon}
-            {item.label}
+            <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white">{item.icon}</span>
+            <span className="ms-3">{item.label}</span>
           </a>
         </li>
       ))}
@@ -118,57 +122,58 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   );
 
   return (
-    <aside className={isSidebarOpen ? 'open' : ''}>
-      <nav>
-        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--pico-spacing)' }}>
-            {empresaSettings.logo ? (
-              <img src={empresaSettings.logo} alt={empresaSettings.nombre} style={{ height: '3rem', width: 'auto' }} />
-            ) : (
-              <h4 style={{ margin: 0, textAlign: 'center' }}>
-                {empresaSettings.nombreFantasia || empresaSettings.nombre}
-              </h4>
-            )}
-            <button 
-              onClick={onClose}
-              className="outline md:hidden"
-              style={{ position: 'absolute', top: '1rem', right: '1rem', padding: '0.25rem', width: 'auto', marginBottom: 0 }}
-            >
-              <svg style={{ width: '24px', height: '24px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-        </header>
+    <aside className={`fixed top-0 left-0 z-50 w-64 h-screen transition-transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-2xl md:shadow-none`}>
+      <div className="h-full px-3 py-4 overflow-y-auto bg-white dark:bg-gray-800 flex flex-col border-r dark:border-gray-700">
+        
+        <button 
+          onClick={onClose}
+          className="md:hidden absolute top-4 right-4 p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
 
-        <div style={{ flexGrow: 1 }}>
+        <div className="flex items-center justify-center ps-2.5 mb-5 h-12 flex-shrink-0">
+            {empresaSettings.logo ? (
+              <img src={empresaSettings.logo} alt={empresaSettings.nombre} className="h-12 w-auto max-w-full object-contain" />
+            ) : (
+              <span className="self-center text-xl font-semibold whitespace-nowrap dark:text-white text-center">
+                {empresaSettings.nombreFantasia || empresaSettings.nombre}
+              </span>
+            )}
+        </div>
+
+        <div className="flex-grow space-y-4">
             {renderNavList(group1)}
             
             {group2.length > 0 && (
                 <>
-                    <hr style={{ margin: '1rem 0' }} />
+                    <hr className="border-gray-200 dark:border-gray-700" />
                     {renderNavList(group2)}
                 </>
             )}
 
             {group3.length > 0 && (
                 <>
-                    <hr style={{ margin: '1rem 0' }} />
+                    <hr className="border-gray-200 dark:border-gray-700" />
                     {renderNavList(group3)}
                 </>
             )}
             
             {group4.length > 0 && (
                 <>
-                    <hr style={{ margin: '1rem 0' }} />
+                    <hr className="border-gray-200 dark:border-gray-700" />
                     {renderNavList(group4)}
                 </>
             )}
 
             {pluginItems.length > 0 && (
                 <>
-                    <hr style={{ margin: '1rem 0' }} />
-                    <details open>
-                        <summary style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Accesorios</summary>
-                        <ul>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    <div className="px-3 py-2">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-2">Accesorios</h3>
+                        <ul className="space-y-2 font-medium">
                             {pluginItems.map(plugin => (
                                 <li key={plugin.id}>
                                     <a
@@ -177,25 +182,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
                                             e.preventDefault();
                                             handleNavClick(`plugin_${plugin.id}`);
                                         }}
-                                        className={currentView === `plugin_${plugin.id}` ? 'active' : ''}
+                                        className={`flex items-center p-2 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group ${
+                                            currentView === `plugin_${plugin.id}` ? 'bg-gray-200 dark:bg-gray-700' : ''
+                                        }`}
                                     >
-                                        {plugin.icon}
-                                        {plugin.label}
+                                        <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white">{plugin.icon}</span>
+                                        <span className="ms-3">{plugin.label}</span>
                                     </a>
                                 </li>
                             ))}
                         </ul>
-                    </details>
+                    </div>
                 </>
             )}
         </div>
 
-        <footer style={{ marginTop: 'auto', paddingTop: '1rem', textAlign: 'center', borderTop: '1px solid var(--pico-muted-border-color)' }}>
-            <small style={{ color: 'var(--pico-muted-color)', fontFamily: 'var(--pico-font-family-mono)' }}>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-center text-gray-400 dark:text-gray-500 font-mono">
                 v{appVersion}
-            </small>
-        </footer>
-      </nav>
+            </p>
+        </div>
+      </div>
     </aside>
   );
 };

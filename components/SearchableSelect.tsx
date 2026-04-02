@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { SearchIcon } from './icons/SearchIcon';
 
+// Force sync
+
 interface SearchableSelectProps {
   options: { value: string; label: string; }[];
   value: string;
@@ -147,25 +149,17 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   return (
-    <div style={{ width: '100%', position: 'relative' }} ref={wrapperRef}>
+    <div className="w-full relative" ref={wrapperRef}>
       {label && (
-        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.375rem', marginLeft: '0.25rem' }}>
+        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
           {label}
         </label>
       )}
-      <div style={{ position: 'relative' }}>
+      <div className="relative">
         <input
             ref={inputRef}
             type="text"
-            style={{ 
-                width: '100%', 
-                padding: '0.625rem 2.5rem 0.625rem 1rem', 
-                margin: 0,
-                backgroundColor: 'var(--pico-form-element-background-color)',
-                borderColor: 'var(--pico-form-element-border-color)',
-                borderRadius: '0.75rem',
-                transition: 'all 0.2s ease'
-            }}
+            className="w-full h-[46px] px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
             value={displayValue}
             onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -195,36 +189,24 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     setIsTyping(false);
                     inputRef.current?.focus();
                 }}
-                className="outline"
-                style={{ 
-                    position: 'absolute', 
-                    inset: '0 2rem 0 auto', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    padding: '0 0.25rem', 
-                    color: 'var(--pico-muted-color)',
-                    border: 'none',
-                    background: 'transparent',
-                    width: 'auto',
-                    margin: 0
-                }}
+                className="absolute inset-y-0 right-8 flex items-center px-1 text-gray-400 hover:text-gray-600"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '1rem', width: '1rem' }} viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
             </button>
         )}
 
-        <div style={{ position: 'absolute', inset: '0 0 0 auto', display: 'flex', alignItems: 'center', padding: '0 0.75rem', pointerEvents: 'none' }}>
-          <ChevronDownIcon style={{ height: '1.25rem', width: '1.25rem', color: 'var(--pico-muted-color)', transition: 'transform 0.2s ease', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+          <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
 
       {isOpen && !disabled && createPortal(
           isMobileMode ? (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--pico-background-color)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ backgroundColor: 'var(--pico-card-background-color)', padding: '0.75rem 1rem', borderBottom: '1px solid var(--pico-muted-border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <button type="button" onClick={() => setIsOpen(false)} className="outline" style={{ padding: '0.5rem', color: 'var(--pico-muted-color)', border: 'none', width: 'auto', margin: 0 }}><ChevronDownIcon style={{ transform: 'rotate(90deg)', width: '1.5rem', height: '1.5rem' }}/></button>
+            <div className="fixed inset-0 z-[100] bg-gray-100 dark:bg-gray-900 flex flex-col animate-fade-in">
+                <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3">
+                    <button type="button" onClick={() => setIsOpen(false)} className="p-2 text-gray-500"><ChevronDownIcon className="rotate-90 w-6 h-6"/></button>
                     <input
                         ref={mobileInputRef}
                         type="text"
@@ -232,52 +214,25 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         value={searchTerm}
                         onChange={(e) => {setSearchTerm(e.target.value); setIsTyping(true);}}
                         placeholder="Buscar..."
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: 'var(--pico-form-element-background-color)', borderRadius: '0.5rem', fontSize: '1.125rem', border: 'none', margin: 0 }}
+                        className="flex-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-lg border-none focus:ring-0"
                     />
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
+                <div className="flex-1 overflow-y-auto p-2">
                     {filteredOptions.map((opt) => (
-                        <div key={opt.value} onClick={() => handleSelect(opt.value)} style={{ 
-                            padding: '1rem', 
-                            marginBottom: '0.5rem', 
-                            borderRadius: '0.75rem', 
-                            border: '1px solid var(--pico-muted-border-color)',
-                            backgroundColor: opt.value === value ? 'var(--pico-primary-background)' : 'var(--pico-card-background-color)',
-                            color: opt.value === value ? 'var(--pico-primary-inverse)' : 'inherit'
-                        }}>
-                            <p style={{ fontWeight: 'bold', margin: 0 }}>{opt.label}</p>
+                        <div key={opt.value} onClick={() => handleSelect(opt.value)} className={`p-4 mb-2 rounded-xl border ${opt.value === value ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800'}`}>
+                            <p className="font-bold">{opt.label}</p>
                         </div>
                     ))}
                 </div>
             </div>
           ) : (
-            <div style={{ 
-                ...dropdownStyle,
-                backgroundColor: 'var(--pico-card-background-color)', 
-                border: '1px solid var(--pico-muted-border-color)', 
-                borderRadius: '0.5rem', 
-                boxShadow: 'var(--pico-card-box-shadow)', 
-                overflowY: 'auto' 
-            }}>
-                <ul style={{ padding: '0.25rem 0', margin: 0, listStyle: 'none' }}>
+            <div className="fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl overflow-y-auto" style={dropdownStyle}>
+                <ul className="py-1">
                     {filteredOptions.length > 0 ? filteredOptions.map((opt, idx) => (
-                        <li 
-                            key={opt.value} 
-                            onClick={() => handleSelect(opt.value)} 
-                            onMouseEnter={() => setHighlightedIndex(idx)} 
-                            style={{ 
-                                px: '1rem', 
-                                padding: '0.625rem 1rem', 
-                                cursor: 'pointer', 
-                                fontSize: '0.875rem',
-                                backgroundColor: idx === highlightedIndex ? 'rgba(var(--pico-primary-rgb), 0.1)' : 'transparent',
-                                fontWeight: opt.value === value ? 'bold' : 'normal',
-                                color: opt.value === value ? 'var(--pico-primary)' : 'inherit'
-                            }}
-                        >
+                        <li key={opt.value} onClick={() => handleSelect(opt.value)} onMouseEnter={() => setHighlightedIndex(idx)} className={`px-4 py-2.5 cursor-pointer text-sm ${idx === highlightedIndex ? 'bg-primary-50 dark:bg-primary-900/30' : ''} ${opt.value === value ? 'font-bold bg-primary-100 text-primary-700' : ''}`}>
                             {opt.label}
                         </li>
-                    )) : <li style={{ padding: '0.75rem 1rem', color: 'var(--pico-muted-color)', textAlign: 'center' }}>Sin resultados</li>}
+                    )) : <li className="px-4 py-3 text-gray-400 text-center">Sin resultados</li>}
                 </ul>
             </div>
           ), 
@@ -285,7 +240,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
       )}
       
       {isOpen && !isMobileMode && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998, backgroundColor: 'transparent' }} onClick={() => { setIsOpen(false); setIsTyping(false); }} />
+          <div className="fixed inset-0 z-[9998] bg-transparent" onClick={() => { setIsOpen(false); setIsTyping(false); }} />
       )}
     </div>
   );

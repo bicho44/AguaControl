@@ -1,5 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
+
+// Force sync
 import * as L from 'leaflet';
 
 interface LeafletMapProps {
