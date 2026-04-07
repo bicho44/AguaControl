@@ -321,7 +321,7 @@ function AppContent() {
   };
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen relative overflow-x-hidden">
+    <div className="flex bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen w-full">
       {/* Backdrop para cerrar el menú en móviles */}
       {isSidebarOpen && (
         <div 
@@ -340,8 +340,8 @@ function AppContent() {
         appVersion={APP_VERSION}
       />
 
-      <div className="md:ml-64 p-4 sm:p-6 lg:p-8 flex flex-col min-h-screen">
-        <div className="flex justify-between items-center mb-6">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        <header className="p-4 sm:p-6 lg:p-8 pb-0 flex justify-between items-center">
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)} 
                 className="md:hidden p-2 bg-white dark:bg-gray-800 shadow-sm rounded-md border dark:border-gray-700"
@@ -356,8 +356,8 @@ function AppContent() {
             >
                 Cerrar Sesión
             </button>
-        </div>
-        <main className="flex-1">
+        </header>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
           {renderView()}
         </main>
       </div>
