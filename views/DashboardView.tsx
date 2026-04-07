@@ -206,7 +206,7 @@ const InternalVendorDashboard: React.FC<{
     }, [user.id, clientes, currentDay, misRemitos, todayStr]);
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in w-full">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pr-0 md:pr-12">
                 <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter">
                     Rendimiento: <span className="text-primary-600">{user.nombre}</span>
@@ -1227,7 +1227,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // 3. DASHBOARD ADMINISTRADOR
   return (
-    <div className="space-y-8 pt-12 md:pt-0 pb-12">
+    <div className="space-y-8 pt-12 md:pt-0 pb-12 w-full">
       <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
       
       {/* Widget de Soplado (Solo si está habilitado) */}

@@ -340,8 +340,8 @@ function AppContent() {
         appVersion={APP_VERSION}
       />
 
-      <div className="md:ml-64 p-4 sm:p-6 lg:p-8 flex flex-col min-h-screen">
-        <div className="flex justify-between items-center mb-4">
+      <div className="md:ml-64 flex flex-col min-h-screen">
+        <div className="p-4 sm:p-6 lg:p-8 flex justify-between items-center">
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)} 
                 className="md:hidden p-2 bg-white dark:bg-gray-800 shadow-sm rounded-md border dark:border-gray-700"
@@ -357,7 +357,9 @@ function AppContent() {
                 Cerrar Sesión
             </button>
         </div>
-        <main className="w-full flex-1">{renderView()}</main>
+        <main className="container-fluid w-full flex-1 p-4 sm:p-6 lg:p-8 !max-w-none">
+          {renderView()}
+        </main>
       </div>
     </div>
   );

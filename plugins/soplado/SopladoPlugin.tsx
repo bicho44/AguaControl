@@ -214,7 +214,7 @@ const SopladoPlugin: React.FC = () => {
     );
 
     return (
-        <div className="p-4 max-w-6xl mx-auto pb-24">
+        <div className="p-4 w-full pb-24">
             <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 bg-primary-600 rounded-2xl shadow-lg shadow-primary-500/30">
                     <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
