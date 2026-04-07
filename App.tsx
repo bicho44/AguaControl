@@ -321,7 +321,7 @@ function AppContent() {
   };
 
   return (
-    <div className="flex bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen w-full">
+    <div className="flex bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-screen w-full overflow-hidden">
       {/* Backdrop para cerrar el menú en móviles */}
       {isSidebarOpen && (
         <div 
@@ -340,7 +340,7 @@ function AppContent() {
         appVersion={APP_VERSION}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         <header className="p-4 sm:p-6 lg:p-8 pb-0 flex justify-between items-center">
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)} 
