@@ -1,9 +1,10 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { Calendar, AlertTriangle } from 'lucide-react';
+import { Calendar, AlertTriangle, Settings2, X, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Reorder, AnimatePresence, motion } from 'framer-motion';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
@@ -1035,6 +1036,60 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [routeLine, setRouteLine] = useState<{ lat: number, lng: number }[]>([]);
   const [isOptimized, setIsOptimized] = useState(false);
 
+  // --- DASHBOARD CUSTOMIZATION STATE ---
+  const [isEditingLayout, setIsEditingLayout] = useState(false);
+  
+  // Default layout definition
+  const defaultLayout = [
+    { id: 'caja_efectivo', visible: true },
+    { id: 'caja_bancos', visible: true },
+    { id: 'entregas_consolidadas', visible: true },
+    { id: 'evolucion_diaria', visible: true },
+    { id: 'stock_planta', visible: true },
+    { id: 'stock_calle', visible: true },
+    { id: 'volumen_ventas', visible: true },
+    { id: 'ventas_descartables', visible: true },
+    { id: 'comisiones', visible: true },
+    { id: 'vendedores_externos', visible: true },
+    { id: 'ruta_reparto', visible: true }
+  ];
+
+  const [layout, setLayout] = useState(defaultLayout);
+
+  // Load layout from localStorage on mount
+  useEffect(() => {
+    if (user.rol === Rol.ADMINISTRADOR) {
+      const savedLayout = localStorage.getItem(`dashboard_layout_${user.id}`);
+      if (savedLayout) {
+        try {
+          const parsed = JSON.parse(savedLayout);
+          // Merge with default to ensure no missing widgets if we add new ones
+          const merged = defaultLayout.map(def => {
+            const found = parsed.find((p: any) => p.id === def.id);
+            return found ? found : def;
+          });
+          // Also append any saved widgets that might have been reordered
+          const ordered = parsed.map((p: any) => merged.find(m => m.id === p.id)).filter(Boolean);
+          const missing = merged.filter(m => !ordered.find((o: any) => o.id === m.id));
+          setLayout([...ordered, ...missing]);
+        } catch (e) {
+          console.error("Error parsing dashboard layout", e);
+        }
+      }
+    }
+  }, [user.id, user.rol]);
+
+  // Save layout to localStorage when it changes
+  useEffect(() => {
+    if (user.rol === Rol.ADMINISTRADOR && layout.length > 0) {
+      localStorage.setItem(`dashboard_layout_${user.id}`, JSON.stringify(layout));
+    }
+  }, [layout, user.id, user.rol]);
+
+  const toggleWidgetVisibility = (id: string) => {
+    setLayout(prev => prev.map(w => w.id === id ? { ...w, visible: !w.visible } : w));
+  };
+
   useEffect(() => {
     const days = [DiaSemana.DOMINGO, DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO];
     const name = days[new Date().getDay()];
@@ -1226,268 +1281,258 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   if (user.rol === Rol.REPARTIDOR) return vendorDashboard;
 
   // 3. DASHBOARD ADMINISTRADOR
-  return (
-    <div className="space-y-8 pt-12 md:pt-0 pb-12">
-      <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
-      
-      {/* Widget de Soplado (Solo si está habilitado) */}
-      {empresaSettings?.sopladoConfig?.enabled && (
-        <div className="mb-2">
-          <SopladoDashboardWidget 
-            preformas={preformas || []}
-            moldes={moldes || []}
-            produccion={produccionSoplado || []}
-            entregas={entregasSoplado || []}
-            settings={empresaSettings.sopladoConfig}
-            onAction={handleSopladoAction}
-          />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-          <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
-              <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
-              <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoEfectivo.toLocaleString('es-AR')}</p>
-          </div>
-          <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-blue-100 dark:border-blue-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02]">
-              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Caja Virtual / Bancos</p>
-              <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
-          </div>
+  
+  // Define all possible widgets
+  const widgets: Record<string, React.ReactNode> = {
+    caja_efectivo: (
+      <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02] h-full">
+          <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
+          <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoEfectivo.toLocaleString('es-AR')}</p>
       </div>
-
-      <div>
+    ),
+    caja_bancos: (
+      <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-blue-100 dark:border-blue-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02] h-full">
+          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Caja Virtual / Bancos</p>
+          <p className="text-3xl md:text-4xl font-black text-gray-800 dark:text-white tracking-tighter">${saldoOtros.toLocaleString('es-AR')}</p>
+      </div>
+    ),
+    entregas_consolidadas: (
+      <div className="col-span-full">
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Entregas Consolidadas</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6">
             {metricsOrder.map(key => <div key={key}>{metricsComponents[key]}</div>)}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-              <Card title="Evolución Diaria (Mes Actual vs Anterior)">
-                  <div className="px-4 pb-4">
-                        <div className="flex justify-between items-center mb-3">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filtro de Productos</p>
-                            <div className="flex gap-4 text-[9px] font-bold uppercase tracking-tighter">
-                                <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-current opacity-100"></div> Mes Actual</div>
-                                <div className="flex items-center gap-1"><div className="w-3 h-0.5 border-b border-dashed opacity-50"></div> Mes Anterior</div>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {returnableProductNames.map(name => {
-                                const isVisible = visibleProducts.includes(name);
-                                return (
-                                    <button
-                                        key={name}
-                                        onClick={() => toggleProductVisibility(name)}
-                                        className={`px-3 py-1.5 text-[11px] font-black rounded-xl border transition-all duration-200 flex items-center gap-2 ${
-                                            isVisible 
-                                            ? 'text-white shadow-md scale-105' 
-                                            : 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-700/50 dark:text-gray-500 dark:border-gray-700 opacity-60 grayscale'
-                                        }`}
-                                        style={{ 
-                                            backgroundColor: isVisible ? productColors[name] : undefined,
-                                            borderColor: isVisible ? productColors[name] : undefined
-                                        }}
-                                    >
-                                        <div className="w-2 h-2 rounded-full bg-white/40"></div>
-                                        {shortName(name).toUpperCase()}
-                                    </button>
-                                );
-                            })}
+    ),
+    evolucion_diaria: (
+      <div className="lg:col-span-2 h-full">
+          <Card title="Evolución Diaria (Mes Actual vs Anterior)">
+              <div className="px-4 pb-4">
+                    <div className="flex justify-between items-center mb-3">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filtro de Productos</p>
+                        <div className="flex gap-4 text-[9px] font-bold uppercase tracking-tighter">
+                            <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-current opacity-100"></div> Mes Actual</div>
+                            <div className="flex items-center gap-1"><div className="w-3 h-0.5 border-b border-dashed opacity-50"></div> Mes Anterior</div>
                         </div>
                     </div>
-                  <div className="h-80 px-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={currentMonthDailySalesData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} label={{ value: 'Día', position: 'insideBottom', offset: -5, fontSize: 10 }} />
-                              <YAxis axisLine={false} tickLine={false} />
-                              <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
-                              <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                              
-                              {/* Líneas de Totales Generales */}
-                              <Line type="monotone" dataKey="Total Mes Actual" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 TOTAL ACTUAL" />
-                              <Line type="monotone" dataKey="Internos Mes Actual" stroke="#10b981" strokeWidth={2} dot={false} name="👤 INTERNOS ACTUAL" />
-                              <Line type="monotone" dataKey="Externos Mes Actual" stroke="#f59e0b" strokeWidth={2} dot={false} name="🤝 EXTERNOS ACTUAL" />
-                              
-                              <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
+                    <div className="flex flex-wrap gap-2">
+                        {returnableProductNames.map(name => {
+                            const isVisible = visibleProducts.includes(name);
+                            return (
+                                <button
+                                    key={name}
+                                    onClick={() => toggleProductVisibility(name)}
+                                    className={`px-3 py-1.5 text-[11px] font-black rounded-xl border transition-all duration-200 flex items-center gap-2 ${
+                                        isVisible 
+                                        ? 'text-white shadow-md scale-105' 
+                                        : 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-700/50 dark:text-gray-500 dark:border-gray-700 opacity-60 grayscale'
+                                    }`}
+                                    style={{ 
+                                        backgroundColor: isVisible ? productColors[name] : undefined,
+                                        borderColor: isVisible ? productColors[name] : undefined
+                                    }}
+                                >
+                                    <div className="w-2 h-2 rounded-full bg-white/40"></div>
+                                    {shortName(name).toUpperCase()}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+              <div className="h-80 px-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={currentMonthDailySalesData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} label={{ value: 'Día', position: 'insideBottom', offset: -5, fontSize: 10 }} />
+                          <YAxis axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
+                          <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                          
+                          <Line type="monotone" dataKey="Total Mes Actual" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 TOTAL ACTUAL" />
+                          <Line type="monotone" dataKey="Internos Mes Actual" stroke="#10b981" strokeWidth={2} dot={false} name="👤 INTERNOS ACTUAL" />
+                          <Line type="monotone" dataKey="Externos Mes Actual" stroke="#f59e0b" strokeWidth={2} dot={false} name="🤝 EXTERNOS ACTUAL" />
+                          
+                          <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
 
-                              {/* Líneas por Producto */}
-                              {returnableProductNames.map(name => visibleProducts.includes(name) ? (
-                                  <React.Fragment key={name}>
-                                      <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={false} name={shortName(name)} />
-                                  </React.Fragment>
-                              ) : null)}
-                          </LineChart>
-                      </ResponsiveContainer>
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-              <Card title="Stock Permanente en Planta">
-                  <div className="overflow-y-auto max-h-[420px] pr-2">
-                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Productos y Envases en Fábrica</p>
-                      {productos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).length > 0 ? (
-                          <table className="w-full text-sm">
-                              <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                                  <tr>
-                                      <th className="py-2 text-left">Producto</th>
-                                      <th className="py-2 text-right">Llenos</th>
-                                      <th className="py-2 text-right">Vacíos</th>
-                                  </tr>
-                              </thead>
-                              <tbody>
-                                  {productos
-                                    .filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE)
-                                    .map(p => (
-                                      <tr key={p.id} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{p.abreviatura || p.nombre}</td>
-                                          <td className="py-3 text-right font-black text-blue-600 dark:text-blue-400 text-base">{p.stockPlanta || 0}</td>
-                                          <td className="py-3 text-right font-black text-yellow-600 dark:text-yellow-400 text-base">{p.tipo === TipoProducto.RETORNABLE ? (p.stockEnvases || 0) : '-'}</td>
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      ) : (
-                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
-                              <p className="text-xs font-bold uppercase">Sin productos registrados</p>
-                          </div>
-                      )}
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-              <Card title="Stock en Poder de Clientes">
-                  <div className="overflow-y-auto max-h-[420px] pr-2">
-                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Activos pendientes de devolución</p>
-                      {stockEnCalle.length > 0 ? (
-                          <table className="w-full text-sm">
-                              <tbody>
-                                  {stockEnCalle.map(([name, count]) => (
-                                      <tr key={name} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{shortName(name)}</td>
-                                          <td className="py-3 text-right font-black text-primary-600 dark:text-primary-400 text-base">{count.toLocaleString()}</td>
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      ) : (
-                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
-                              <p className="text-xs font-bold uppercase">Sin stock pendiente</p>
-                          </div>
-                      )}
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-2">
-              <Card title="Volumen de Ventas (Histórico 12 Meses)">
-                  <div className="h-80 px-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={monthlySalesVolumeChartData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-                              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-                              <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
-                              <Legend iconType="circle" formatter={(v) => v} />
-                              
-                              {/* Líneas de Totales Generales */}
-                              <Line type="monotone" dataKey="Total General" stroke="#111827" strokeWidth={4} dot={{ r: 5 }} name="📈 TOTAL VENTAS" />
-                              <Line type="monotone" dataKey="Internos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="👤 INTERNOS" />
-                              <Line type="monotone" dataKey="Externos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="🤝 EXTERNOS" />
-
-                              {returnableProductNames.map(name => {
-                                  if (!visibleProducts.includes(name)) return null;
-                                  return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
-                              })}
-                          </LineChart>
-                      </ResponsiveContainer>
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-              <Card title="Ventas Productos Descartables">
-                  <div className="h-80 px-2">
-                      {nonReturnableMonthlyData.length > 0 ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={nonReturnableMonthlyData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
-                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(128, 128, 128, 0.1)" />
-                                  <XAxis type="number" hide />
-                                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} width={80} />
-                                  <Tooltip contentStyle={lightTooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
-                                  <Legend verticalAlign="top" height={36} />
-                                  <Area dataKey="actual" name="Mes Actual" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-                                  <Area dataKey="anterior" name="Mes Anterior" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
-                              </AreaChart>
-                          </ResponsiveContainer>
-                      ) : (
-                          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas descartables</div>
-                      )}
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-              <Card title="Comisiones Vendedores">
-                  <div className="overflow-y-auto max-h-[420px] pr-2">
-                      <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Mes Actual (Internos)</p>
-                      {vendedoresComisiones.length > 0 ? (
-                          <table className="w-full text-sm">
-                              <tbody>
-                                  {vendedoresComisiones.map(v => (
-                                      <tr key={v.nombre} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                          <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{v.nombre}</td>
-                                          <td className="py-3 text-right font-black text-green-600 dark:text-green-400 text-base">${v.monto.toLocaleString()}</td>
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      ) : (
-                          <div className="flex flex-col items-center justify-center h-40 opacity-40">
-                              <p className="text-xs font-bold uppercase">Sin comisiones este mes</p>
-                          </div>
-                      )}
-                  </div>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-              <Card title="Vendedores Externos">
-                  <div className="h-80 px-2 flex flex-col">
-                      {externalVendorsPieData.length > 0 ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                  <Pie
-                                      data={externalVendorsPieData}
-                                      cx="50%"
-                                      cy="50%"
-                                      innerRadius={60}
-                                      outerRadius={80}
-                                      paddingAngle={5}
-                                      dataKey="value"
-                                      label={({ value }) => `${value}`} // ETIQUETAS SIEMPRE VISIBLES
-                                  >
-                                      {externalVendorsPieData.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                      ))}
-                                  </Pie>
-                                  <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
-                                  <Legend verticalAlign="bottom" height={36} />
-                              </PieChart>
-                          </ResponsiveContainer>
-                      ) : (
-                          <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas externas</div>
-                      )}
-                  </div>
-              </Card>
-          </div>
+                          {returnableProductNames.map(name => visibleProducts.includes(name) ? (
+                              <React.Fragment key={name}>
+                                  <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={false} name={shortName(name)} />
+                              </React.Fragment>
+                          ) : null)}
+                      </LineChart>
+                  </ResponsiveContainer>
+              </div>
+          </Card>
       </div>
+    ),
+    stock_planta: (
+      <div className="lg:col-span-1 h-full">
+          <Card title="Stock Permanente en Planta">
+              <div className="overflow-y-auto max-h-[420px] pr-2">
+                  <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Productos y Envases en Fábrica</p>
+                  {productos.filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE).length > 0 ? (
+                      <table className="w-full text-sm">
+                          <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                              <tr>
+                                  <th className="py-2 text-left">Producto</th>
+                                  <th className="py-2 text-right">Llenos</th>
+                                  <th className="py-2 text-right">Vacíos</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {productos
+                                .filter(p => p.tipo === TipoProducto.RETORNABLE || p.tipo === TipoProducto.DESCARTABLE)
+                                .map(p => (
+                                  <tr key={p.id} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                      <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{p.abreviatura || p.nombre}</td>
+                                      <td className="py-3 text-right font-black text-blue-600 dark:text-blue-400 text-base">{p.stockPlanta || 0}</td>
+                                      <td className="py-3 text-right font-black text-yellow-600 dark:text-yellow-400 text-base">{p.tipo === TipoProducto.RETORNABLE ? (p.stockEnvases || 0) : '-'}</td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  ) : (
+                      <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                          <p className="text-xs font-bold uppercase">Sin productos registrados</p>
+                      </div>
+                  )}
+              </div>
+          </Card>
+      </div>
+    ),
+    stock_calle: (
+      <div className="lg:col-span-1 h-full">
+          <Card title="Stock en Poder de Clientes">
+              <div className="overflow-y-auto max-h-[420px] pr-2">
+                  <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Activos pendientes de devolución</p>
+                  {stockEnCalle.length > 0 ? (
+                      <table className="w-full text-sm">
+                          <tbody>
+                              {stockEnCalle.map(([name, count]) => (
+                                  <tr key={name} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                      <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{shortName(name)}</td>
+                                      <td className="py-3 text-right font-black text-primary-600 dark:text-primary-400 text-base">{count.toLocaleString()}</td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  ) : (
+                      <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                          <p className="text-xs font-bold uppercase">Sin stock pendiente</p>
+                      </div>
+                  )}
+              </div>
+          </Card>
+      </div>
+    ),
+    volumen_ventas: (
+      <div className="lg:col-span-2 h-full">
+          <Card title="Volumen de Ventas (Histórico 12 Meses)">
+              <div className="h-80 px-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={monthlySalesVolumeChartData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
+                          <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
+                          <Legend iconType="circle" formatter={(v) => v} />
+                          
+                          <Line type="monotone" dataKey="Total General" stroke="#111827" strokeWidth={4} dot={{ r: 5 }} name="📈 TOTAL VENTAS" />
+                          <Line type="monotone" dataKey="Internos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="👤 INTERNOS" />
+                          <Line type="monotone" dataKey="Externos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="🤝 EXTERNOS" />
 
-      <div className="space-y-6">
+                          {returnableProductNames.map(name => {
+                              if (!visibleProducts.includes(name)) return null;
+                              return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
+                          })}
+                      </LineChart>
+                  </ResponsiveContainer>
+              </div>
+          </Card>
+      </div>
+    ),
+    ventas_descartables: (
+      <div className="lg:col-span-1 h-full">
+          <Card title="Ventas Productos Descartables">
+              <div className="h-80 px-2">
+                  {nonReturnableMonthlyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={nonReturnableMonthlyData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
+                              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(128, 128, 128, 0.1)" />
+                              <XAxis type="number" hide />
+                              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} width={80} />
+                              <Tooltip contentStyle={lightTooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                              <Legend verticalAlign="top" height={36} />
+                              <Area dataKey="actual" name="Mes Actual" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+                              <Area dataKey="anterior" name="Mes Anterior" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
+                          </AreaChart>
+                      </ResponsiveContainer>
+                  ) : (
+                      <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas descartables</div>
+                  )}
+              </div>
+          </Card>
+      </div>
+    ),
+    comisiones: (
+      <div className="lg:col-span-1 h-full">
+          <Card title="Comisiones Vendedores">
+              <div className="overflow-y-auto max-h-[420px] pr-2">
+                  <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Mes Actual (Internos)</p>
+                  {vendedoresComisiones.length > 0 ? (
+                      <table className="w-full text-sm">
+                          <tbody>
+                              {vendedoresComisiones.map(v => (
+                                  <tr key={v.nombre} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                      <td className="py-3 text-gray-600 dark:text-gray-300 font-medium text-xs">{v.nombre}</td>
+                                      <td className="py-3 text-right font-black text-green-600 dark:text-green-400 text-base">${v.monto.toLocaleString()}</td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  ) : (
+                      <div className="flex flex-col items-center justify-center h-40 opacity-40">
+                          <p className="text-xs font-bold uppercase">Sin comisiones este mes</p>
+                      </div>
+                  )}
+              </div>
+          </Card>
+      </div>
+    ),
+    vendedores_externos: (
+      <div className="lg:col-span-1 h-full">
+          <Card title="Vendedores Externos">
+              <div className="h-80 px-2 flex flex-col">
+                  {externalVendorsPieData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                              <Pie
+                                  data={externalVendorsPieData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={60}
+                                  outerRadius={80}
+                                  paddingAngle={5}
+                                  dataKey="value"
+                                  label={({ value }) => `${value}`}
+                              >
+                                  {externalVendorsPieData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                  ))}
+                              </Pie>
+                              <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
+                              <Legend verticalAlign="bottom" height={36} />
+                          </PieChart>
+                      </ResponsiveContainer>
+                  ) : (
+                      <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas externas</div>
+                  )}
+              </div>
+          </Card>
+      </div>
+    ),
+    ruta_reparto: (
+      <div className="col-span-full h-full">
           <Card title={`Ruta de Reparto: ${todayName}`}>
             <div className="p-2 space-y-4">
                 {mapMarkers.length > 0 ? (
@@ -1504,6 +1549,117 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </Card>
       </div>
+    )
+  };
+
+  return (
+    <div className="space-y-8 pt-12 md:pt-0 pb-12">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
+        <button 
+          onClick={() => setIsEditingLayout(!isEditingLayout)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            isEditingLayout 
+            ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' 
+            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
+        >
+          {isEditingLayout ? <><X className="w-4 h-4" /> Terminar Edición</> : <><Settings2 className="w-4 h-4" /> Personalizar</>}
+        </button>
+      </div>
+      
+      {/* Widget de Soplado (Fijo, no reordenable por ahora) */}
+      {empresaSettings?.sopladoConfig?.enabled && (
+        <div className="mb-2">
+          <SopladoDashboardWidget 
+            preformas={preformas || []}
+            moldes={moldes || []}
+            produccion={produccionSoplado || []}
+            entregas={entregasSoplado || []}
+            settings={empresaSettings.sopladoConfig}
+            onAction={handleSopladoAction}
+          />
+        </div>
+      )}
+
+      {/* Hidden Widgets Tray (Only visible when editing) */}
+      <AnimatePresence>
+        {isEditingLayout && layout.some(w => !w.visible) && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-4 border-2 border-dashed border-gray-300 dark:border-gray-700"
+          >
+            <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Widgets Ocultos</p>
+            <div className="flex flex-wrap gap-2">
+              {layout.filter(w => !w.visible).map(w => (
+                <button
+                  key={w.id}
+                  onClick={() => toggleWidgetVisibility(w.id)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:border-primary-500 hover:text-primary-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  {w.id.replace(/_/g, ' ').toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Reorder.Group 
+        axis="y" 
+        values={layout} 
+        onReorder={setLayout} 
+        className="flex flex-col gap-6"
+      >
+        {layout.map((item) => {
+          if (!item.visible && !isEditingLayout) return null;
+          
+          // Determine grid classes based on widget type
+          let gridClass = "w-full";
+          if (item.id === 'caja_efectivo' || item.id === 'caja_bancos') {
+            // These are meant to be side-by-side if both are visible and next to each other
+            // For simplicity in a vertical reorder group, we just let them be full width or 
+            // we could wrap them in a grid if they are sequential. 
+            // To keep it simple and DRY, we'll just render them as blocks.
+          }
+
+          return (
+            <Reorder.Item 
+              key={item.id} 
+              value={item}
+              dragListener={isEditingLayout}
+              className={`relative ${!item.visible ? 'opacity-50 grayscale' : ''}`}
+            >
+              {isEditingLayout && (
+                <div className="absolute -top-3 -right-3 z-10 flex gap-2">
+                  <button 
+                    onClick={() => toggleWidgetVisibility(item.id)}
+                    className="p-1.5 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-600 transition-colors"
+                    title={item.visible ? "Ocultar widget" : "Mostrar widget"}
+                  >
+                    {item.visible ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  </button>
+                </div>
+              )}
+              
+              {isEditingLayout && (
+                <div className="absolute inset-0 z-0 bg-primary-500/5 dark:bg-primary-500/10 border-2 border-dashed border-primary-500/50 rounded-3xl cursor-grab active:cursor-grabbing flex items-center justify-center">
+                  <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm font-black text-xs text-primary-600 uppercase tracking-widest opacity-0 hover:opacity-100 transition-opacity">
+                    Arrastrar para mover
+                  </div>
+                </div>
+              )}
+              
+              <div className={isEditingLayout ? 'pointer-events-none' : ''}>
+                {widgets[item.id]}
+              </div>
+            </Reorder.Item>
+          );
+        })}
+      </Reorder.Group>
     </div>
   );
 };
