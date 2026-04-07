@@ -1039,19 +1039,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // --- DASHBOARD CUSTOMIZATION STATE ---
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   
-  // Default layout definition
+  // Default layout definition with span (1 to 4)
   const defaultLayout = [
-    { id: 'caja_efectivo', visible: true },
-    { id: 'caja_bancos', visible: true },
-    { id: 'entregas_consolidadas', visible: true },
-    { id: 'evolucion_diaria', visible: true },
-    { id: 'stock_planta', visible: true },
-    { id: 'stock_calle', visible: true },
-    { id: 'volumen_ventas', visible: true },
-    { id: 'ventas_descartables', visible: true },
-    { id: 'comisiones', visible: true },
-    { id: 'vendedores_externos', visible: true },
-    { id: 'ruta_reparto', visible: true }
+    { id: 'caja_efectivo', visible: true, span: 2 },
+    { id: 'caja_bancos', visible: true, span: 2 },
+    { id: 'entregas_consolidadas', visible: true, span: 4 },
+    { id: 'evolucion_diaria', visible: true, span: 3 },
+    { id: 'stock_planta', visible: true, span: 1 },
+    { id: 'stock_calle', visible: true, span: 1 },
+    { id: 'volumen_ventas', visible: true, span: 2 },
+    { id: 'ventas_descartables', visible: true, span: 1 },
+    { id: 'comisiones', visible: true, span: 1 },
+    { id: 'vendedores_externos', visible: true, span: 1 },
+    { id: 'ruta_reparto', visible: true, span: 4 }
   ];
 
   const [layout, setLayout] = useState(defaultLayout);
@@ -1066,7 +1066,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           // Merge with default to ensure no missing widgets if we add new ones
           const merged = defaultLayout.map(def => {
             const found = parsed.find((p: any) => p.id === def.id);
-            return found ? found : def;
+            // Ensure span exists (for users who saved layout before we added span)
+            return found ? { ...def, ...found, span: found.span || def.span } : def;
           });
           // Also append any saved widgets that might have been reordered
           const ordered = parsed.map((p: any) => merged.find(m => m.id === p.id)).filter(Boolean);
@@ -1088,6 +1089,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const toggleWidgetVisibility = (id: string) => {
     setLayout(prev => prev.map(w => w.id === id ? { ...w, visible: !w.visible } : w));
+  };
+
+  const updateWidgetSpan = (id: string, newSpan: number) => {
+    if (newSpan < 1 || newSpan > 4) return;
+    setLayout(prev => prev.map(w => w.id === id ? { ...w, span: newSpan } : w));
+  };
+
+  const spanClasses: Record<number, string> = {
+    1: 'md:col-span-1',
+    2: 'md:col-span-2',
+    3: 'md:col-span-3',
+    4: 'md:col-span-4',
   };
 
   useEffect(() => {
@@ -1297,7 +1310,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     entregas_consolidadas: (
-      <div className="col-span-full">
+      <div className="h-full w-full">
         <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">Entregas Consolidadas</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6">
             {metricsOrder.map(key => <div key={key}>{metricsComponents[key]}</div>)}
@@ -1305,7 +1318,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     evolucion_diaria: (
-      <div className="lg:col-span-2 h-full">
+      <div className="h-full w-full">
           <Card title="Evolución Diaria (Mes Actual vs Anterior)">
               <div className="px-4 pb-4">
                     <div className="flex justify-between items-center mb-3">
@@ -1366,7 +1379,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     stock_planta: (
-      <div className="lg:col-span-1 h-full">
+      <div className="h-full w-full">
           <Card title="Stock Permanente en Planta">
               <div className="overflow-y-auto max-h-[420px] pr-2">
                   <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Productos y Envases en Fábrica</p>
@@ -1401,7 +1414,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     stock_calle: (
-      <div className="lg:col-span-1 h-full">
+      <div className="h-full w-full">
           <Card title="Stock en Poder de Clientes">
               <div className="overflow-y-auto max-h-[420px] pr-2">
                   <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Activos pendientes de devolución</p>
@@ -1426,7 +1439,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     volumen_ventas: (
-      <div className="lg:col-span-2 h-full">
+      <div className="h-full w-full">
           <Card title="Volumen de Ventas (Histórico 12 Meses)">
               <div className="h-80 px-2">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1452,7 +1465,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     ventas_descartables: (
-      <div className="lg:col-span-1 h-full">
+      <div className="h-full w-full">
           <Card title="Ventas Productos Descartables">
               <div className="h-80 px-2">
                   {nonReturnableMonthlyData.length > 0 ? (
@@ -1475,7 +1488,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     comisiones: (
-      <div className="lg:col-span-1 h-full">
+      <div className="h-full w-full">
           <Card title="Comisiones Vendedores">
               <div className="overflow-y-auto max-h-[420px] pr-2">
                   <p className="text-[10px] text-gray-400 font-black uppercase mb-3">Mes Actual (Internos)</p>
@@ -1500,7 +1513,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     vendedores_externos: (
-      <div className="lg:col-span-1 h-full">
+      <div className="h-full w-full">
           <Card title="Vendedores Externos">
               <div className="h-80 px-2 flex flex-col">
                   {externalVendorsPieData.length > 0 ? (
@@ -1532,7 +1545,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
     ),
     ruta_reparto: (
-      <div className="col-span-full h-full">
+      <div className="h-full w-full">
           <Card title={`Ruta de Reparto: ${todayName}`}>
             <div className="p-2 space-y-4">
                 {mapMarkers.length > 0 ? (
@@ -1612,29 +1625,38 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         axis="y" 
         values={layout} 
         onReorder={setLayout} 
-        className="flex flex-col gap-6"
+        className="grid grid-cols-1 md:grid-cols-4 gap-6"
       >
         {layout.map((item) => {
           if (!item.visible && !isEditingLayout) return null;
           
-          // Determine grid classes based on widget type
-          let gridClass = "w-full";
-          if (item.id === 'caja_efectivo' || item.id === 'caja_bancos') {
-            // These are meant to be side-by-side if both are visible and next to each other
-            // For simplicity in a vertical reorder group, we just let them be full width or 
-            // we could wrap them in a grid if they are sequential. 
-            // To keep it simple and DRY, we'll just render them as blocks.
-          }
-
           return (
             <Reorder.Item 
               key={item.id} 
               value={item}
               dragListener={isEditingLayout}
-              className={`relative ${!item.visible ? 'opacity-50 grayscale' : ''}`}
+              className={`relative ${spanClasses[item.span || 1]} ${!item.visible ? 'opacity-50 grayscale' : ''}`}
             >
               {isEditingLayout && (
-                <div className="absolute -top-3 -right-3 z-10 flex gap-2">
+                <div className="absolute -top-3 -right-3 z-20 flex gap-1">
+                  <div className="flex bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden mr-2">
+                    <button 
+                      onClick={() => updateWidgetSpan(item.id, (item.span || 1) - 1)}
+                      disabled={(item.span || 1) <= 1}
+                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
+                      title="Reducir ancho"
+                    >-</button>
+                    <div className="px-2 py-1 text-xs font-bold text-gray-700 dark:text-gray-300 border-x border-gray-200 dark:border-gray-700 flex items-center justify-center min-w-[3ch]">
+                      {item.span || 1}/4
+                    </div>
+                    <button 
+                      onClick={() => updateWidgetSpan(item.id, (item.span || 1) + 1)}
+                      disabled={(item.span || 1) >= 4}
+                      className="px-2 py-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
+                      title="Aumentar ancho"
+                    >+</button>
+                  </div>
+
                   <button 
                     onClick={() => toggleWidgetVisibility(item.id)}
                     className="p-1.5 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-600 transition-colors"
@@ -1646,14 +1668,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               )}
               
               {isEditingLayout && (
-                <div className="absolute inset-0 z-0 bg-primary-500/5 dark:bg-primary-500/10 border-2 border-dashed border-primary-500/50 rounded-3xl cursor-grab active:cursor-grabbing flex items-center justify-center">
+                <div className="absolute inset-0 z-10 bg-primary-500/5 dark:bg-primary-500/10 border-2 border-dashed border-primary-500/50 rounded-3xl cursor-grab active:cursor-grabbing flex items-center justify-center">
                   <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm font-black text-xs text-primary-600 uppercase tracking-widest opacity-0 hover:opacity-100 transition-opacity">
                     Arrastrar para mover
                   </div>
                 </div>
               )}
               
-              <div className={isEditingLayout ? 'pointer-events-none' : ''}>
+              <div className={`h-full w-full ${isEditingLayout ? 'pointer-events-none' : ''}`}>
                 {widgets[item.id]}
               </div>
             </Reorder.Item>
