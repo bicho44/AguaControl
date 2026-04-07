@@ -519,7 +519,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   );
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0 relative w-full">
+    <div className="space-y-6 pt-12 md:pt-0 relative">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Remitos</h1>

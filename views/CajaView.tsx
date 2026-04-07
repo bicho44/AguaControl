@@ -297,7 +297,7 @@ const CajaView: React.FC<CajaViewProps> = ({
   );
 
   return (
-    <div className="space-y-8 pt-12 md:pt-0 pb-12 w-full">
+    <div className="space-y-8 pt-12 md:pt-0 pb-12">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
         <div className="flex gap-2">
