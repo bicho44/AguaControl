@@ -357,7 +357,7 @@ function AppContent() {
                 Cerrar Sesión
             </button>
         </div>
-        <main>{renderView()}</main>
+        <main className="w-full flex-1">{renderView()}</main>
       </div>
     </div>
   );
