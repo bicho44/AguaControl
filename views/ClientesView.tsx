@@ -792,7 +792,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   }, [isModalOpen, openNewModal]);
 
   if (isModalOpen) return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in w-full">
         <div className="mb-6 flex items-center gap-4">
             <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 text-gray-500 hover:bg-white dark:hover:bg-gray-800 rounded-full"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
             <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Gestión de Cliente</h1>
@@ -814,7 +814,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   );
 
   return (
-    <div className="space-y-6 pt-12 md:pt-0">
+    <div className="space-y-6 pt-12 md:pt-0 w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Clientes</h1>
         {/* Mostrar botón de Nuevo Cliente para Admins y Vendedores */}

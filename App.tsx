@@ -340,7 +340,7 @@ function AppContent() {
         appVersion={APP_VERSION}
       />
 
-      <div className="md:ml-64 p-4 sm:p-6 lg:p-8">
+      <div className="md:ml-64 p-4 sm:p-6 lg:p-8 flex flex-col min-h-screen">
         <div className="flex justify-between items-center mb-4">
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)} 
