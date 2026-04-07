@@ -43,6 +43,9 @@ service cloud.firestore {
     match /moldes/{moldeId} {
       allow read, write: if isSoplador();
     }
+    match /insumos_soplado/{insumoId} {
+      allow read, write: if isSoplador();
+    }
     match /produccion_soplado/{prodId} {
       allow read, write: if isSoplador();
     }

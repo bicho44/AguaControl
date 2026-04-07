@@ -50,7 +50,8 @@ import {
   Preforma, 
   Molde, 
   ProduccionSoplado, 
-  EntregaSoplado 
+  EntregaSoplado,
+  InsumoSoplado
 } from '../plugins/soplado/types';
 
 const cleanUndefineds = (obj: any): any => {
@@ -92,6 +93,7 @@ export const useDataStore = () => {
     const [moldes, setMoldes] = useState<Molde[]>([]);
     const [produccionSoplado, setProduccionSoplado] = useState<ProduccionSoplado[]>([]);
     const [entregasSoplado, setEntregasSoplado] = useState<EntregaSoplado[]>([]);
+    const [insumosSoplado, setInsumosSoplado] = useState<InsumoSoplado[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
         nombre: 'Distribuidora Aguas Puras',
         nombreFantasia: 'Aguas Puras'
@@ -136,6 +138,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'moldes'), (s) => setMoldes(s.docs.map(d => ({ id: d.id, ...d.data() } as Molde)))),
             onSnapshot(collection(db, 'produccion_soplado'), (s) => setProduccionSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as ProduccionSoplado)))),
             onSnapshot(collection(db, 'entregas_soplado'), (s) => setEntregasSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as EntregaSoplado)))),
+            onSnapshot(collection(db, 'insumos_soplado'), (s) => setInsumosSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as InsumoSoplado)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {
                     setEmpresaSettings(s.data() as EmpresaSettings);
@@ -745,6 +748,19 @@ export const useDataStore = () => {
         await deleteDoc(doc(db, 'moldes', id));
     }, []);
 
+    const addInsumoSoplado = useCallback(async (insumo: Omit<InsumoSoplado, 'id'>) => {
+        await addDoc(collection(db, 'insumos_soplado'), cleanUndefineds(insumo));
+    }, []);
+
+    const updateInsumoSoplado = useCallback(async (insumo: InsumoSoplado) => {
+        const { id, ...data } = insumo;
+        await updateDoc(doc(db, 'insumos_soplado', id), cleanUndefineds(data));
+    }, []);
+
+    const deleteInsumoSoplado = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'insumos_soplado', id));
+    }, []);
+
     const addProduccionSoplado = useCallback(async (prod: Omit<ProduccionSoplado, 'id'>) => {
         const batch = writeBatch(db);
         
@@ -809,8 +825,19 @@ export const useDataStore = () => {
             }
         }
 
+        // 3. Descontar stock de insumos asociados
+        if (entrega.insumos && entrega.insumos.length > 0) {
+            entrega.insumos.forEach(insumoEntrega => {
+                const insumoDb = insumosSoplado.find(i => i.id === insumoEntrega.insumoId);
+                if (insumoDb) {
+                    const newStock = insumoDb.stockActual - insumoEntrega.cantidad;
+                    batch.update(doc(db, 'insumos_soplado', insumoDb.id), { stockActual: newStock });
+                }
+            });
+        }
+
         await batch.commit();
-    }, [empresaSettings, moldes, productos]);
+    }, [empresaSettings, moldes, productos, insumosSoplado]);
 
     const deleteEntregaSoplado = useCallback(async (id: string) => {
         const entrega = entregasSoplado.find(e => e.id === id);
@@ -830,11 +857,22 @@ export const useDataStore = () => {
             }
         }
 
-        // 2. Eliminar entrega
+        // 2. Revertir stock de insumos asociados
+        if (entrega.insumos && entrega.insumos.length > 0) {
+            entrega.insumos.forEach(insumoEntrega => {
+                const insumoDb = insumosSoplado.find(i => i.id === insumoEntrega.insumoId);
+                if (insumoDb) {
+                    const newStock = insumoDb.stockActual + insumoEntrega.cantidad;
+                    batch.update(doc(db, 'insumos_soplado', insumoDb.id), { stockActual: newStock });
+                }
+            });
+        }
+
+        // 3. Eliminar entrega
         batch.delete(doc(db, 'entregas_soplado', id));
 
         await batch.commit();
-    }, [entregasSoplado, empresaSettings, moldes, productos]);
+    }, [entregasSoplado, empresaSettings, moldes, productos, insumosSoplado]);
 
     const updateRutasMasivo = useCallback(async (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => {
         if (!updates.length) return;
@@ -888,7 +926,7 @@ export const useDataStore = () => {
 
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, movimientosStockPlanta, empresaSettings, logs, causasRecambio,
-        preformas, moldes, produccionSoplado, entregasSoplado,
+        preformas, moldes, produccionSoplado, entregasSoplado, insumosSoplado,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
@@ -899,6 +937,7 @@ export const useDataStore = () => {
         addCausaRecambio, deleteCausaRecambio,
         addPreforma, updatePreforma, deletePreforma,
         addMolde, updateMolde, deleteMolde,
+        addInsumoSoplado, updateInsumoSoplado, deleteInsumoSoplado,
         addProduccionSoplado, deleteProduccionSoplado,
         addEntregaSoplado, deleteEntregaSoplado,
         cierresPlanta,

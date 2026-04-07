@@ -7,14 +7,15 @@ import AppButton from '../../components/ui/AppButton';
 import AppInput from '../../components/ui/AppInput';
 import AppSelect from '../../components/ui/AppSelect';
 import Modal from '../../components/Modal';
-import { Preforma, Molde, ProduccionSoplado, EntregaSoplado } from './types';
+import { Preforma, Molde, ProduccionSoplado, EntregaSoplado, InsumoSoplado } from './types';
 import { Rol } from '../../types';
 
 const SopladoPlugin: React.FC = () => {
     const { 
-        preformas, moldes, produccionSoplado, entregasSoplado, productos, clientes,
+        preformas, moldes, produccionSoplado, entregasSoplado, productos, clientes, insumosSoplado,
         addPreforma, updatePreforma, deletePreforma,
         addMolde, updateMolde, deleteMolde,
+        addInsumoSoplado, updateInsumoSoplado, deleteInsumoSoplado,
         addProduccionSoplado, deleteProduccionSoplado,
         addEntregaSoplado, deleteEntregaSoplado,
         empresaSettings
@@ -22,7 +23,7 @@ const SopladoPlugin: React.FC = () => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'inventario' | 'produccion' | 'logistica'>('produccion');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalType, setModalType] = useState<'preforma' | 'molde' | 'produccion' | 'entrega' | null>(null);
+    const [modalType, setModalType] = useState<'preforma' | 'molde' | 'produccion' | 'entrega' | 'insumo' | null>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
 
     const isAdmin = user?.rol === Rol.ADMINISTRADOR;
@@ -30,22 +31,25 @@ const SopladoPlugin: React.FC = () => {
     // --- FORM STATES ---
     const [preformaForm, setPreformaForm] = useState<Partial<Preforma>>({ color: '', peso: 0, material: 'PET', stockActual: 0, puntoReposicion: 0 });
     const [moldeForm, setMoldeForm] = useState<Partial<Molde>>({ nombre: '', litros: 0, preformaId: '' });
+    const [insumoForm, setInsumoForm] = useState<Partial<InsumoSoplado>>({ nombre: '', stockActual: 0, puntoReposicion: 0 });
     const [produccionForm, setProduccionForm] = useState<Partial<ProduccionSoplado>>({ fecha: new Date().toISOString().split('T')[0], moldeId: '', cantidadProducida: 0, merma: 0 });
-    const [entregaForm, setEntregaForm] = useState<Partial<EntregaSoplado>>({ fecha: new Date().toISOString().split('T')[0], moldeId: '', destino: 'PLANTA', cantidad: 0 });
+    const [entregaForm, setEntregaForm] = useState<Partial<EntregaSoplado>>({ fecha: new Date().toISOString().split('T')[0], moldeId: '', destino: 'PLANTA', cantidad: 0, insumos: [] });
 
-    const openModal = (type: 'preforma' | 'molde' | 'produccion' | 'entrega', item?: any) => {
+    const openModal = (type: 'preforma' | 'molde' | 'produccion' | 'entrega' | 'insumo', item?: any) => {
         setModalType(type);
         setEditingItem(item || null);
         if (item) {
             if (type === 'preforma') setPreformaForm(item);
             if (type === 'molde') setMoldeForm(item);
+            if (type === 'insumo') setInsumoForm(item);
             if (type === 'produccion') setProduccionForm(item);
             if (type === 'entrega') setEntregaForm(item);
         } else {
             if (type === 'preforma') setPreformaForm({ color: '', peso: 0, material: 'PET', stockActual: 0, puntoReposicion: 0 });
             if (type === 'molde') setMoldeForm({ nombre: '', litros: 0, preformaId: '' });
+            if (type === 'insumo') setInsumoForm({ nombre: '', stockActual: 0, puntoReposicion: 0 });
             if (type === 'produccion') setProduccionForm({ fecha: new Date().toISOString().split('T')[0], moldeId: '', cantidadProducida: 0, merma: 0 });
-            if (type === 'entrega') setEntregaForm({ fecha: new Date().toISOString().split('T')[0], moldeId: '', destino: 'PLANTA', cantidad: 0 });
+            if (type === 'entrega') setEntregaForm({ fecha: new Date().toISOString().split('T')[0], moldeId: '', destino: 'PLANTA', cantidad: 0, insumos: [] });
         }
         setIsModalOpen(true);
     };
@@ -57,6 +61,9 @@ const SopladoPlugin: React.FC = () => {
         } else if (modalType === 'molde') {
             if (editingItem) await updateMolde({ ...editingItem, ...moldeForm } as Molde);
             else await addMolde(moldeForm as Molde);
+        } else if (modalType === 'insumo') {
+            if (editingItem) await updateInsumoSoplado({ ...editingItem, ...insumoForm } as InsumoSoplado);
+            else await addInsumoSoplado(insumoForm as InsumoSoplado);
         } else if (modalType === 'produccion') {
             await addProduccionSoplado({ ...produccionForm, operadorId: user?.id || '' } as ProduccionSoplado);
         } else if (modalType === 'entrega') {
@@ -111,6 +118,32 @@ const SopladoPlugin: React.FC = () => {
                     </Card>
                 ))}
             </div>
+
+            <div className="flex justify-between items-center mt-8">
+                <h3 className="text-lg font-bold dark:text-white">Insumos Asociados (Tapas, Manijas)</h3>
+                <AppButton size="sm" onClick={() => openModal('insumo')}>+ Nuevo</AppButton>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {insumosSoplado.map(i => (
+                    <Card key={i.id}>
+                        <div className="flex justify-between">
+                            <div>
+                                <p className="font-bold text-primary-600">{i.nombre}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className={`text-xl font-black ${i.stockActual <= i.puntoReposicion ? 'text-red-500' : 'text-gray-800 dark:text-white'}`}>
+                                    {i.stockActual}
+                                </p>
+                                <p className="text-[10px] uppercase text-gray-400">Stock Actual</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                            <AppButton variant="secondary" size="sm" className="flex-1" onClick={() => openModal('insumo', i)}>Editar</AppButton>
+                            {isAdmin && <AppButton variant="danger" size="sm" onClick={() => deleteInsumoSoplado(i.id)}>Eliminar</AppButton>}
+                        </div>
+                    </Card>
+                ))}
+            </div>
         </div>
     );
 
@@ -155,6 +188,16 @@ const SopladoPlugin: React.FC = () => {
                             <p className="font-bold dark:text-white">{moldes.find(m => m.id === e.moldeId)?.nombre || 'Molde Desconocido'}</p>
                             <p className="text-xs text-gray-500">Destino: <span className="font-bold text-primary-600">{e.destino === 'PLANTA' ? 'PLANTA INTERNA' : (clientes.find(c => c.id === e.destino)?.nombre || e.destino)}</span></p>
                             <p className="text-[10px] text-gray-400">{e.fecha}</p>
+                            {e.insumos && e.insumos.length > 0 && (
+                                <div className="mt-1">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Insumos:</p>
+                                    {e.insumos.map((ins, idx) => (
+                                        <p key={idx} className="text-xs text-gray-500">
+                                            {insumosSoplado.find(i => i.id === ins.insumoId)?.nombre || 'Insumo'} x {ins.cantidad}
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div className="text-right">
                             <p className="text-lg font-black text-blue-600">-{e.cantidad}</p>
@@ -247,6 +290,16 @@ const SopladoPlugin: React.FC = () => {
                         </>
                     )}
 
+                    {modalType === 'insumo' && (
+                        <>
+                            <AppInput label="Nombre del Insumo" value={insumoForm.nombre} onChange={e => setInsumoForm({...insumoForm, nombre: e.target.value})} placeholder="Ej: Tapas, Manijas" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <AppInput label="Stock Inicial" type="number" value={insumoForm.stockActual} onChange={e => setInsumoForm({...insumoForm, stockActual: Number(e.target.value)})} />
+                                <AppInput label="Punto Reposición" type="number" value={insumoForm.puntoReposicion} onChange={e => setInsumoForm({...insumoForm, puntoReposicion: Number(e.target.value)})} />
+                            </div>
+                        </>
+                    )}
+
                     {modalType === 'produccion' && (
                         <>
                             <AppInput label="Fecha" type="date" value={produccionForm.fecha} onChange={e => setProduccionForm({...produccionForm, fecha: e.target.value})} />
@@ -304,6 +357,57 @@ const SopladoPlugin: React.FC = () => {
                                     <input type="number" className="w-full bg-transparent text-center font-bold dark:text-white" value={entregaForm.cantidad} onChange={e => setEntregaForm({...entregaForm, cantidad: Number(e.target.value)})} />
                                     <button onClick={() => setEntregaForm(f => ({...f, cantidad: (f.cantidad || 0) + 50}))} className="p-3 text-primary-600 font-bold">+50</button>
                                 </div>
+                            </div>
+                            
+                            {/* Insumos Asociados */}
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                                <label className="text-sm font-bold text-gray-800 dark:text-white mb-2 block">Insumos Asociados (Opcional)</label>
+                                {entregaForm.insumos?.map((ins, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-2 items-center">
+                                        <div className="flex-1">
+                                            <AppSelect 
+                                                value={ins.insumoId} 
+                                                onChange={e => {
+                                                    const newInsumos = [...(entregaForm.insumos || [])];
+                                                    newInsumos[idx].insumoId = e.target.value;
+                                                    setEntregaForm({...entregaForm, insumos: newInsumos});
+                                                }}
+                                                options={[
+                                                    { value: '', label: 'Seleccionar insumo' },
+                                                    ...insumosSoplado.map(i => ({ value: i.id, label: i.nombre }))
+                                                ]}
+                                            />
+                                        </div>
+                                        <div className="w-24">
+                                            <AppInput 
+                                                type="number" 
+                                                value={ins.cantidad} 
+                                                onChange={e => {
+                                                    const newInsumos = [...(entregaForm.insumos || [])];
+                                                    newInsumos[idx].cantidad = Number(e.target.value);
+                                                    setEntregaForm({...entregaForm, insumos: newInsumos});
+                                                }} 
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                const newInsumos = [...(entregaForm.insumos || [])];
+                                                newInsumos.splice(idx, 1);
+                                                setEntregaForm({...entregaForm, insumos: newInsumos});
+                                            }}
+                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                                <AppButton 
+                                    variant="secondary" 
+                                    size="sm" 
+                                    onClick={() => setEntregaForm({...entregaForm, insumos: [...(entregaForm.insumos || []), { insumoId: '', cantidad: 0 }]})}
+                                >
+                                    + Agregar Insumo
+                                </AppButton>
                             </div>
                         </>
                     )}

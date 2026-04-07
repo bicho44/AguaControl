@@ -17,6 +17,13 @@ export interface Molde {
     preformaId: string; // La preforma que usa este molde
 }
 
+export interface InsumoSoplado {
+    id: string;
+    nombre: string; // ej: Tapas, Manijas
+    stockActual: number;
+    puntoReposicion: number;
+}
+
 export interface ProduccionSoplado {
     id: string;
     fecha: string;
@@ -32,6 +39,7 @@ export interface EntregaSoplado {
     moldeId: string;
     destino: 'PLANTA' | string; // ID del cliente o 'PLANTA'
     cantidad: number;
+    insumos?: { insumoId: string; cantidad: number }[];
 }
 
 export interface SopladoDashboardSettings {

@@ -37,6 +37,17 @@
       },
       "required": ["fecha", "moldeId", "cantidadProducida", "operadorId"]
     },
+    "insumos_soplado": {
+      "title": "Insumo de Soplado",
+      "description": "Insumos asociados al soplado (tapas, manijas, etc.)",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string" },
+        "stockActual": { "type": "number" },
+        "puntoReposicion": { "type": "number" }
+      },
+      "required": ["nombre", "stockActual"]
+    },
     "entregas_soplado": {
       "title": "Entrega de Soplado",
       "description": "Registro de entregas de bidones soplados a planta o clientes",
@@ -45,7 +56,17 @@
         "fecha": { "type": "string", "format": "date" },
         "moldeId": { "type": "string" },
         "destino": { "type": "string", "description": "ID del cliente o 'PLANTA'" },
-        "cantidad": { "type": "number" }
+        "cantidad": { "type": "number" },
+        "insumos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "insumoId": { "type": "string" },
+              "cantidad": { "type": "number" }
+            }
+          }
+        }
       },
       "required": ["fecha", "moldeId", "destino", "cantidad"]
     }
@@ -54,6 +75,7 @@
     "preformas": { "schema": "preformas", "description": "Colección de preformas" },
     "moldes": { "schema": "moldes", "description": "Colección de moldes" },
     "produccion_soplado": { "schema": "produccion_soplado", "description": "Colección de producción de soplado" },
+    "insumos_soplado": { "schema": "insumos_soplado", "description": "Colección de insumos de soplado" },
     "entregas_soplado": { "schema": "entregas_soplado", "description": "Colección de entregas de soplado" }
   }
 }
