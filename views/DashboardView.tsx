@@ -4,7 +4,8 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line
 import { Calendar, AlertTriangle, Settings2, X, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Reorder, AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ReactSortable } from 'react-sortablejs';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
@@ -1621,20 +1622,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         )}
       </AnimatePresence>
 
-      <Reorder.Group 
-        axis="y" 
-        values={layout} 
-        onReorder={setLayout} 
+      <ReactSortable 
+        list={layout} 
+        setList={setLayout} 
         className="grid grid-cols-1 md:grid-cols-4 gap-6"
+        animation={200}
+        disabled={!isEditingLayout}
+        ghostClass="opacity-50"
+        handle=".drag-handle"
       >
         {layout.map((item) => {
           if (!item.visible && !isEditingLayout) return null;
           
           return (
-            <Reorder.Item 
+            <div 
               key={item.id} 
-              value={item}
-              dragListener={isEditingLayout}
               className={`relative ${spanClasses[item.span || 1]} ${!item.visible ? 'opacity-50 grayscale' : ''}`}
             >
               {isEditingLayout && (
@@ -1668,7 +1670,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               )}
               
               {isEditingLayout && (
-                <div className="absolute inset-0 z-10 bg-primary-500/5 dark:bg-primary-500/10 border-2 border-dashed border-primary-500/50 rounded-3xl cursor-grab active:cursor-grabbing flex items-center justify-center">
+                <div className="drag-handle absolute inset-0 z-10 bg-primary-500/5 dark:bg-primary-500/10 border-2 border-dashed border-primary-500/50 rounded-3xl cursor-grab active:cursor-grabbing flex items-center justify-center">
                   <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm font-black text-xs text-primary-600 uppercase tracking-widest opacity-0 hover:opacity-100 transition-opacity">
                     Arrastrar para mover
                   </div>
@@ -1678,10 +1680,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               <div className={`h-full w-full ${isEditingLayout ? 'pointer-events-none' : ''}`}>
                 {widgets[item.id]}
               </div>
-            </Reorder.Item>
+            </div>
           );
         })}
-      </Reorder.Group>
+      </ReactSortable>
     </div>
   );
 };
