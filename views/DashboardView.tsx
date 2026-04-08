@@ -1042,6 +1042,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   // Default layout definition with span (1 to 4)
   const defaultLayout = [
+    { id: 'plugin_soplado', visible: true, span: 4 },
     { id: 'caja_efectivo', visible: true, span: 2 },
     { id: 'caja_bancos', visible: true, span: 2 },
     { id: 'entregas_consolidadas', visible: true, span: 4 },
@@ -1298,6 +1299,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   // Define all possible widgets
   const widgets: Record<string, React.ReactNode> = {
+    plugin_soplado: empresaSettings?.sopladoConfig?.enabled ? (
+      <div className="h-full w-full">
+        <SopladoDashboardWidget 
+          preformas={preformas || []}
+          moldes={moldes || []}
+          produccion={produccionSoplado || []}
+          entregas={entregasSoplado || []}
+          settings={empresaSettings.sopladoConfig}
+          onAction={handleSopladoAction}
+        />
+      </div>
+    ) : null,
     caja_efectivo: (
       <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02] h-full">
           <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
@@ -1581,24 +1594,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           {isEditingLayout ? <><X className="w-4 h-4" /> Terminar Edición</> : <><Settings2 className="w-4 h-4" /> Personalizar</>}
         </button>
       </div>
-      
-      {/* Widget de Soplado (Fijo, no reordenable por ahora) */}
-      {empresaSettings?.sopladoConfig?.enabled && (
-        <div className="mb-2">
-          <SopladoDashboardWidget 
-            preformas={preformas || []}
-            moldes={moldes || []}
-            produccion={produccionSoplado || []}
-            entregas={entregasSoplado || []}
-            settings={empresaSettings.sopladoConfig}
-            onAction={handleSopladoAction}
-          />
-        </div>
-      )}
 
       {/* Hidden Widgets Tray (Only visible when editing) */}
       <AnimatePresence>
-        {isEditingLayout && layout.some(w => !w.visible) && (
+        {isEditingLayout && layout.some(w => !w.visible && (w.id !== 'plugin_soplado' || empresaSettings?.sopladoConfig?.enabled)) && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -1607,7 +1606,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Widgets Ocultos</p>
             <div className="flex flex-wrap gap-2">
-              {layout.filter(w => !w.visible).map(w => (
+              {layout.filter(w => !w.visible && (w.id !== 'plugin_soplado' || empresaSettings?.sopladoConfig?.enabled)).map(w => (
                 <button
                   key={w.id}
                   onClick={() => toggleWidgetVisibility(w.id)}
@@ -1633,6 +1632,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       >
         {layout.map((item) => {
           if (!item.visible && !isEditingLayout) return null;
+          if (item.id === 'plugin_soplado' && !empresaSettings?.sopladoConfig?.enabled) return null;
           
           return (
             <div 
