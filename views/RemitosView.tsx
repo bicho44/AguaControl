@@ -37,6 +37,8 @@ interface RemitosViewProps {
   addCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>; 
   causasRecambio: CausaRecambio[];
   empresaSettings: EmpresaSettings;
+  facturas?: any[];
+  addPagoToFactura?: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => Promise<void>;
 }
 
 const ShortcutsHelp: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {

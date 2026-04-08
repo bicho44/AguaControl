@@ -24,9 +24,11 @@ interface RemitoFormProps {
   registrosPago: RegistroPago[];
   causasRecambio: CausaRecambio[];
   isReadOnly?: boolean;
+  facturas?: any[];
+  onAddPagoToFactura?: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => Promise<void>;
 }
 
-const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, causasRecambio, isReadOnly = false }) => {
+const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, causasRecambio, isReadOnly = false, facturas = [], onAddPagoToFactura }) => {
   const [formData, setFormData] = useState<Partial<Remito> & { pagos?: PagoDetalle[] }>(() => {
       // Inicializar con los datos del remito para evitar que clienteId sea undefined en el primer render
       return { ...remito, pagos: remito.pagos || [] };
@@ -34,6 +36,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const [clienteSucursales, setClienteSucursales] = useState<Sucursal[]>([]);
   const [isCtaCte, setIsCtaCte] = useState(false);
   const [deudaPendiente, setDeudaPendiente] = useState(0);
+  const [pendingFacturas, setPendingFacturas] = useState<any[]>([]);
+  const [facturaPagos, setFacturaPagos] = useState<Record<string, PagoDetalle[]>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [clientStock, setClientStock] = useState<Record<string, number>>({});
@@ -125,7 +129,18 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         const totalPagos = pagosDelCliente.reduce((sum, p) => sum + p.monto, 0);
         
         setDeudaPendiente(Math.max(0, totalRemitos - totalPagos));
-      } else setDeudaPendiente(0);
+        setPendingFacturas([]);
+      } else {
+        setDeudaPendiente(0);
+        // Calcular facturas pendientes
+        const facturasCliente = facturas.filter(f => f.clienteId === formData.clienteId && f.estado !== 'anulada');
+        const pending = facturasCliente.map(f => {
+            const pagosFactura = registrosPago.filter(p => p.origen.tipo === 'factura' && p.origen.id === f.id);
+            const totalPagado = pagosFactura.reduce((sum, p) => sum + p.monto, 0);
+            return { ...f, totalPagado, saldoPendiente: f.monto - totalPagado };
+        }).filter(f => f.saldoPendiente > 0);
+        setPendingFacturas(pending);
+      }
 
       // Calcular Stock del Cliente (Filtrar por sucursal si existe)
       const stock: Record<string, number> = {};
@@ -289,6 +304,35 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
   const removePago = (index: number) => setFormData(prev => ({...prev, pagos: prev.pagos?.filter((_, i) => i !== index)}));
 
+  const handleFacturaPagoChange = (facturaId: string, index: number, field: keyof PagoDetalle, value: string | MetodoPago) => {
+    setFacturaPagos(prev => {
+        const newPagos = { ...prev };
+        if (!newPagos[facturaId]) newPagos[facturaId] = [];
+        newPagos[facturaId][index] = { ...newPagos[facturaId][index], [field]: field === 'monto' ? (value === '' ? 0 : Number(value)) : value };
+        return newPagos;
+    });
+  };
+
+  const addFacturaPago = (facturaId: string, maxMonto: number) => {
+    setFacturaPagos(prev => {
+        const newPagos = { ...prev };
+        if (!newPagos[facturaId]) newPagos[facturaId] = [];
+        const pagado = newPagos[facturaId].reduce((sum, p) => sum + p.monto, 0);
+        newPagos[facturaId].push({ monto: Math.max(0, maxMonto - pagado), metodo: MetodoPago.EFECTIVO });
+        return newPagos;
+    });
+  };
+
+  const removeFacturaPago = (facturaId: string, index: number) => {
+    setFacturaPagos(prev => {
+        const newPagos = { ...prev };
+        if (newPagos[facturaId]) {
+            newPagos[facturaId] = newPagos[facturaId].filter((_, i) => i !== index);
+        }
+        return newPagos;
+    });
+  };
+
   const handleSaveQuickClient = async (data: any) => {
     try {
         const id = await onAddCliente({
@@ -345,8 +389,19 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
     setIsSaving(true);
     await onSave(remitoFinal as Remito & { pagos: PagoDetalle[] });
+
+    // Procesar pagos de facturas
+    if (onAddPagoToFactura && Object.keys(facturaPagos).length > 0) {
+        for (const facturaId of Object.keys(facturaPagos)) {
+            const pagos = facturaPagos[facturaId];
+            if (pagos && pagos.length > 0) {
+                await onAddPagoToFactura(facturaId, formData.fecha || new Date().toISOString(), pagos);
+            }
+        }
+    }
+
     setIsSaving(false);
-  }, [formData, isReadOnly, onSave, showNotification, remitos]);
+  }, [formData, isReadOnly, onSave, showNotification, remitos, onAddPagoToFactura, facturaPagos, clientes, productosMap]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -534,6 +589,56 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     {!isReadOnly && (
                         <AppButton variant="secondary" size="sm" onClick={addPago} className="w-full border-dashed border-2 bg-white/50">+ Agregar Pago / Cobro <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+P)</span></AppButton>
                     )}
+                </div>
+            </fieldset>
+        )}
+
+        {isCtaCte && pendingFacturas.length > 0 && !formData.esAjuste && (
+            <fieldset className="border-t dark:border-gray-600 pt-6">
+                <legend className="text-lg font-black text-blue-600 uppercase tracking-tighter px-2 mb-4">Pago de Facturas Pendientes</legend>
+                <div className="space-y-4">
+                    {pendingFacturas.map(factura => {
+                        const pagosFactura = facturaPagos[factura.id] || [];
+                        const totalPagadoFactura = pagosFactura.reduce((sum, p) => sum + p.monto, 0);
+                        const saldoRestante = factura.saldoPendiente - totalPagadoFactura;
+
+                        return (
+                            <div key={factura.id} className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                                <div className="flex justify-between items-center mb-3">
+                                    <div>
+                                        <span className="font-bold text-blue-800 dark:text-blue-200">Factura #{factura.numero}</span>
+                                        <span className="text-sm text-gray-500 ml-2">({factura.fecha})</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">Saldo Pendiente: ${factura.saldoPendiente.toLocaleString()}</div>
+                                        <div className="font-bold text-blue-600">Restante: ${saldoRestante.toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                
+                                {pagosFactura.map((pago, index) => (
+                                    <div key={index} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,auto] gap-3 items-end mb-2">
+                                        <AppInput 
+                                            label={index === 0 ? "Monto a Pagar" : ""} 
+                                            type="number" 
+                                            value={pago.monto} 
+                                            onChange={(e) => handleFacturaPagoChange(factura.id, index, 'monto', e.target.value)} 
+                                            step="0.01" 
+                                            className="font-black text-green-600" 
+                                            disabled={isReadOnly} 
+                                        />
+                                        <AppSelect label={index === 0 ? "Método" : ""} value={pago.metodo} onChange={(e) => handleFacturaPagoChange(factura.id, index, 'metodo', e.target.value as MetodoPago)} options={Object.values(MetodoPago).map(m => ({value: m, label: m}))} disabled={isReadOnly} />
+                                        <AppButton variant="danger" size="sm" onClick={() => removeFacturaPago(factura.id, index)} disabled={isReadOnly} className="!p-2 mb-1"><TrashIcon className="w-5 h-5"/></AppButton>
+                                    </div>
+                                ))}
+                                
+                                {!isReadOnly && saldoRestante > 0 && (
+                                    <AppButton variant="secondary" size="sm" onClick={() => addFacturaPago(factura.id, saldoRestante)} className="w-full border-dashed border-2 bg-white/50 text-blue-600 border-blue-200 mt-2">
+                                        + Agregar Pago a Factura
+                                    </AppButton>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </fieldset>
         )}

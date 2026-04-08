@@ -214,6 +214,8 @@ function AppContent() {
                   currentUser={user}
                   causasRecambio={dataStore.causasRecambio}
                   empresaSettings={dataStore.empresaSettings}
+                  facturas={dataStore.facturas}
+                  addPagoToFactura={dataStore.addPagoToFactura}
                 />;
       case 'clientes':
         return <ClientesView 
