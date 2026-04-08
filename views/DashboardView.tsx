@@ -127,21 +127,21 @@ const InternalVendorDashboard: React.FC<{
 
         const remitosMes = misRemitos.filter(r => new Date(r.fecha).getTime() >= startOfMonth.getTime());
         
-        let totalEntregado = 0;
-        let cantHoy = 0;
-        let cantAyer = 0;
-        const dataPorDia: Record<string, number> = {};
+        const totalEntregado: Record<string, number> = {};
+        const cantHoy: Record<string, number> = {};
+        const cantAyer: Record<string, number> = {};
+        const dataPorDia: Record<string, Record<string, number>> = {};
 
         // Procesar Histórico Mes
         remitosMes.forEach(r => {
             const day = new Date(r.fecha + 'T00:00:00').getDate();
-            if (!dataPorDia[day]) dataPorDia[day] = 0;
+            if (!dataPorDia[day]) dataPorDia[day] = {};
 
             r.movimientos.forEach(m => {
                 const prod = productosMap.get(m.productoId);
                 if (prod && prod.tipo === TipoProducto.RETORNABLE) {
-                    totalEntregado += m.entregados;
-                    dataPorDia[day] += m.entregados;
+                    totalEntregado[prod.nombre] = (totalEntregado[prod.nombre] || 0) + m.entregados;
+                    dataPorDia[day][prod.nombre] = (dataPorDia[day][prod.nombre] || 0) + m.entregados;
                 }
             });
         });
@@ -153,14 +153,17 @@ const InternalVendorDashboard: React.FC<{
                 r.movimientos.forEach(m => {
                     const p = productosMap.get(m.productoId);
                     if (p && p.tipo === TipoProducto.RETORNABLE) {
-                        if (rDate === todayStr) cantHoy += m.entregados;
-                        else cantAyer += m.entregados;
+                        if (rDate === todayStr) {
+                            cantHoy[p.nombre] = (cantHoy[p.nombre] || 0) + m.entregados;
+                        } else {
+                            cantAyer[p.nombre] = (cantAyer[p.nombre] || 0) + m.entregados;
+                        }
                     }
                 });
             }
         });
         
-        const chart = Object.keys(dataPorDia).map(day => ({ name: `Día ${day}`, entregas: dataPorDia[day] }));
+        const chart = Object.keys(dataPorDia).map(day => ({ name: `Día ${day}`, ...dataPorDia[day] }));
 
         return { entregasTotal: totalEntregado, chartData: chart, entregasHoy: cantHoy, entregasAyer: cantAyer };
     }, [misRemitos, productosMap, todayStr]);
@@ -285,25 +288,46 @@ const InternalVendorDashboard: React.FC<{
                 {/* CARD DE ENTREGAS HOY/AYER */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col">
                     <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Ritmo de Entrega (Envases)</h3>
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Ritmo de Entrega (Hoy vs Ayer)</h3>
                     </div>
-                    <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
-                        <div className="flex flex-col items-center justify-center p-4">
-                            <span className="text-4xl font-black text-blue-600">{entregasHoy}</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
-                        </div>
-                        <div className="flex flex-col items-center justify-center p-4">
-                            <span className="text-4xl font-black text-gray-400">{entregasAyer}</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
-                        </div>
+                    <div className="flex-1 p-4 space-y-3">
+                        {Object.keys(entregasHoy).length > 0 || Object.keys(entregasAyer).length > 0 ? (
+                            Array.from(new Set([...Object.keys(entregasHoy), ...Object.keys(entregasAyer)])).map(prodName => (
+                                <div key={prodName} className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0 last:pb-0">
+                                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{prodName}</span>
+                                    <div className="flex gap-4 text-sm">
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-black text-blue-600">{entregasHoy[prodName] || 0}</span>
+                                            <span className="text-[8px] uppercase text-gray-400">Hoy</span>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-black text-gray-400">{entregasAyer[prodName] || 0}</span>
+                                            <span className="text-[8px] uppercase text-gray-400">Ayer</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center text-xs text-gray-400 py-4 uppercase font-bold">Sin entregas</div>
+                        )}
                     </div>
                 </div>
 
                 <Card>
-                    <div className="flex flex-col items-center justify-center py-6 text-center">
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Mensual</p>
-                        <p className="text-5xl font-black text-blue-600">{entregasTotal}</p>
-                        <p className="text-xs text-gray-400 mt-2">Productos Retornables</p>
+                    <div className="flex flex-col py-2">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 text-center">Total Mensual</p>
+                        <div className="space-y-3 px-4">
+                            {Object.keys(entregasTotal).length > 0 ? (
+                                Object.entries(entregasTotal).map(([prodName, total]) => (
+                                    <div key={prodName} className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0 last:pb-0">
+                                        <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{prodName}</span>
+                                        <span className="text-xl font-black text-blue-600">{total}</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center text-xs text-gray-400 py-4 uppercase font-bold">Sin entregas este mes</div>
+                            )}
+                        </div>
                     </div>
                 </Card>
             </div>
@@ -312,17 +336,16 @@ const InternalVendorDashboard: React.FC<{
                 <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
-                            <defs>
-                                <linearGradient id="colorEntregas" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128, 128, 128, 0.1)" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
                             <YAxis axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={lightTooltipStyle} />
-                            <Area type="monotone" dataKey="entregas" stroke="#3b82f6" fillOpacity={1} fill="url(#colorEntregas)" strokeWidth={3} />
+                            {Object.keys(entregasTotal).map((prodName, idx) => {
+                                const color = (Array.from(productosMap.values()) as any[]).find(p => p.nombre === prodName)?.color || ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'][idx % 4];
+                                return (
+                                    <Area key={prodName} type="monotone" dataKey={prodName} stroke={color} fillOpacity={0.1} fill={color} strokeWidth={2} name={prodName} />
+                                );
+                            })}
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -358,8 +381,8 @@ const ExternalVendorDashboard: React.FC<{
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = getLocalDateString(yesterday);
 
-        let hoy = 0;
-        let ayer = 0;
+        const hoy: Record<string, number> = {};
+        const ayer: Record<string, number> = {};
 
         // 1. Sumar Compras (VentaVendedor)
         misVentas.forEach(v => {
@@ -375,8 +398,8 @@ const ExternalVendorDashboard: React.FC<{
 
                     // Contar envases retirados hoy/ayer (solo retornables)
                     if (prod.tipo === TipoProducto.RETORNABLE) {
-                        if (vDate === todayStr) hoy += m.cantidad;
-                        if (vDate === yesterdayStr) ayer += m.cantidad;
+                        if (vDate === todayStr) hoy[prod.nombre] = (hoy[prod.nombre] || 0) + m.cantidad;
+                        if (vDate === yesterdayStr) ayer[prod.nombre] = (ayer[prod.nombre] || 0) + m.cantidad;
                     }
                 }
             });
@@ -436,17 +459,28 @@ const ExternalVendorDashboard: React.FC<{
                 {/* CARD DE RETIROS HOY/AYER (EXTERNO) */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border dark:border-gray-700 flex flex-col md:col-span-2">
                     <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Envases Retirados</h3>
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest text-center">Envases Retirados (Hoy vs Ayer)</h3>
                     </div>
-                    <div className="flex-1 grid grid-cols-2 divide-x dark:divide-gray-700">
-                        <div className="flex flex-col items-center justify-center p-4">
-                            <span className="text-4xl font-black text-primary-600">{retiradosHoy}</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Hoy</span>
-                        </div>
-                        <div className="flex flex-col items-center justify-center p-4">
-                            <span className="text-4xl font-black text-gray-400">{retiradosAyer}</span>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Ayer</span>
-                        </div>
+                    <div className="flex-1 p-4 space-y-3">
+                        {Object.keys(retiradosHoy).length > 0 || Object.keys(retiradosAyer).length > 0 ? (
+                            Array.from(new Set([...Object.keys(retiradosHoy), ...Object.keys(retiradosAyer)])).map(prodName => (
+                                <div key={prodName} className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0 last:pb-0">
+                                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{prodName}</span>
+                                    <div className="flex gap-4 text-sm">
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-black text-primary-600">{retiradosHoy[prodName] || 0}</span>
+                                            <span className="text-[8px] uppercase text-gray-400">Hoy</span>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-black text-gray-400">{retiradosAyer[prodName] || 0}</span>
+                                            <span className="text-[8px] uppercase text-gray-400">Ayer</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center text-xs text-gray-400 py-4 uppercase font-bold">Sin retiros</div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -815,10 +849,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthObj: any = { name: monthLabel, sortKey: monthKey };
         
-        monthObj["Total General"] = 0;
-        monthObj["Internos"] = 0;
-        monthObj["Externos"] = 0;
-
         returnableProductNames.forEach(pName => {
             monthObj[pName] = 0;
         });
@@ -830,8 +860,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     const prod = productosMap.get(m.productoId);
                     if (prod && returnableProductNames.includes(prod.nombre)) {
                         const cant = Number(m.entregados) || 0;
-                        monthObj["Total General"] += cant;
-                        monthObj["Internos"] += cant;
                         monthObj[prod.nombre] += cant;
                     }
                 });
@@ -840,15 +868,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         ventasVendedor.forEach(v => {
             const d = parseLocalDate(v.fecha);
             if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()) {
-                const vendor = usuariosMap.get(v.vendedorId);
-                const isExterno = vendor?.tipo === TipoVendedor.EXTERNO;
                 v.movimientos.forEach(m => {
                     const prod = productosMap.get(m.productoId);
                     if (prod && returnableProductNames.includes(prod.nombre)) {
                         const cant = Number(m.cantidad) || 0;
-                        monthObj["Total General"] += cant;
-                        if (isExterno) monthObj["Externos"] += cant;
-                        else monthObj["Internos"] += cant;
                         monthObj[prod.nombre] += cant;
                     }
                 });
@@ -866,13 +889,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const dayLabel = d.toString();
         const dayObj: any = { name: dayLabel };
         
-        dayObj["Total Mes Actual"] = 0;
-        dayObj["Internos Mes Actual"] = 0;
-        dayObj["Externos Mes Actual"] = 0;
-        dayObj["Total Mes Anterior"] = 0;
-        dayObj["Internos Mes Anterior"] = 0;
-        dayObj["Externos Mes Anterior"] = 0;
-
         returnableProductNames.forEach(pName => {
             dayObj[pName] = 0;
             dayObj[`${pName} Mes Ant`] = 0;
@@ -886,8 +902,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         const prod = productosMap.get(m.productoId);
                         if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.entregados) || 0;
-                            dayObj["Total Mes Actual"] += cant;
-                            dayObj["Internos Mes Actual"] += cant;
                             dayObj[prod.nombre] += cant;
                         }
                     });
@@ -901,9 +915,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         const prod = productosMap.get(m.productoId);
                         if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.cantidad) || 0;
-                            dayObj["Total Mes Actual"] += cant;
-                            if (isExterno) dayObj["Externos Mes Actual"] += cant;
-                            else dayObj["Internos Mes Actual"] += cant;
                             dayObj[prod.nombre] += cant;
                         }
                     });
@@ -919,8 +930,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         const prod = productosMap.get(m.productoId);
                         if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.entregados) || 0;
-                            dayObj["Total Mes Anterior"] += cant;
-                            dayObj["Internos Mes Anterior"] += cant;
                             dayObj[`${prod.nombre} Mes Ant`] += cant;
                         }
                     });
@@ -934,9 +943,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         const prod = productosMap.get(m.productoId);
                         if (prod && returnableProductNames.includes(prod.nombre)) {
                             const cant = Number(m.cantidad) || 0;
-                            dayObj["Total Mes Anterior"] += cant;
-                            if (isExterno) dayObj["Externos Mes Anterior"] += cant;
-                            else dayObj["Internos Mes Anterior"] += cant;
                             dayObj[`${prod.nombre} Mes Ant`] += cant;
                         }
                     });
@@ -1374,16 +1380,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <YAxis axisLine={false} tickLine={false} />
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
                           <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                          
-                          <Line type="monotone" dataKey="Total Mes Actual" stroke="#3b82f6" strokeWidth={4} dot={false} name="📦 TOTAL ACTUAL" />
-                          <Line type="monotone" dataKey="Internos Mes Actual" stroke="#10b981" strokeWidth={2} dot={false} name="👤 INTERNOS ACTUAL" />
-                          <Line type="monotone" dataKey="Externos Mes Actual" stroke="#f59e0b" strokeWidth={2} dot={false} name="🤝 EXTERNOS ACTUAL" />
-                          
-                          <Line type="monotone" dataKey="Total Mes Anterior" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} name="📦 TOTAL ANTERIOR" opacity={0.5} />
 
                           {returnableProductNames.map(name => visibleProducts.includes(name) ? (
                               <React.Fragment key={name}>
-                                  <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={false} name={shortName(name)} />
+                                  <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />
+                                  <Line type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
                               </React.Fragment>
                           ) : null)}
                       </LineChart>
@@ -1464,13 +1465,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
                           <Legend iconType="circle" formatter={(v) => v} />
                           
-                          <Line type="monotone" dataKey="Total General" stroke="#111827" strokeWidth={4} dot={{ r: 5 }} name="📈 TOTAL VENTAS" />
-                          <Line type="monotone" dataKey="Internos" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="👤 INTERNOS" />
-                          <Line type="monotone" dataKey="Externos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="🤝 EXTERNOS" />
-
                           {returnableProductNames.map(name => {
                               if (!visibleProducts.includes(name)) return null;
-                              return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={2} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
+                              return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
                           })}
                       </LineChart>
                   </ResponsiveContainer>

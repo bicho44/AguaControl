@@ -867,19 +867,38 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             
                             const headers = ['Cliente', 'Dirección'];
                             if (showRemitosColumn) headers.push('Remitos');
-                            headers.push('Entregados', 'Recibidos', 'Balance');
+                            headers.push('Entregados (Detalle)', 'Recibidos (Detalle)', 'Balance (Detalle)');
                             csvRows.push(headers);
 
                             balanceData.forEach(d => {
+                                const entregadosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                    .filter(([_, det]) => det.entregados > 0)
+                                    .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.entregados}`)
+                                    .join(' | ');
+                                
+                                const recibidosDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                    .filter(([_, det]) => det.recibidos > 0)
+                                    .map(([prodId, det]) => `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${det.recibidos}`)
+                                    .join(' | ');
+
+                                const balanceDetalle = (Object.entries(d.detalles) as [string, { entregados: number; recibidos: number }][])
+                                    .map(([prodId, det]) => {
+                                        const bal = det.entregados - det.recibidos;
+                                        if (bal === 0) return null;
+                                        return `${productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: ${bal > 0 ? '+' : ''}${bal}`;
+                                    })
+                                    .filter(Boolean)
+                                    .join(' | ');
+
                                 const row = [
                                     `"${d.cliente?.nombre || 'N/A'}"`,
                                     `"${d.cliente?.sucursales[0]?.direccion || ''}"`
                                 ];
                                 if (showRemitosColumn) row.push(d.remitosCount.toString());
                                 row.push(
-                                    d.entregados.toString(),
-                                    d.recibidos.toString(),
-                                    d.balance.toString()
+                                    `"${entregadosDetalle || '0'}"`,
+                                    `"${recibidosDetalle || '0'}"`,
+                                    `"${balanceDetalle || '0'}"`
                                 );
                                 csvRows.push(row);
                             });
@@ -964,15 +983,22 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className={`inline-block px-3 py-1 rounded-full font-black text-xs ${
-                                                item.balance > 0 
-                                                    ? 'bg-red-100 text-red-700' 
-                                                    : item.balance < 0 
-                                                        ? 'bg-green-100 text-green-700' 
-                                                        : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                                {item.balance > 0 ? `+${item.balance}` : item.balance}
-                                            </span>
+                                            <div className="flex flex-col items-center gap-1">
+                                                {(Object.entries(item.detalles) as [string, { entregados: number; recibidos: number }][]).map(([prodId, d]) => {
+                                                    const bal = d.entregados - d.recibidos;
+                                                    if (bal === 0) return null;
+                                                    return (
+                                                        <span key={prodId} className={`inline-block px-2 py-0.5 rounded-full font-black text-[10px] ${
+                                                            bal > 0 
+                                                                ? 'bg-red-100 text-red-700' 
+                                                                : 'bg-green-100 text-green-700'
+                                                        }`}>
+                                                            {productosMap.get(prodId)?.abreviatura || productosMap.get(prodId)?.nombre}: {bal > 0 ? `+${bal}` : bal}
+                                                        </span>
+                                                    );
+                                                })}
+                                                {item.balance === 0 && <span className="text-gray-300">-</span>}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
