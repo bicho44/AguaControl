@@ -119,6 +119,7 @@ function AppContent() {
         causasRecambio: dataStore.causasRecambio,
         planillas: dataStore.planillas,
         movimientosPlanta: dataStore.movimientosStockPlanta,
+        facturas: dataStore.facturas,
         // Soplado data
         preformas: dataStore.preformas,
         moldes: dataStore.moldes,
@@ -129,6 +130,7 @@ function AppContent() {
         addPagoManual: dataStore.addPagoManual,
         addVentaVendedor: dataStore.addVentaVendedor,
         addCliente: dataStore.addCliente,
+        addPagoToFactura: dataStore.addPagoToFactura,
         setCurrentView: setCurrentView
     };
 

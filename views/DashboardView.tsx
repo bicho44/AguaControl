@@ -35,6 +35,7 @@ interface DashboardViewProps {
   causasRecambio: CausaRecambio[];
   planillas: PlanillaDiaria[];
   movimientosPlanta: MovimientoStockPlanta[];
+  facturas?: any[];
   // Soplado props
   preformas?: Preforma[];
   moldes?: Molde[];
@@ -45,6 +46,8 @@ interface DashboardViewProps {
   addPagoManual?: (pago: any) => Promise<void>;
   addVentaVendedor?: (venta: any) => Promise<void>;
   addCliente?: (cliente: any) => Promise<string>;
+  addPagoToFactura?: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => Promise<void>;
+  setCurrentView?: (view: any) => void;
 }
 
 // ----------------------------------------------------------------------
