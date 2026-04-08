@@ -375,15 +375,20 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     const pvActual = parseInt(puntoVentaLimpio);
     const numActual = parseInt(numeroLimpio);
 
-    const existe = remitos.some(r => {
+    const remitoExistente = remitos.find(r => {
         if (formData.id && r.id === formData.id) return false;
         const rPV = parseInt(r.puntoVenta);
         const rNum = parseInt(r.numero);
         return rPV === pvActual && rNum === numActual;
     });
 
-    if (existe) {
-        showNotification(`¡Error! El remito ${puntoVentaLimpio}-${numeroLimpio} ya existe.`, 'error');
+    if (remitoExistente) {
+        const clienteExistente = clientes.find(c => c.id === remitoExistente.clienteId);
+        const sucursalExistente = clienteExistente?.sucursales.find(s => s.id === remitoExistente.sucursalId);
+        const nombreCliente = clienteExistente ? clienteExistente.nombre : 'Cliente Desconocido';
+        const nombreSucursal = sucursalExistente ? sucursalExistente.nombre : 'Casa Central';
+        
+        showNotification(`¡Error! El remito ${puntoVentaLimpio}-${numeroLimpio} ya fue cargado a: ${nombreCliente} (${nombreSucursal}).`, 'error');
         return;
     }
 
@@ -401,7 +406,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     }
 
     setIsSaving(false);
-  }, [formData, isReadOnly, onSave, showNotification, remitos, onAddPagoToFactura, facturaPagos, clientes, productosMap]);
+    onClose();
+  }, [formData, isReadOnly, onSave, showNotification, remitos, onAddPagoToFactura, facturaPagos, clientes, productosMap, onClose]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
