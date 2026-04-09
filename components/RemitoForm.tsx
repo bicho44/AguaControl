@@ -39,6 +39,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const [pendingFacturas, setPendingFacturas] = useState<any[]>([]);
   const [facturaPagos, setFacturaPagos] = useState<Record<string, PagoDetalle[]>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = React.useRef(false);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [clientStock, setClientStock] = useState<Record<string, number>>({});
   const { showNotification } = useNotification();
@@ -347,6 +348,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isSavingRef.current) return;
     if (isReadOnly) return;
     if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
     
@@ -392,21 +394,29 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
-    await onSave(remitoFinal as Remito & { pagos: PagoDetalle[] });
+    
+    try {
+        await onSave(remitoFinal as Remito & { pagos: PagoDetalle[] });
 
-    // Procesar pagos de facturas
-    if (onAddPagoToFactura && Object.keys(facturaPagos).length > 0) {
-        for (const facturaId of Object.keys(facturaPagos)) {
-            const pagos = facturaPagos[facturaId];
-            if (pagos && pagos.length > 0) {
-                await onAddPagoToFactura(facturaId, formData.fecha || new Date().toISOString(), pagos);
+        // Procesar pagos de facturas
+        if (onAddPagoToFactura && Object.keys(facturaPagos).length > 0) {
+            for (const facturaId of Object.keys(facturaPagos)) {
+                const pagos = facturaPagos[facturaId];
+                if (pagos && pagos.length > 0) {
+                    await onAddPagoToFactura(facturaId, formData.fecha || new Date().toISOString(), pagos);
+                }
             }
         }
+        onClose();
+    } catch (error) {
+        console.error("Error saving remito:", error);
+        showNotification("Error al guardar el remito", "error");
+    } finally {
+        isSavingRef.current = false;
+        setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onClose();
   }, [formData, isReadOnly, onSave, showNotification, remitos, onAddPagoToFactura, facturaPagos, clientes, productosMap, onClose]);
 
   useEffect(() => {
