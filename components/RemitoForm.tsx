@@ -472,26 +472,27 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 )}
             </div>
             
-            <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3">
-                <div className="flex-1 min-w-[80px]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                <div className="w-full">
                     <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
                 </div>
-                <div className="flex-1 min-w-[120px]">
+                <div className="w-full">
                     <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
                 </div>
-            </div>
-            {isAdmin && (
-                <div className="mt-2">
-                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={isReadOnly} className="!py-1.5 !text-sm"/>
+                <div className="w-full">
+                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} className="!py-1.5 !text-sm"/>
                 </div>
-            )}
+            </div>
         </div>
 
         {deudaPendiente > 0 && <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md"><p className="font-bold text-sm">Deuda Pendiente: ${deudaPendiente.toLocaleString()}</p></div>}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative">
-                <div className="flex justify-between items-end mb-1"><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 ml-1 uppercase tracking-wider">Cliente</label>{!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase">+ Nuevo</button>}</div>
+                <div className="flex justify-between items-end mb-1">
+                    <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Cliente</label>
+                    {!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-widest">+ Nuevo</button>}
+                </div>
                 <SearchableSelect 
                   options={clienteOptions} 
                   value={formData.clienteId || ''} 
@@ -519,42 +520,54 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     </p>
                 )}
             </div>
-            {clienteSucursales.length > 1 && <div><AppSelect label="Sucursal" name="sucursalId" value={formData.sucursalId || ''} onChange={handleChange} options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} disabled={isReadOnly} required className="!py-1.5 !text-sm" /></div>}
+            <div className={clienteSucursales.length <= 1 ? 'invisible md:visible' : ''}>
+                <AppSelect 
+                    label="Sucursal" 
+                    name="sucursalId" 
+                    value={formData.sucursalId || ''} 
+                    onChange={handleChange} 
+                    options={clienteSucursales.map(s=>({value:s.id, label:s.nombre}))} 
+                    disabled={isReadOnly || clienteSucursales.length <= 1} 
+                    required 
+                    className="!py-1.5 !text-sm" 
+                />
+            </div>
         </div>
 
         <fieldset className="border-t dark:border-gray-600 pt-3">
           <legend className="text-sm font-black text-gray-800 dark:text-white px-2 mb-2 uppercase tracking-wider">Movimientos</legend>
           {(formData.movimientos || []).map((mov, index) => (
-              <div key={index} className="flex flex-col gap-2 mb-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
-                  <div className="flex gap-2 items-start">
-                      <div className="flex-1">
-                          <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block ml-1">Entrega</label>
-                          <AppInput 
-                            id={index === 0 ? "primer-input-cantidad" : undefined}
-                            type="number" 
-                            value={mov.entregados} 
-                            onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
-                            required 
-                            disabled={isReadOnly} 
-                            autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
-                            className="text-center font-bold text-lg !py-1.5"
-                          />
-                      </div>
-                      <div className="flex-1">
-                          <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block ml-1">Recibe</label>
-                          <AppInput 
-                            type="number" 
-                            value={mov.recibidos} 
-                            onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
-                            required 
-                            disabled={isReadOnly} 
-                            className="text-center font-bold text-lg !py-1.5"
-                          />
-                      </div>
-                      <div className="pt-5">
-                          <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2 h-[38px] w-[38px] flex items-center justify-center" type="button"><TrashIcon/></AppButton>
-                      </div>
+              <div key={index} className="grid grid-cols-1 lg:grid-cols-12 gap-2 mb-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 items-end">
+                  <div className="lg:col-span-5">
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
+                      <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
+                  </div>
+                  <div className="lg:col-span-3">
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Entrega</label>
+                      <AppInput 
+                        id={index === 0 ? "primer-input-cantidad" : undefined}
+                        type="number" 
+                        value={mov.entregados} 
+                        onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
+                        required 
+                        disabled={isReadOnly} 
+                        autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
+                        className="text-center font-bold text-lg !py-1.5"
+                      />
+                  </div>
+                  <div className="lg:col-span-3">
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Recibe</label>
+                      <AppInput 
+                        type="number" 
+                        value={mov.recibidos} 
+                        onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
+                        required 
+                        disabled={isReadOnly} 
+                        className="text-center font-bold text-lg !py-1.5"
+                      />
+                  </div>
+                  <div className="lg:col-span-1 flex justify-center">
+                      <AppButton variant="danger" size="sm" onClick={() => removeMovimiento(index)} disabled={isReadOnly} className="!p-2 h-[46px] w-full flex items-center justify-center" type="button"><TrashIcon/></AppButton>
                   </div>
               </div>
           ))}
