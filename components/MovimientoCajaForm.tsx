@@ -135,8 +135,8 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
             ...formData,
             id: idToUse,
             movimientos: movimientosVenta.filter(m => m.productoId && m.cantidad > 0).map(mov => {
-                // Si ya tiene precio (ej: estamos editando), lo mantenemos
-                if (mov.precioUnitario !== undefined && mov.precioUnitario !== 0) return mov;
+                // Si ya tiene precio (ej: estamos editando o se ingresó manualmente), lo mantenemos (incluso si es 0)
+                if (mov.precioUnitario !== undefined && mov.precioUnitario !== null) return mov;
                 
                 // Si no tiene precio, calculamos el precio sugerido actual para persistirlo
                 const prod = productosMap.get(mov.productoId);

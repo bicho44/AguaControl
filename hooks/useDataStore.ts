@@ -177,12 +177,13 @@ export const useDataStore = () => {
 
     const addPagoManual = useCallback(async (p: any) => {
         const { pagos, ...base } = p;
+        const groupId = `PM-${Date.now()}`;
         for (const pago of pagos) {
             await addDoc(collection(db, 'registrosPago'), {
                 ...base,
                 monto: pago.monto,
                 metodo: pago.metodo,
-                origen: { tipo: 'pago_manual', id: `PM-${Date.now()}` }
+                origen: { tipo: 'pago_manual', id: groupId }
             });
         }
     }, []);

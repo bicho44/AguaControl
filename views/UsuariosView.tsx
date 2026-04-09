@@ -156,7 +156,7 @@ const VendorAccountModal: React.FC<{
 
     const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
         const misVentas = ventas.filter(v => v.vendedorId === user.id && !v.clienteId);
-        const misPagos = pagos.filter(p => p.vendedorId === user.id && !p.clienteId);
+        const misPagos = pagos.filter(p => p.vendedorId === user.id);
         
         let comprado = 0;
         const historialCombinado: any[] = [];
@@ -167,7 +167,9 @@ const VendorAccountModal: React.FC<{
                 const prod = productosMap.get(m.productoId);
                 if (prod) {
                     const precioEsp = user.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
-                    const precioFinal = m.precioUnitario || precioEsp || prod.precioReventa || prod.precio;
+                    const precioFinal = (m.precioUnitario !== undefined && m.precioUnitario !== null) 
+                        ? m.precioUnitario 
+                        : (precioEsp || prod.precioReventa || prod.precio);
                     totalVenta += m.cantidad * precioFinal;
                 }
             });
@@ -196,13 +198,20 @@ const VendorAccountModal: React.FC<{
             const p1 = grupo[0];
             const totalGrupo = grupo.reduce((sum, p) => sum + p.monto, 0);
             pagado += totalGrupo;
+            
+            let detalle = p1.concepto || '-';
+            if (p1.clienteId) {
+                const cli = clientes.find(c => c.id === p1.clienteId);
+                detalle = `Cliente: ${cli?.nombre || 'N/A'}${p1.concepto ? ` - ${p1.concepto}` : ''}`;
+            }
+
             historialCombinado.push({
                 id: p1.origen.id,
                 type: 'payment',
                 fecha: p1.fecha,
                 concepto: `Pago (${grupo.length > 1 ? 'Múltiple' : p1.metodo})`,
                 monto: totalGrupo,
-                detalle: p1.concepto || '-',
+                detalle,
                 original: grupo
             });
         });
