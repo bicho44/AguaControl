@@ -171,14 +171,81 @@ export const useDataStore = () => {
         }
     }, []);
 
-    const updateRemito = useCallback(async (r: any) => {
-        const { id, pagos, ...data } = r;
-        await updateDoc(doc(db, 'remitos', id), cleanUndefineds(data));
-    }, []);
-
     const deleteRemito = useCallback(async (id: string) => {
         await deleteDoc(doc(db, 'remitos', id));
     }, []);
+
+    const addPagoManual = useCallback(async (p: any) => {
+        const { pagos, ...base } = p;
+        for (const pago of pagos) {
+            await addDoc(collection(db, 'registrosPago'), {
+                ...base,
+                monto: pago.monto,
+                metodo: pago.metodo,
+                origen: { tipo: 'pago_manual', id: `PM-${Date.now()}` }
+            });
+        }
+    }, []);
+
+    const updateRegistroPago = useCallback(async (p: any) => {
+        const { id, pagos, ...data } = p;
+        
+        // Si no hay array de pagos, es una actualización simple de un solo documento
+        if (!pagos) {
+            await updateDoc(doc(db, 'registrosPago', id), cleanUndefineds(data));
+            return;
+        }
+
+        // Si hay array de pagos, estamos editando un grupo (Ingreso Manual, Remito, Venta, etc.)
+        const batch = writeBatch(db);
+        
+        // 1. Buscar todos los pagos con el mismo origen para eliminarlos y recrearlos
+        // Esto asegura que si se agregaron o quitaron métodos de pago, el estado sea correcto.
+        const q = query(collection(db, 'registrosPago'), where('origen.id', '==', data.origen.id));
+        const snapshot = await getDocs(q);
+        snapshot.docs.forEach(d => batch.delete(d.ref));
+        
+        // 2. Crear los nuevos pagos
+        const newPagoIds: string[] = [];
+        for (const pago of pagos) {
+            const newDocRef = doc(collection(db, 'registrosPago'));
+            batch.set(newDocRef, cleanUndefineds({
+                ...data,
+                monto: pago.monto,
+                metodo: pago.metodo
+            }));
+            newPagoIds.push(newDocRef.id);
+        }
+        
+        await batch.commit();
+
+        // 3. Sincronizar pagoIds en el origen si aplica
+        if (data.origen.tipo === 'remito') {
+            await updateDoc(doc(db, 'remitos', data.origen.id), { pagoIds: newPagoIds });
+        } else if (data.origen.tipo === 'venta_vendedor') {
+            await updateDoc(doc(db, 'ventasVendedor', data.origen.id), { pagoIds: newPagoIds });
+        }
+    }, []);
+
+    const deleteRegistroPago = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'registrosPago', id));
+    }, []);
+
+    const updateRemito = useCallback(async (r: any) => {
+        const { id, pagos, ...data } = r;
+        await updateDoc(doc(db, 'remitos', id), cleanUndefineds(data));
+
+        // Si hay pagos, actualizarlos también para que coincidan en fecha/vendedor/cliente
+        if (pagos) {
+            await updateRegistroPago({
+                fecha: data.fecha,
+                vendedorId: data.vendedorId,
+                clienteId: data.clienteId || null,
+                origen: { tipo: 'remito', id: id },
+                pagos
+            });
+        }
+    }, [updateRegistroPago]);
 
     // Función auxiliar para procesar stock inicial y contratos (reutilizable)
     const processInitialData = async (clienteId: string, stockInicial?: any[], contratosIniciales?: any[], adminId?: string) => {
@@ -260,17 +327,6 @@ export const useDataStore = () => {
         await updateDoc(doc(db, 'clientes', id), { estado: EstadoCliente.ACTIVO });
     }, []);
 
-    const addPagoManual = useCallback(async (p: any) => {
-        const { pagos, ...base } = p;
-        for (const pago of pagos) {
-            await addDoc(collection(db, 'registrosPago'), {
-                ...base,
-                monto: pago.monto,
-                metodo: pago.metodo,
-                origen: { tipo: 'pago_manual', id: `PM-${Date.now()}` }
-            });
-        }
-    }, []);
 
     const addGasto = useCallback(async (g: any) => {
         await addDoc(collection(db, 'gastos'), cleanUndefineds(g));
@@ -296,28 +352,32 @@ export const useDataStore = () => {
         }
     }, []);
 
-    const updateRegistroPago = useCallback(async (p: any) => {
-        const { id, ...data } = p;
-        await updateDoc(doc(db, 'registrosPago', id), cleanUndefineds(data));
-    }, []);
 
     const updateGasto = useCallback(async (g: any) => {
         const { id, ...data } = g;
         await updateDoc(doc(db, 'gastos', id), cleanUndefineds(data));
     }, []);
 
-    const deleteRegistroPago = useCallback(async (id: string) => {
-        await deleteDoc(doc(db, 'registrosPago', id));
-    }, []);
 
     const deleteGasto = useCallback(async (id: string) => {
         await deleteDoc(doc(db, 'gastos', id));
     }, []);
 
     const updateVentaVendedor = useCallback(async (v: any) => {
-        const { id, ...data } = v;
+        const { id, pagos, ...data } = v;
         await updateDoc(doc(db, 'ventasVendedor', id), cleanUndefineds(data));
-    }, []);
+        
+        // Si hay pagos, actualizarlos también para que coincidan en fecha/vendedor/cliente
+        if (pagos) {
+            await updateRegistroPago({
+                fecha: data.fecha,
+                vendedorId: data.vendedorId,
+                clienteId: data.clienteId || null,
+                origen: { tipo: 'venta_vendedor', id: id },
+                pagos
+            });
+        }
+    }, [updateRegistroPago]);
 
     // NUEVO: Función para eliminar ventas de vendedores (corrección de stock)
     const deleteVentaVendedor = useCallback(async (id: string) => {

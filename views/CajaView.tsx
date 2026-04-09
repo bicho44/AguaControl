@@ -80,13 +80,6 @@ const CajaView: React.FC<CajaViewProps> = ({
         if (isVenta) {
             if (modalConfig.isEdit) {
                 await updateVentaVendedor(data);
-                // Si la venta tiene pagos asociados, actualizamos el vendedorID de esos pagos por si cambió
-                const pagosViejos = registrosPago.filter(p => p.origen.tipo === 'venta_vendedor' && p.origen.id === data.id);
-                const updatePromises = pagosViejos.map(p => {
-                    if (p.vendedorId !== data.vendedorId) return updateRegistroPago({ ...p, vendedorId: data.vendedorId });
-                    return Promise.resolve();
-                });
-                await Promise.all(updatePromises);
                 showNotification('Venta actualizada.', 'success');
             } else {
                 await addVentaVendedor(data);
