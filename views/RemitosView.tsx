@@ -16,6 +16,7 @@ import AppInput from '../components/ui/AppInput'; // Requerido para ReassignModa
 import { CogIcon } from '../components/icons/CogIcon';
 import { PdfIcon } from '../components/icons/PdfIcon';
 import { CsvIcon } from '../components/icons/CsvIcon';
+import { Eye, EyeOff } from 'lucide-react';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -562,22 +563,22 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       {activeTab === 'listado' ? (
         <>
           <Card>
-            <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
+            <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                <div className="w-full">
                     <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                 </div>
-                <div className="flex-1 min-w-[150px]">
+                <div className="w-full">
                     <AppInput label="Nro Remito" placeholder="Ej: 0001-00001234" value={remitoNumberFilter} onChange={e => setRemitoNumberFilter(e.target.value)} />
                 </div>
-                <div className="flex-1 min-w-[120px]">
+                <div className="w-full">
                     <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
                 </div>
-                <div className="flex-1 min-w-[280px]">
-                    <div className="flex gap-2 w-full">
-                        <div className="flex-1">
+                <div className="w-full lg:col-span-2">
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                        <div className="w-full">
                             <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
                         </div>
-                        <div className="flex-1">
+                        <div className="w-full">
                             <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
                         </div>
                     </div>
@@ -634,21 +635,21 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       ) : (
         <div className="space-y-4">
             <Card>
-                <div className="p-4 border-b dark:border-gray-700 flex flex-wrap gap-4 items-end">
-                    <div className="flex-1 min-w-[200px]">
+                <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                    <div className="lg:col-span-3">
                         <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                     </div>
-                    <div className="flex-1 min-w-[280px]">
-                        <div className="flex gap-2 w-full">
-                            <div className="flex-1">
+                    <div className="lg:col-span-4">
+                        <div className="grid grid-cols-2 gap-2 w-full">
+                            <div className="w-full">
                                 <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
                             </div>
-                            <div className="flex-1">
+                            <div className="w-full">
                                 <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
                             </div>
                         </div>
                     </div>
-                    <div className="w-48">
+                    <div className="lg:col-span-2">
                         <AppSelect 
                             label="Filtrar Balance"
                             value={balanceFilter}
@@ -661,17 +662,17 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             ]}
                         />
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Columnas</label>
-                        <AppButton 
-                            variant="secondary" 
+                    <div className="flex flex-col gap-1.5 lg:col-span-1">
+                        <label className="block text-[10px] uppercase font-bold text-gray-500 ml-1">Remitos</label>
+                        <button 
                             onClick={() => setShowRemitosColumn(!showRemitosColumn)}
-                            className={showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-700' : ''}
+                            className={`p-2 rounded-xl transition-all flex items-center justify-center border ${showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+                            title={showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
                         >
-                            {showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
-                        </AppButton>
+                            {showRemitosColumn ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                        </button>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 lg:col-span-2">
                         <AppButton variant="secondary" onClick={() => {
                             const doc = new jsPDF();
                             const days = [DiaSemana.LUNES, DiaSemana.MARTES, DiaSemana.MIERCOLES, DiaSemana.JUEVES, DiaSemana.VIERNES, DiaSemana.SABADO, DiaSemana.DOMINGO];
