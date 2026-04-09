@@ -416,20 +416,16 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
           await addRemito(r);
           showNotification('Guardado.', 'success');
           
-          if (currentUser.rol === Rol.ADMINISTRADOR) {
-              const nextNum = getNextAvailableNumber(r.puntoVenta, (parseInt(r.numero) || 0) + 1);
-              setEditingRemito({ 
-                fecha: r.fecha,
-                puntoVenta: r.puntoVenta, 
-                numero: nextNum.toString(), 
-                movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
-                pagos: [], 
-                vendedorId: r.vendedorId || stickyVendedorId 
-              });
-              setFormInstanceId(prev => prev + 1);
-          } else {
-              setIsFormOpen(false);
-          }
+          const nextNum = getNextAvailableNumber(r.puntoVenta, (parseInt(r.numero) || 0) + 1);
+          setEditingRemito({ 
+            fecha: r.fecha,
+            puntoVenta: r.puntoVenta, 
+            numero: nextNum.toString(), 
+            movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }], 
+            pagos: [], 
+            vendedorId: r.vendedorId || stickyVendedorId 
+          });
+          setFormInstanceId(prev => prev + 1);
       }
     } catch (e) { showNotification('Error.', 'error'); }
   };

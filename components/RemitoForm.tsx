@@ -409,7 +409,6 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 }
             }
         }
-        onClose();
     } catch (error) {
         console.error("Error saving remito:", error);
         showNotification("Error al guardar el remito", "error");
