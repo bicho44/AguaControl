@@ -662,15 +662,16 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             ]}
                         />
                     </div>
-                    <div className="flex flex-col gap-1.5 lg:col-span-1">
-                        <label className="block text-[10px] uppercase font-bold text-gray-500 ml-1">Remitos</label>
-                        <button 
+                    <div className="flex flex-col gap-1 lg:col-span-1">
+                        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Remitos</label>
+                        <AppButton 
+                            variant="secondary"
                             onClick={() => setShowRemitosColumn(!showRemitosColumn)}
-                            className={`p-2 rounded-xl transition-all flex items-center justify-center border ${showRemitosColumn ? 'bg-primary-50 border-primary-200 text-primary-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+                            className={`!px-0 w-full ${showRemitosColumn ? 'text-primary-600 border-primary-200 bg-primary-50 dark:bg-primary-900/20' : 'text-gray-400'}`}
                             title={showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
                         >
                             {showRemitosColumn ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                        </button>
+                        </AppButton>
                     </div>
                     <div className="flex gap-2 lg:col-span-2">
                         <AppButton variant="secondary" onClick={() => {
@@ -1018,7 +1019,6 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                         const prod = productosMap.get(prodId);
                         return (
                             <Card key={prodId} className="p-4 overflow-hidden relative">
-                                <div className="absolute top-0 left-0 w-1 h-full bg-primary-500"></div>
                                 <p className="text-[10px] font-black uppercase text-gray-400 mb-2 truncate">{prod?.nombre || 'N/A'}</p>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="flex flex-col">
