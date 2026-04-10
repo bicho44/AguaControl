@@ -60,15 +60,26 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
 
       if (contratosActivos.length === 0) return null;
 
-      // 2. Remitos del mes
+      // 2. Remitos del mes (Solo los NO facturados)
       const remitosMes = remitos.filter(r => 
         r.clienteId === cliente.id && 
         !r.esAjuste &&
+        !r.facturaId && // Inteligencia: Solo remitos sin factura
         new Date(r.fecha + 'T00:00:00') >= startDate &&
         new Date(r.fecha + 'T00:00:00') <= endDate
       );
 
-      // 3. Agrupar por producto de consumo (usualmente bidones)
+      // 3. Verificar si el ABONO ya fue facturado este mes
+      const conceptoBusqueda = `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`;
+      const abonoYaFacturado = facturas.some(f => 
+        f.clienteId === cliente.id && 
+        f.concepto?.includes(conceptoBusqueda) &&
+        f.estado !== EstadoFactura.ANULADO
+      );
+
+      if (remitosMes.length === 0 && abonoYaFacturado) return null;
+
+      // 4. Agrupar por producto de consumo (usualmente bidones)
       // Para simplificar, asumimos que el cliente tiene un abono principal
       // Pero el sistema debe ser modular.
       
@@ -113,15 +124,24 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
         let concepto = '';
         let esSoloConsumo = false;
 
+        // Si el abono ya se facturó, el monto fijo es 0, solo cobramos excedentes de remitos nuevos
+        const montoFijoEfectivo = abonoYaFacturado ? 0 : abono.montoFijoTotal;
+        const consumoIncluidoEfectivo = abonoYaFacturado ? 0 : abono.consumoIncluidoTotal;
+
         // REGLA ESPECIAL: Si supera 10 bidones por servicio, solo se cobra consumo
         if (promedioPorServicio > 10) {
           montoAFacturar = consumoReal * precioUnitario;
           concepto = `Liquidación por Consumo Excedente (>10 b/serv): ${consumoReal} x $${precioUnitario}`;
           esSoloConsumo = true;
         } else {
-          const excedente = Math.max(0, consumoReal - abono.consumoIncluidoTotal);
-          montoAFacturar = abono.montoFijoTotal + (excedente * precioUnitario);
-          concepto = `Abono Mensual (${abono.cantidadServicios} serv.) + Excedente (${excedente} b.)`;
+          const excedente = Math.max(0, consumoReal - consumoIncluidoEfectivo);
+          montoAFacturar = montoFijoEfectivo + (excedente * precioUnitario);
+          
+          if (abonoYaFacturado) {
+            concepto = `Excedente de nuevos remitos (${excedente} b.)`;
+          } else {
+            concepto = `Abono Mensual (${abono.cantidadServicios} serv.) + Excedente (${excedente} b.)`;
+          }
         }
 
         return {
@@ -138,22 +158,14 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
 
       const totalAFacturar = detalles.reduce((sum, d) => sum + d.montoAFacturar, 0);
       
-      // Verificar si ya tiene factura generada para este mes/tipo
-      const yaFacturado = facturas.some(f => 
-        f.clienteId === cliente.id && 
-        new Date(f.fecha).getMonth() === selectedMonth &&
-        new Date(f.fecha).getFullYear() === selectedYear &&
-        f.monto === totalAFacturar // Simplificación: si el monto coincide, asumimos que es la misma
-      );
-
       return {
         cliente,
         detalles,
         totalAFacturar,
         remitosIds: remitosMes.map(r => r.id),
-        yaFacturado
+        yaFacturado: false // Ya filtramos arriba, si llega aquí es porque hay algo pendiente
       };
-    }).filter(l => l !== null && l.totalAFacturar > 0 && !l.yaFacturado) as any[];
+    }).filter(l => l !== null && l.totalAFacturar > 0) as any[];
   }, [clientes, remitos, facturas, productosMap, contratos, selectedMonth, selectedYear]);
 
   const filteredLiquidaciones = useMemo(() => {

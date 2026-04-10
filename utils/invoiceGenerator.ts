@@ -148,20 +148,32 @@ export const generateInvoicePDF = async (
                 doc.text(splitRemitos, offsetX + 10, footerY);
                 footerY += (splitRemitos.length * 3) + 3;
 
+                // OBSERVACIONES DE LA FACTURA
+                if (factura.observaciones) {
+                    doc.setTextColor(0);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Observaciones:", offsetX + 10, footerY);
+                    footerY += 4;
+                    doc.setFont("helvetica", "normal");
+                    const obsFactura = doc.splitTextToSize(factura.observaciones, pageWidth - 20);
+                    doc.text(obsFactura, offsetX + 10, footerY);
+                    footerY += (obsFactura.length * 3) + 4;
+                }
+
                 if (empresa.cbu || empresa.alias) {
                     doc.setTextColor(0);
                     doc.setFont("helvetica", "bold");
-                    doc.text("Datos Bancarios:", offsetX + 10, footerY);
+                    doc.text("Datos Bancarios para Transferencia:", offsetX + 10, footerY);
                     footerY += 4;
                     
                     doc.setFont("helvetica", "normal");
                     let bankText = "";
-                    if (empresa.banco) bankText += `Banco: ${empresa.banco} - `;
-                    if (empresa.cbu) bankText += `CBU: ${empresa.cbu}\n`;
+                    if (empresa.banco) bankText += `Banco: ${empresa.banco} | `;
+                    if (empresa.cbu) bankText += `CBU: ${empresa.cbu} | `;
                     if (empresa.alias) bankText += `Alias: ${empresa.alias}`;
                     
                     doc.text(bankText, offsetX + 10, footerY);
-                    footerY += 8;
+                    footerY += 6;
                 }
 
                 if (empresa.observacionesFactura) {
