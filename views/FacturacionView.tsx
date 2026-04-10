@@ -110,6 +110,8 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
   const [activeTab, setActiveTab] = useState<'cuentacorriente' | 'liquidacion'>('cuentacorriente');
   const [selectedClienteId, setSelectedClienteId] = useState<string>('');
   const [selectedRemitos, setSelectedRemitos] = useState<Set<string>>(new Set());
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [pagandoFacturaInfo, setPagandoFacturaInfo] = useState<{ factura: Factura; montoRestante: number } | null>(null);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'nombre' | 'deuda'>('nombre');
@@ -151,16 +153,29 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
   
   const clienteData = useMemo(() => {
     if (!selectedClienteId) return null;
+    
     const rems = remitos
-      .filter(r => r.clienteId === selectedClienteId && !r.facturaId && !r.esAjuste)
+      .filter(r => {
+        const matchesClient = r.clienteId === selectedClienteId && !r.facturaId && !r.esAjuste;
+        if (!matchesClient) return false;
+        
+        if (startDate && r.fecha < startDate) return false;
+        if (endDate && r.fecha > endDate) return false;
+        
+        return true;
+      })
       .sort((a,b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime());
+
     const facts = facturas.filter(f => f.clienteId === selectedClienteId).sort((a,b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime());
     const totalDeuda = facts.filter(f => f.estado !== EstadoFactura.PAGADO && f.estado !== EstadoFactura.ANULADO).reduce((sum, f) => {
         const pagado = (f.pagoIds || []).reduce((ps, id) => ps + (registrosPago.find(p => p.id === id)?.monto || 0), 0);
         return sum + (f.monto - pagado);
     }, 0);
-    return { remitosPendientes: rems, facturasCliente: facts, totalDeuda };
-  }, [selectedClienteId, remitos, facturas, registrosPago]);
+
+    const tieneAbonos = contratos.some(c => c.clienteId === selectedClienteId && c.estado === 'Activo' && c.tipo === 'Abono Fijo');
+
+    return { remitosPendientes: rems, facturasCliente: facts, totalDeuda, tieneAbonos };
+  }, [selectedClienteId, remitos, facturas, registrosPago, startDate, endDate, contratos]);
   
   const handleGenerarFactura = () => {
     if (selectedRemitos.size === 0) return;
@@ -233,10 +248,41 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
             {clienteData ? (
                 <div className="space-y-6 animate-fade-in">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card title="Resumen"><div className="space-y-3"><div className="flex justify-between items-baseline"><span className="text-[10px] font-black uppercase text-gray-400">Deuda Facturada:</span><span className="font-black text-2xl text-red-500">${clienteData.totalDeuda.toLocaleString()}</span></div></div></Card>
+                        <Card title="Resumen">
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-[10px] font-black uppercase text-gray-400">Deuda Facturada:</span>
+                                    <span className="font-black text-2xl text-red-500">${clienteData.totalDeuda.toLocaleString()}</span>
+                                </div>
+                                {clienteData.tieneAbonos && (
+                                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                            <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">Cliente con Abono Activo</span>
+                                        </div>
+                                        <p className="text-[9px] text-blue-500 dark:text-blue-300 mt-1 leading-tight">
+                                            Se recomienda usar la pestaña "Liquidación Abonos" para este cliente.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
                         <Card title="Acciones"><AppButton onClick={handleGenerarFactura} disabled={selectedRemitos.size === 0} className="w-full h-full py-4 uppercase">Generar Factura (${clienteData.remitosPendientes.filter(r=>selectedRemitos.has(r.id)).reduce((s,r)=>s+getRemitoTotal(r),0).toLocaleString()})</AppButton></Card>
                     </div>
                     <Card title="Remitos Pendientes de Facturación">
+                        <div className="p-4 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                            <div className="flex flex-wrap items-end gap-4">
+                                <div className="flex-1 min-w-[150px]">
+                                    <label className="text-[9px] font-black uppercase text-gray-400 mb-1 block">Desde</label>
+                                    <AppInput type="date" value={startDate} onChange={e => setStartDate(e.target.value)} size="sm" />
+                                </div>
+                                <div className="flex-1 min-w-[150px]">
+                                    <label className="text-[9px] font-black uppercase text-gray-400 mb-1 block">Hasta</label>
+                                    <AppInput type="date" value={endDate} onChange={e => setEndDate(e.target.value)} size="sm" />
+                                </div>
+                                <AppButton variant="secondary" size="sm" onClick={() => { setStartDate(''); setEndDate(''); }} className="mb-0.5">Limpiar</AppButton>
+                            </div>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
