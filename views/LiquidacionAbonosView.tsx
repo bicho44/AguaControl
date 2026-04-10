@@ -181,12 +181,12 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
         <div className="flex items-center gap-2">
           <AppSelect 
             value={selectedMonth} 
-            onChange={v => setSelectedMonth(Number(v))} 
+            onChange={e => setSelectedMonth(Number(e.target.value))} 
             options={months} 
           />
           <AppSelect 
             value={selectedYear} 
-            onChange={v => setSelectedYear(Number(v))} 
+            onChange={e => setSelectedYear(Number(e.target.value))} 
             options={years} 
           />
         </div>

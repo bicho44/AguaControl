@@ -3,7 +3,7 @@ import React from 'react';
 
 interface AppSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
-  options: { value: string; label: string }[];
+  options: { value: string | number; label: string }[];
 }
 
 const AppSelect: React.FC<AppSelectProps> = ({ label, options, className = '', ...props }) => {
