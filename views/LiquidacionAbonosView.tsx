@@ -28,6 +28,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [observations, setObservations] = useState<Record<string, string>>({});
   const { showNotification } = useNotification();
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -152,7 +153,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
         remitosIds: remitosMes.map(r => r.id),
         yaFacturado
       };
-    }).filter(l => l !== null && l.totalAFacturar > 0) as any[];
+    }).filter(l => l !== null && l.totalAFacturar > 0 && !l.yaFacturado) as any[];
   }, [clientes, remitos, facturas, productosMap, contratos, selectedMonth, selectedYear]);
 
   const filteredLiquidaciones = useMemo(() => {
@@ -193,10 +194,16 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
         fecha: getLocalDateString(),
         monto: liq.totalAFacturar,
         remitosIds: liq.remitosIds,
-        concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`
+        concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`,
+        observaciones: observations[liq.cliente.id] || ''
       });
       showNotification(`Factura generada para ${liq.cliente.nombre}`, 'success');
       setSelectedIds(prev => prev.filter(id => id !== liq.cliente.id));
+      setObservations(prev => {
+        const next = { ...prev };
+        delete next[liq.cliente.id];
+        return next;
+      });
     } catch (e) {
       showNotification('Error al generar factura', 'error');
     }
@@ -214,7 +221,8 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
           fecha: getLocalDateString(),
           monto: liq.totalAFacturar,
           remitosIds: liq.remitosIds,
-          concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`
+          concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`,
+          observaciones: observations[liq.cliente.id] || ''
         });
         successCount++;
       } catch (e) {
@@ -225,6 +233,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
     if (successCount > 0) {
       showNotification(`${successCount} facturas generadas correctamente`, 'success');
       setSelectedIds([]);
+      setObservations({});
     } else {
       showNotification('Error al generar las facturas seleccionadas', 'error');
     }
@@ -296,6 +305,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
                 <th className="p-4">Detalle Abonos</th>
                 <th className="p-4 text-right">Consumo Real</th>
                 <th className="p-4 text-right">Monto Total</th>
+                <th className="p-4">Observaciones</th>
                 <th className="p-4 text-center">Acción</th>
               </tr>
             </thead>
@@ -333,6 +343,15 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
                   </td>
                   <td className="p-4 text-right">
                     <p className="font-black text-lg text-primary-600 dark:text-primary-400">${liq.totalAFacturar.toLocaleString('es-AR')}</p>
+                  </td>
+                  <td className="p-4">
+                    <input 
+                      type="text"
+                      placeholder="Nota..."
+                      className="w-full text-xs p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-1 focus:ring-primary-500"
+                      value={observations[liq.cliente.id] || ''}
+                      onChange={(e) => setObservations(prev => ({ ...prev, [liq.cliente.id]: e.target.value }))}
+                    />
                   </td>
                   <td className="p-4 text-center">
                     {liq.yaFacturado ? (

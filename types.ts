@@ -260,6 +260,7 @@ export interface Factura {
     pagoIds?: string[];
     estado: EstadoFactura;
     enviada?: boolean;
+    observaciones?: string;
 }
 
 export interface Servicio {
