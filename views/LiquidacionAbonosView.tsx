@@ -27,6 +27,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { showNotification } = useNotification();
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -159,6 +160,32 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
     return liquidaciones.filter(l => l.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [liquidaciones, searchTerm]);
 
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const pendingToInvoice = useMemo(() => 
+    filteredLiquidaciones.filter(l => !l.yaFacturado),
+    [filteredLiquidaciones]
+  );
+
+  const allFilteredSelected = useMemo(() => 
+    pendingToInvoice.length > 0 && pendingToInvoice.every(l => selectedIds.includes(l.cliente.id)),
+    [pendingToInvoice, selectedIds]
+  );
+
+  const handleSelectAll = () => {
+    if (allFilteredSelected) {
+      const filteredIds = pendingToInvoice.map(l => l.cliente.id);
+      setSelectedIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      const filteredIds = pendingToInvoice.map(l => l.cliente.id);
+      setSelectedIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
   const handleFacturar = async (liq: any) => {
     try {
       await addFactura({
@@ -169,8 +196,37 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
         concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`
       });
       showNotification(`Factura generada para ${liq.cliente.nombre}`, 'success');
+      setSelectedIds(prev => prev.filter(id => id !== liq.cliente.id));
     } catch (e) {
       showNotification('Error al generar factura', 'error');
+    }
+  };
+
+  const handleFacturarSeleccionados = async () => {
+    const toInvoice = filteredLiquidaciones.filter(l => selectedIds.includes(l.cliente.id) && !l.yaFacturado);
+    if (toInvoice.length === 0) return;
+
+    let successCount = 0;
+    for (const liq of toInvoice) {
+      try {
+        await addFactura({
+          clienteId: liq.cliente.id,
+          fecha: getLocalDateString(),
+          monto: liq.totalAFacturar,
+          remitosIds: liq.remitosIds,
+          concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`
+        });
+        successCount++;
+      } catch (e) {
+        console.error(`Error facturando a ${liq.cliente.nombre}:`, e);
+      }
+    }
+
+    if (successCount > 0) {
+      showNotification(`${successCount} facturas generadas correctamente`, 'success');
+      setSelectedIds([]);
+    } else {
+      showNotification('Error al generar las facturas seleccionadas', 'error');
     }
   };
 
@@ -193,23 +249,49 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
       </div>
 
       <Card>
-        <div className="p-4 border-b dark:border-gray-700">
-            <div className="relative">
+        <div className="p-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="relative flex-1">
                 <AppInput 
-                    placeholder="Buscar cliente..." 
+                    placeholder="Filtrar por nombre de cliente..." 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-10"
+                    className="pl-10 pr-10"
                 />
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                     <SearchIcon className="h-5 w-5 text-gray-400" />
                 </div>
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
             </div>
+            {selectedIds.length > 0 && (
+              <AppButton 
+                onClick={handleFacturarSeleccionados}
+                className="bg-primary-600 hover:bg-primary-700 text-white"
+              >
+                Facturar Seleccionados ({selectedIds.length})
+              </AppButton>
+            )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 dark:bg-gray-700">
               <tr>
+                <th className="p-4 w-10">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                    checked={allFilteredSelected}
+                    onChange={handleSelectAll}
+                  />
+                </th>
                 <th className="p-4">Cliente</th>
                 <th className="p-4">Detalle Abonos</th>
                 <th className="p-4 text-right">Consumo Real</th>
@@ -219,7 +301,17 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
             </thead>
             <tbody>
               {filteredLiquidaciones.map((liq, idx) => (
-                <tr key={idx} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <tr key={idx} className={`border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${selectedIds.includes(liq.cliente.id) ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''}`}>
+                  <td className="p-4">
+                    {!liq.yaFacturado && (
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                        checked={selectedIds.includes(liq.cliente.id)}
+                        onChange={() => handleToggleSelect(liq.cliente.id)}
+                      />
+                    )}
+                  </td>
                   <td className="p-4">
                     <p className="font-bold text-gray-800 dark:text-white">{liq.cliente.nombre}</p>
                     <p className="text-[10px] text-gray-400 uppercase font-bold">{liq.remitosIds.length} remitos en el mes</p>
