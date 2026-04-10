@@ -19,14 +19,15 @@ interface LiquidacionAbonosViewProps {
   contratos: Contrato[];
   servicios: Servicio[];
   addFactura: (factura: any) => Promise<void>;
+  initialSearchTerm?: string;
 }
 
 const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({ 
-  clientes, remitos, facturas, productos, contratos, servicios, addFactura 
+  clientes, remitos, facturas, productos, contratos, servicios, addFactura, initialSearchTerm = ''
 }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [observations, setObservations] = useState<Record<string, string>>({});
   const { showNotification } = useNotification();

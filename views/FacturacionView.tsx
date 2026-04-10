@@ -112,6 +112,8 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
   const [selectedRemitos, setSelectedRemitos] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [facturaObservations, setFacturaObservations] = useState('');
+  const [initialAbonoSearch, setInitialAbonoSearch] = useState('');
   const [pagandoFacturaInfo, setPagandoFacturaInfo] = useState<{ factura: Factura; montoRestante: number } | null>(null);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'nombre' | 'deuda'>('nombre');
@@ -181,10 +183,46 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
     if (selectedRemitos.size === 0) return;
     const rems = clienteData?.remitosPendientes.filter(r => selectedRemitos.has(r.id)) || [];
     const mt = rems.reduce((sum, r) => sum + getRemitoTotal(r), 0);
-    addFactura({ fecha: getLocalDateString(), clienteId: selectedClienteId, remitosIds: Array.from(selectedRemitos), monto: mt });
+    addFactura({ 
+        fecha: getLocalDateString(), 
+        clienteId: selectedClienteId, 
+        remitosIds: Array.from(selectedRemitos), 
+        monto: mt,
+        observaciones: facturaObservations
+    });
     setSelectedRemitos(new Set());
+    setFacturaObservations('');
     showNotification('Factura generada.', 'success');
   };
+
+  // Navegación por teclado para la lista de clientes
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (activeTab !== 'cuentacorriente') return;
+        if (document.activeElement?.tagName === 'INPUT') return;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const currentIndex = filteredClientesList.findIndex(c => c.cliente.id === selectedClienteId);
+            let nextIndex = currentIndex;
+
+            if (e.key === 'ArrowDown') {
+                nextIndex = currentIndex < filteredClientesList.length - 1 ? currentIndex + 1 : 0;
+            } else {
+                nextIndex = currentIndex > 0 ? currentIndex - 1 : filteredClientesList.length - 1;
+            }
+
+            if (nextIndex !== -1 && filteredClientesList[nextIndex]) {
+                setSelectedClienteId(filteredClientesList[nextIndex].cliente.id);
+                setSelectedRemitos(new Set());
+                // Scroll into view logic could be added here if needed
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, filteredClientesList, selectedClienteId]);
 
   return (
     <div className="space-y-6 pt-12 md:pt-0">
@@ -256,9 +294,21 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                 </div>
                                 {clienteData.tieneAbonos && (
                                     <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                            <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">Cliente con Abono Activo</span>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                                <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">Cliente con Abono Activo</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    const cliente = clientesMap.get(selectedClienteId);
+                                                    setInitialAbonoSearch(cliente?.nombre || '');
+                                                    setActiveTab('liquidacion');
+                                                }}
+                                                className="text-[9px] font-black uppercase text-white bg-blue-600 px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                                            >
+                                                Ir a Liquidar
+                                            </button>
                                         </div>
                                         <p className="text-[9px] text-blue-500 dark:text-blue-300 mt-1 leading-tight">
                                             Se recomienda usar la pestaña "Liquidación Abonos" para este cliente.
@@ -267,7 +317,23 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                 )}
                             </div>
                         </Card>
-                        <Card title="Acciones"><AppButton onClick={handleGenerarFactura} disabled={selectedRemitos.size === 0} className="w-full h-full py-4 uppercase">Generar Factura (${clienteData.remitosPendientes.filter(r=>selectedRemitos.has(r.id)).reduce((s,r)=>s+getRemitoTotal(r),0).toLocaleString()})</AppButton></Card>
+                        <Card title="Acciones">
+                            <div className="space-y-3">
+                                <AppInput 
+                                    placeholder="Observaciones de la factura..." 
+                                    value={facturaObservations} 
+                                    onChange={e => setFacturaObservations(e.target.value)}
+                                    size="sm"
+                                />
+                                <AppButton 
+                                    onClick={handleGenerarFactura} 
+                                    disabled={selectedRemitos.size === 0} 
+                                    className="w-full py-4 uppercase"
+                                >
+                                    Generar Factura (${clienteData.remitosPendientes.filter(r=>selectedRemitos.has(r.id)).reduce((s,r)=>s+getRemitoTotal(r),0).toLocaleString()})
+                                </AppButton>
+                            </div>
+                        </Card>
                     </div>
                     <Card title="Remitos Pendientes de Facturación">
                         <div className="p-4 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
@@ -350,6 +416,7 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
             contratos={contratos}
             servicios={servicios}
             addFactura={addFactura as any}
+            initialSearchTerm={initialAbonoSearch}
         />
       )}
       {pagandoFacturaInfo && <Modal isOpen={true} onClose={() => setPagandoFacturaInfo(null)}><PagoFacturaForm factura={pagandoFacturaInfo.factura} montoRestante={pagandoFacturaInfo.montoRestante} onSave={(fid, fec, pgs) => { addPagoToFactura(fid, fec, pgs); setPagandoFacturaInfo(null); showNotification('Cobro registrado.', 'success'); }} onClose={() => setPagandoFacturaInfo(null)}/></Modal>}
