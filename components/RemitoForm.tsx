@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto, EstadoProducto, Factura } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto, EstadoProducto, Factura, TipoVendedor } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
 import AppInput from './ui/AppInput';
@@ -75,18 +75,33 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
   const getRemitoTotal = useCallback((r: Remito | Partial<Remito>) => {
     if (r.esAjuste) return 0;
-    if (!r.clienteId || !r.movimientos) return 0;
-    const cliente = clientes.find(c => c.id === r.clienteId);
-    if (!cliente) return 0;
-    const preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+    if (!r.movimientos) return 0;
+    
+    let preciosEspecialesMap = new Map<string, number>();
+    let defaultPriceType: 'lista' | 'reventa' = 'lista';
+
+    if (r.clienteId) {
+        const cliente = clientes.find(c => c.id === r.clienteId);
+        if (cliente) {
+            preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+        }
+    } else if (r.vendedorId) {
+        const vendedor = vendedores.find(v => v.id === r.vendedorId);
+        if (vendedor) {
+            preciosEspecialesMap = new Map(vendedor.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+            if (vendedor.tipo === TipoVendedor.EXTERNO) defaultPriceType = 'reventa';
+        }
+    }
+
     return r.movimientos.reduce((total, mov) => {
         if (!mov.productoId) return total;
         const producto = productosMap.get(mov.productoId);
         if (!producto) return total;
-        const precio = mov.precioUnitario ?? preciosEspecialesMap.get(mov.productoId) ?? producto.precio;
+        const precioSugerido = defaultPriceType === 'reventa' ? (producto.precioReventa || producto.precio) : producto.precio;
+        const precio = mov.precioUnitario ?? preciosEspecialesMap.get(mov.productoId) ?? precioSugerido;
         return total + (mov.entregados * precio);
     }, 0);
-  }, [clientes, productosMap]);
+  }, [clientes, vendedores, productosMap]);
 
   useEffect(() => { 
     const initialPagos = remito.id ? (pagosMap.get(remito.id) || []).map(p => ({ monto: p.monto, metodo: p.metodo })) : (remito.pagos || []);
@@ -166,8 +181,15 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
               setFormData(prev => ({ ...prev, movimientos: prodsWithStock }));
           }
       }
+    } else if (formData.vendedorId && !formData.clienteId) {
+        // Lógica para Vendedor Externo (Auto-compra)
+        setClienteSucursales([]);
+        setIsCtaCte(true); // Los externos siempre tienen CC
+        setDeudaPendiente(0);
+        setClientStock({});
+        setPendingFacturas([]);
     } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
-  }, [formData.clienteId, formData.sucursalId, clientes, remitos, getRemitoTotal, registrosPago, formData.id, productosMap, isNew]);
+  }, [formData.clienteId, formData.vendedorId, formData.sucursalId, clientes, remitos, getRemitoTotal, registrosPago, formData.id, productosMap, isNew, facturas]);
 
   const totalRemito = useMemo(() => getRemitoTotal(formData), [formData, getRemitoTotal]);
 

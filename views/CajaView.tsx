@@ -10,6 +10,7 @@ import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
 // Force sync
@@ -32,6 +33,7 @@ interface CajaViewProps {
   }) => Promise<void>;
   addGasto: (gasto: Omit<Gasto, 'id'>) => Promise<void>;
   addVentaVendedor: (venta: any) => Promise<void>;
+  addRemito: (remito: any) => Promise<void>;
   addCliente: (cliente: any) => Promise<string>;
   updateRegistroPago: (updatedPago: RegistroPago) => Promise<void>;
   updateGasto: (updatedGasto: Gasto) => Promise<void>;
@@ -55,10 +57,12 @@ interface CombinedMovement {
 
 const CajaView: React.FC<CajaViewProps> = ({
     registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos,
-    addPagoManual, addGasto, addVentaVendedor, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor
+    addPagoManual, addGasto, addVentaVendedor, addRemito, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
+  const [remitoModalData, setRemitoModalData] = useState<any>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const [movimientoParaBorrar, setMovimientoParaBorrar] = useState<CombinedMovement | null>(null);
@@ -74,6 +78,23 @@ const CajaView: React.FC<CajaViewProps> = ({
   const ventasVendedorMap = useMemo(() => new Map(ventasVendedor.map(v => [v.id, v])), [ventasVendedor]);
   const facturasMap = useMemo(() => new Map(facturas.map(f => [f.id, f])), [facturas]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
+
+  const getRemitoTotal = useCallback((r: Remito) => {
+    if (r.esAjuste) return 0;
+    let total = 0;
+    const defaultPriceType = (r.vendedorId && vendedores.find(v => v.id === r.vendedorId)?.tipo === TipoVendedor.EXTERNO) ? 'reventa' : 'lista';
+    
+    r.movimientos?.forEach(m => {
+        const p = productosMap.get(m.productoId);
+        if (p) {
+            const precioEsp = r.clienteId ? clientes.find(c => c.id === r.clienteId)?.preciosEspeciales?.find(pe => pe.productoId === m.productoId)?.precio : undefined;
+            const precioSugerido = defaultPriceType === 'reventa' ? (p.precioReventa || p.precio) : p.precio;
+            const precioFinal = m.precioUnitario || precioEsp || precioSugerido;
+            total += m.entregados * precioFinal;
+        }
+    });
+    return total;
+  }, [productosMap, vendedores, clientes]);
 
   const handleSave = async (data: any, isVenta: boolean) => {
     try {
@@ -103,6 +124,32 @@ const CajaView: React.FC<CajaViewProps> = ({
       catch (e) { showNotification('Error al crear cliente.', 'error'); return ""; }
   };
 
+  const handleSaveRemito = async (data: any) => {
+    try {
+        if (data.id) {
+            await updateRemito(data);
+            showNotification('Remito/Venta actualizado.', 'success');
+        } else {
+            await addRemito(data);
+            showNotification('Remito/Venta registrado.', 'success');
+        }
+        setIsRemitoModalOpen(false);
+    } catch (e) {
+        console.error(e);
+        showNotification('Error al guardar venta.', 'error');
+    }
+  };
+
+  const openVentaModal = useCallback(() => {
+    setRemitoModalData({
+        fecha: getLocalDateString(),
+        puntoVenta: '0001', // Punto de venta por defecto para caja
+        movimientos: [{ productoId: '', entregados: 1, recibidos: 0 }],
+        pagos: [{ monto: 0, metodo: MetodoPago.EFECTIVO }]
+    });
+    setIsRemitoModalOpen(true);
+  }, []);
+
   const openIngresoModal = useCallback(() => {
     setModalConfig({type: 'ingreso', isEdit: false, data: {fecha: getLocalDateString(), pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
     setIsModalOpen(true);
@@ -115,12 +162,13 @@ const CajaView: React.FC<CajaViewProps> = ({
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-        if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen) { e.preventDefault(); openIngresoModal(); } 
-        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen) { e.preventDefault(); openGastoModal(); }
+        if (e.altKey && (e.key === 'v' || e.key === 'V') && !isModalOpen && !isRemitoModalOpen) { e.preventDefault(); openVentaModal(); }
+        else if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen && !isRemitoModalOpen) { e.preventDefault(); openIngresoModal(); } 
+        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen && !isRemitoModalOpen) { e.preventDefault(); openGastoModal(); }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isModalOpen, openIngresoModal, openGastoModal]);
+  }, [isModalOpen, isRemitoModalOpen, openIngresoModal, openGastoModal, openVentaModal]);
 
   // Balance Diario
   const todayStr = useMemo(() => getLocalDateString(), []);
@@ -146,7 +194,7 @@ const CajaView: React.FC<CajaViewProps> = ({
   // --- FILTRO Y PROCESAMIENTO DE MOVIMIENTOS ---
   const combinedMovements = useMemo(() => {
     const allMovements: CombinedMovement[] = [];
-    const processedVentaIds = new Set<string>(); // Para trackear qué ventas ya se procesaron vía sus pagos
+    const processedRemitoIds = new Set<string>();
     
     // Filtrar rango de fechas
     const filterFrom = dateFilter.from ? new Date(dateFilter.from + 'T00:00:00').getTime() : 0;
@@ -183,17 +231,17 @@ const CajaView: React.FC<CajaViewProps> = ({
       const p1 = grupo[0];
       let concepto = ''; let ventaId = undefined;
       
-      // Si el pago viene de una venta_vendedor, marcamos la venta como "procesada" para no duplicarla
-      if (p1.origen.tipo === 'venta_vendedor') {
-          processedVentaIds.add(p1.origen.id);
+      if (p1.origen.tipo === 'remito') {
+          processedRemitoIds.add(p1.origen.id);
+          const r = remitosMap.get(p1.origen.id);
+          const clientName = r?.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(r?.vendedorId!)?.nombre || 'Venta Stock');
+          concepto = r?.clienteId ? `${clientName} (#${r?.puntoVenta}-${r?.numero})` : `${clientName} (Venta Stock)`;
+          ventaId = p1.origen.id;
+      } else if (p1.origen.tipo === 'venta_vendedor') {
           const v = ventasVendedorMap.get(p1.origen.id);
           const actorName = v?.clienteId ? (clientesMap.get(v.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(p1.vendedorId!)?.nombre || 'Local');
-          concepto = `${actorName} (Venta Stock)`;
+          concepto = `${actorName} (Venta Stock Histórica)`;
           ventaId = p1.origen.id;
-      } else if (p1.origen.tipo === 'remito') {
-          const r = remitosMap.get(p1.origen.id);
-          const clientName = clientesMap.get(p1.clienteId!)?.nombre || 'N/A';
-          concepto = `${clientName} (#${r?.puntoVenta}-${r?.numero})`;
       } else {
           const nombreActor = clientesMap.get(p1.clienteId!)?.nombre || vendedoresMap.get(p1.vendedorId!)?.nombre || 'N/A';
           concepto = `${nombreActor} - ${p1.concepto || 'Ingreso Manual'}`;
@@ -225,39 +273,24 @@ const CajaView: React.FC<CajaViewProps> = ({
         });
     });
 
-    // Procesar Ventas a Vendedor en Cta. Cte. (Sin pagos registrados)
-    ventasVendedor.forEach(venta => {
-        const d = new Date(venta.fecha + 'T00:00:00').getTime();
+    // Procesar Remitos en Cta. Cte. (Sin pagos registrados)
+    remitos.forEach(r => {
+        const d = new Date(r.fecha + 'T00:00:00').getTime();
         if (d >= filterFrom && d <= filterTo) {
-            // Si la venta NO está en la lista de IDs procesados (porque no tenía pagos)...
-            if (!processedVentaIds.has(venta.id)) {
-                
-                // Calcular el total de la venta (reutilizando lógica de precio)
-                const vendedor = vendedoresMap.get(venta.vendedorId);
-                let totalVenta = 0;
-                venta.movimientos.forEach(m => {
-                    const prod = productosMap.get(m.productoId);
-                    if (prod) {
-                        const precioEsp = vendedor?.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
-                        const defaultPrice = (vendedor?.tipo === TipoVendedor.EXTERNO) ? (prod.precioReventa || prod.precio) : prod.precio;
-                        const precioFinal = m.precioUnitario || precioEsp || defaultPrice;
-                        totalVenta += m.cantidad * precioFinal;
-                    }
-                });
-
-                // Solo agregar si la venta tiene valor
-                if (totalVenta > 0) {
-                    const actorName = venta.clienteId ? (clientesMap.get(venta.clienteId)?.nombre || 'N/A') : (vendedor?.nombre || 'Local');
+            if (!processedRemitoIds.has(r.id) && !r.esAjuste) {
+                const totalR = getRemitoTotal(r);
+                if (totalR > 0) {
+                    const clientName = r.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(r.vendedorId)?.nombre || 'Venta Stock');
                     allMovements.push({
-                        id: venta.id,
-                        fecha: venta.fecha,
-                        type: 'ingreso', // Es un ingreso conceptual (venta), aunque sea a crédito
-                        concepto: `${actorName} (Cta. Cte.)`,
-                        pagos: [{ metodo: MetodoPago.CTA_CTE, monto: totalVenta }],
-                        total: totalVenta,
-                        original: venta, // Pasamos el objeto venta completo
-                        ventaId: venta.id,
-                        isCtaCtePura: true // Flag para UI
+                        id: r.id,
+                        fecha: r.fecha,
+                        type: 'ingreso',
+                        concepto: r.clienteId ? `${clientName} (#${r.puntoVenta}-${r.numero} Cta. Cte.)` : `${clientName} (Venta Stock Cta. Cte.)`,
+                        pagos: [{ metodo: MetodoPago.CTA_CTE, monto: totalR }],
+                        total: totalR,
+                        original: r,
+                        ventaId: r.id,
+                        isCtaCtePura: true
                     });
                 }
             }
@@ -265,7 +298,7 @@ const CajaView: React.FC<CajaViewProps> = ({
     });
 
     return allMovements.sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime() || b.id.localeCompare(a.id));
-  }, [gastos, registrosPago, remitosMap, ventasVendedor, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap]);
+  }, [gastos, registrosPago, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal]);
 
   const displayedMovements = useMemo(() => combinedMovements.slice(0, itemsLimit), [combinedMovements, itemsLimit]);
 
@@ -294,7 +327,8 @@ const CajaView: React.FC<CajaViewProps> = ({
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
         <div className="flex gap-2">
-            <AppButton variant="primary" onClick={openIngresoModal}>+ Ingreso / Venta <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
+            <AppButton variant="primary" onClick={openVentaModal}>+ Venta (Remito) <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+V)</span></AppButton>
+            <AppButton variant="secondary" onClick={openIngresoModal}>+ Ingreso Manual <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
             <AppButton variant="danger" onClick={openGastoModal}>- Gasto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+G)</span></AppButton>
         </div>
       </div>
@@ -352,15 +386,31 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                     e.stopPropagation(); 
                                                     if(mov.type==='gasto') {
                                                         setModalConfig({type:'gasto', isEdit:true, data:mov.original}); 
+                                                        setIsModalOpen(true);
+                                                    } else if (mov.ventaId && remitosMap.has(mov.ventaId)) {
+                                                        // Si es un remito (venta unificada)
+                                                        setRemitoModalData(remitosMap.get(mov.ventaId));
+                                                        setIsRemitoModalOpen(true);
                                                     } else if (isPureCredit) {
-                                                        // Si es crédito puro, editamos la venta original
-                                                        setModalConfig({type:'ingreso', isEdit:true, data: mov.original});
+                                                        // Si es crédito puro (VentaVendedor histórica o Remito sin pago)
+                                                        if (remitosMap.has(mov.id)) {
+                                                            setRemitoModalData(remitosMap.get(mov.id));
+                                                            setIsRemitoModalOpen(true);
+                                                        } else {
+                                                            setModalConfig({type:'ingreso', isEdit:true, data: mov.original});
+                                                            setIsModalOpen(true);
+                                                        }
                                                     } else { 
                                                         const original=mov.original as RegistroPago[]; 
                                                         const p1=original[0]; 
-                                                        setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
+                                                        if (p1.origen.tipo === 'remito') {
+                                                            setRemitoModalData(remitosMap.get(p1.origen.id));
+                                                            setIsRemitoModalOpen(true);
+                                                        } else {
+                                                            setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
+                                                            setIsModalOpen(true);
+                                                        }
                                                     } 
-                                                    setIsModalOpen(true); 
                                                 }} 
                                                 className="!p-1 !h-auto text-blue-500"
                                             >
@@ -381,7 +431,11 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                 {(linkedVenta || isPureCredit) && (
                                                 <div className="space-y-2">
                                                     <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Productos Entregados</p>
-                                                    {(linkedVenta || (mov.original as VentaVendedor)).movimientos.map((m, idx) => {const p = productosMap.get(m.productoId); return (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs shadow-sm"><span>{p?.nombre} x {m.cantidad}</span><span className="font-mono text-gray-400">${(m.precioUnitario || p?.precio || 0).toLocaleString()} c/u</span></div>);})}
+                                                    {(linkedVenta || (mov.original as any)).movimientos.map((m: any, idx: number) => {
+                                                        const p = productosMap.get(m.productoId); 
+                                                        const cant = m.entregados !== undefined ? m.entregados : m.cantidad;
+                                                        return (<div key={idx} className="flex justify-between bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700 text-xs shadow-sm"><span>{p?.nombre} x {cant}</span><span className="font-mono text-gray-400">${(m.precioUnitario || p?.precio || 0).toLocaleString()} c/u</span></div>);
+                                                    })}
                                                 </div>
                                                 )}
                                                 <div className="md:col-span-2 flex justify-end">
@@ -414,6 +468,24 @@ const CajaView: React.FC<CajaViewProps> = ({
       {isModalOpen && (
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-4xl">
             <MovimientoCajaForm type={modalConfig.type} movimiento={modalConfig.data} isEdit={modalConfig.isEdit} onSave={handleSave} onAddCliente={handleAddQuickClient} onClose={() => setIsModalOpen(false)} clientes={clientes} vendedores={vendedores} productos={productos} ventasVendedor={ventasVendedor} />
+        </Modal>
+      )}
+
+      {isRemitoModalOpen && (
+        <Modal isOpen={isRemitoModalOpen} onClose={() => setIsRemitoModalOpen(false)}>
+            <RemitoForm 
+                remito={remitoModalData} 
+                clientes={clientes} 
+                vendedores={vendedores} 
+                productos={productos} 
+                currentUser={vendedores[0]} // Fallback
+                onSave={handleSaveRemito} 
+                onAddCliente={handleAddQuickClient} 
+                onClose={() => setIsRemitoModalOpen(false)} 
+                remitos={remitos} 
+                registrosPago={registrosPago} 
+                causasRecambio={[]} 
+            />
         </Modal>
       )}
 

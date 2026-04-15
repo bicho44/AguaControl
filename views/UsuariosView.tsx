@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto, ComisionProducto } from '../types';
+import { Usuario, Remito, Cliente, TipoVendedor, MetodoPago, Producto, PagoDetalle, VentaVendedor, MovimientoVenta, RegistroPago, Rol, EstadoProducto, ComisionProducto, Gasto } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -14,6 +14,7 @@ import SearchableSelect from '../components/SearchableSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import RemitoForm from '../components/RemitoForm';
 
 // Force sync
 
@@ -24,6 +25,7 @@ interface UsuariosViewProps {
   clientes: Cliente[];
   productos: Producto[];
   ventasVendedor: VentaVendedor[];
+  gastos: Gasto[];
   addUsuario: (usuario: Omit<Usuario, 'id'>) => void;
   updateUsuario: (usuario: Usuario) => void;
   addVentaVendedor: (venta: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => void;
@@ -141,26 +143,44 @@ const VendorAccountModal: React.FC<{
     user: Usuario;
     ventas: VentaVendedor[];
     pagos: RegistroPago[];
+    gastos: Gasto[];
+    remitos: Remito[];
     clientes: Cliente[];
     vendedores: Usuario[];
     productos: Producto[];
     productosMap: Map<string, Producto>;
     onClose: () => void;
     onSaveMovement: (data: any, isVenta: boolean) => Promise<void>;
+    onSaveRemito: (remito: Remito) => Promise<void>;
     onDeletePayment: (id: string) => Promise<void>;
     onDeleteSale: (id: string) => Promise<void>;
-}> = ({ user, ventas, pagos, clientes, vendedores, productos, productosMap, onClose, onSaveMovement, onDeletePayment, onDeleteSale }) => {
+    onDeleteRemito: (id: string) => Promise<void>;
+    registrosPago: RegistroPago[];
+    causasRecambio: any[];
+    facturas: any[];
+    onAddPagoToFactura: any;
+}> = ({ 
+    user, ventas, pagos, gastos, remitos, clientes, vendedores, productos, productosMap, 
+    onClose, onSaveMovement, onSaveRemito, onDeletePayment, onDeleteSale, onDeleteRemito,
+    registrosPago, causasRecambio, facturas, onAddPagoToFactura
+}) => {
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isRemitoOpen, setIsRemitoOpen] = useState(false);
     const [formConfig, setFormConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
+    const [remitoData, setRemitoData] = useState<any>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    const { totalComprado, totalPagado, saldoPendiente, historial } = useMemo(() => {
+    const { totalComprado, totalPagado, totalGastos, saldoPendiente, historial } = useMemo(() => {
         const misVentas = ventas.filter(v => v.vendedorId === user.id && !v.clienteId);
+        const misRemitos = remitos.filter(r => r.vendedorId === user.id && !r.clienteId && !r.esAjuste);
         const misPagos = pagos.filter(p => p.vendedorId === user.id);
+        const misGastos = gastos.filter(g => g.vendedorId === user.id);
         
         let comprado = 0;
+        let totalG = 0;
         const historialCombinado: any[] = [];
 
+        // 1. Ventas Históricas (VentaVendedor)
         misVentas.forEach(v => {
             let totalVenta = 0;
             v.movimientos.forEach(m => {
@@ -178,10 +198,51 @@ const VendorAccountModal: React.FC<{
                 id: v.id,
                 type: 'sale',
                 fecha: v.fecha,
-                concepto: 'Compra de Stock',
+                concepto: 'Compra de Stock (Histórica)',
                 monto: -totalVenta,
                 detalle: `${v.movimientos.length} items`,
                 original: v
+            });
+        });
+
+        // 2. Ventas Unificadas (Remitos)
+        misRemitos.forEach(r => {
+            let totalRemito = 0;
+            const defaultPriceType = user.tipo === TipoVendedor.EXTERNO ? 'reventa' : 'lista';
+
+            r.movimientos.forEach(m => {
+                const prod = productosMap.get(m.productoId);
+                if (prod) {
+                    const precioEsp = user.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
+                    const precioSugerido = defaultPriceType === 'reventa' ? (prod.precioReventa || prod.precio) : prod.precio;
+                    const precioFinal = m.precioUnitario || precioEsp || precioSugerido;
+                    totalRemito += m.entregados * precioFinal;
+                }
+            });
+            comprado += totalRemito;
+            historialCombinado.push({
+                id: r.id,
+                type: 'remito',
+                fecha: r.fecha,
+                concepto: `Compra de Stock (#${r.puntoVenta}-${r.numero})`,
+                monto: -totalRemito,
+                detalle: `${r.movimientos.length} items`,
+                original: r
+            });
+        });
+
+        // Procesar Gastos asignados (Deuda)
+        misGastos.forEach(g => {
+            const montoGasto = g.pagos.reduce((sum, p) => sum + p.monto, 0);
+            totalG += montoGasto;
+            historialCombinado.push({
+                id: g.id,
+                type: 'expense',
+                fecha: g.fecha,
+                concepto: `Gasto Asignado: ${g.concepto}`,
+                monto: -montoGasto,
+                detalle: g.nroRecibo ? `Recibo: ${g.nroRecibo}` : '-',
+                original: g
             });
         });
 
@@ -218,8 +279,14 @@ const VendorAccountModal: React.FC<{
 
         historialCombinado.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        return { totalComprado: comprado, totalPagado: pagado, saldoPendiente: comprado - pagado, historial: historialCombinado };
-    }, [ventas, pagos, user.id, productosMap, user.preciosEspeciales]);
+        return { 
+            totalComprado: comprado, 
+            totalPagado: pagado, 
+            totalGastos: totalG,
+            saldoPendiente: (comprado + totalG) - pagado, 
+            historial: historialCombinado 
+        };
+    }, [ventas, remitos, pagos, gastos, user.id, productosMap, user.preciosEspeciales, user.tipo, clientes]);
 
     const handleOpenNewPayment = () => {
         setFormConfig({
@@ -237,6 +304,10 @@ const VendorAccountModal: React.FC<{
     const handleOpenEdit = (h: any) => {
         if (h.type === 'sale') {
             setFormConfig({ type: 'ingreso', isEdit: true, data: h.original });
+            setIsFormOpen(true);
+        } else if (h.type === 'remito') {
+            setRemitoData(h.original);
+            setIsRemitoOpen(true);
         } else {
             const original = h.original as RegistroPago[];
             const p1 = original[0];
@@ -245,8 +316,8 @@ const VendorAccountModal: React.FC<{
                 isEdit: true, 
                 data: { ...p1, pagos: original.map(p => ({ monto: p.monto, metodo: p.metodo })) } 
             });
+            setIsFormOpen(true);
         }
-        setIsFormOpen(true);
     };
 
     const handleDelete = async (id: string, type: string, original: any) => {
@@ -256,8 +327,11 @@ const VendorAccountModal: React.FC<{
             if (type === 'payment') {
                 const pagosArray = original as RegistroPago[];
                 await Promise.all(pagosArray.map(p => onDeletePayment(p.id)));
+            } else if (type === 'sale') {
+                await onDeleteSale(id);
+            } else if (type === 'remito') {
+                await onDeleteRemito(id);
             }
-            if (type === 'sale') await onDeleteSale(id);
         } catch (e) {
             console.error(e);
             alert('Error al eliminar');
@@ -341,8 +415,29 @@ const VendorAccountModal: React.FC<{
                             clientes={clientes} 
                             vendedores={vendedores} 
                             productos={productos} 
-                            ventasVendedor={ventas}
                             hideClientSelector={true} // Forzar contexto de vendedor
+                        />
+                    </Modal>
+                )}
+
+                {isRemitoOpen && (
+                    <Modal isOpen={isRemitoOpen} onClose={() => setIsRemitoOpen(false)}>
+                        <RemitoForm 
+                            remito={remitoData}
+                            clientes={[]} // Autocompra
+                            vendedores={vendedores}
+                            productos={productos}
+                            currentUser={user}
+                            onSave={async (r) => {
+                                await onSaveRemito(r);
+                                setIsRemitoOpen(false);
+                            }}
+                            onClose={() => setIsRemitoOpen(false)}
+                            remitos={remitos}
+                            registrosPago={registrosPago}
+                            causasRecambio={causasRecambio}
+                            facturas={facturas}
+                            onAddPagoToFactura={onAddPagoToFactura}
                         />
                     </Modal>
                 )}
@@ -352,8 +447,9 @@ const VendorAccountModal: React.FC<{
 };
 
 const UsuariosView: React.FC<UsuariosViewProps> = ({ 
-    usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, 
-    addUsuario, updateUsuario, addVentaVendedor, addPagoManual, updateRegistroPago, updateVentaVendedor, deleteRegistroPago, deleteVentaVendedor 
+    usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, gastos,
+    addUsuario, updateUsuario, addVentaVendedor, addPagoManual, updateRegistroPago, updateVentaVendedor, deleteRegistroPago, deleteVentaVendedor,
+    addRemito, updateRemito, deleteRemito, addPagoToFactura, causasRecambio, facturas
 }) => {
   const [editingUsuario, setEditingUsuario] = useState<Partial<Usuario> | null>(null);
   const [viewAccountUser, setViewAccountUser] = useState<Usuario | null>(null);
@@ -462,14 +558,26 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({
             user={viewAccountUser} 
             ventas={ventasVendedor} 
             pagos={registrosPago} 
+            gastos={gastos}
+            remitos={remitos}
             clientes={clientes}
             vendedores={usuarios}
             productos={productos}
             productosMap={productosMap} 
             onClose={() => setViewAccountUser(null)} 
             onSaveMovement={handleSaveMovement}
+            onSaveRemito={async (r) => {
+                if (r.id) await updateRemito(r);
+                else await addRemito(r);
+                showNotification('Compra de stock actualizada.', 'success');
+            }}
             onDeletePayment={deleteRegistroPago}
             onDeleteSale={deleteVentaVendedor}
+            onDeleteRemito={deleteRemito}
+            registrosPago={registrosPago}
+            causasRecambio={causasRecambio}
+            facturas={facturas}
+            onAddPagoToFactura={addPagoToFactura}
           />
       )}
     </div>

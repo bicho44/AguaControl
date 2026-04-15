@@ -157,7 +157,7 @@ function AppContent() {
       case 'dashboard':
         return <DashboardView {...dashboardProps} />;
       case 'caja':
-        return <CajaView 
+        return <CajaView
                   registrosPago={dataStore.registrosPago}
                   gastos={dataStore.gastos}
                   clientes={dataStore.clientes}
@@ -169,6 +169,7 @@ function AppContent() {
                   addPagoManual={dataStore.addPagoManual}
                   addGasto={dataStore.addGasto}
                   addVentaVendedor={dataStore.addVentaVendedor}
+                  addRemito={dataStore.addRemito}
                   addCliente={dataStore.addCliente}
                   updateRegistroPago={dataStore.updateRegistroPago}
                   updateGasto={dataStore.updateGasto}
@@ -244,12 +245,19 @@ function AppContent() {
                   addUsuario={dataStore.addUsuario}
                   updateUsuario={dataStore.updateUsuario}
                   ventasVendedor={dataStore.ventasVendedor}
+                  gastos={dataStore.gastos}
                   addVentaVendedor={dataStore.addVentaVendedor}
                   addPagoManual={dataStore.addPagoManual}
                   updateRegistroPago={dataStore.updateRegistroPago}
                   updateVentaVendedor={dataStore.updateVentaVendedor}
                   deleteRegistroPago={dataStore.deleteRegistroPago}
                   deleteVentaVendedor={dataStore.deleteVentaVendedor}
+                  addRemito={dataStore.addRemito}
+                  updateRemito={dataStore.updateRemito}
+                  deleteRemito={dataStore.deleteRemito}
+                  addPagoToFactura={dataStore.addPagoToFactura}
+                  causasRecambio={dataStore.causasRecambio}
+                  facturas={dataStore.facturas}
                 />;
       case 'productos':
         return <ProductosView

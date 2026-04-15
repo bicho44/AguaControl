@@ -364,11 +364,14 @@ const ExternalVendorDashboard: React.FC<{
     user: Usuario, 
     ventas: VentaVendedor[], 
     pagos: RegistroPago[], 
+    gastos: Gasto[],
+    remitos: Remito[],
     productosMap: Map<string, Producto>,
     onOpenStockPurchase: () => void,
     onOpenPago: () => void
-}> = ({ user, ventas, pagos, productosMap, onOpenStockPurchase, onOpenPago }) => {
+}> = ({ user, ventas, pagos, gastos, remitos, productosMap, onOpenStockPurchase, onOpenPago }) => {
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id && !v.clienteId), [ventas, user.id]);
+    const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.clienteId && !r.esAjuste), [remitos, user.id]);
 
     const shortName = (name: string) => {
         const prod = Array.from(productosMap.values()).find((p: any) => p.nombre === name) as Producto | undefined;
@@ -376,8 +379,9 @@ const ExternalVendorDashboard: React.FC<{
         return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
     };
     
-    const { totalComprado, totalPagado, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
+    const { totalComprado, totalPagado, totalGastos, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
         let comprado = 0;
+        let totalG = 0;
         const historialCombinado: any[] = [];
         const todayStr = getLocalDateString();
         const yesterday = new Date();
@@ -387,7 +391,7 @@ const ExternalVendorDashboard: React.FC<{
         const hoy: Record<string, number> = {};
         const ayer: Record<string, number> = {};
 
-        // 1. Sumar Compras (VentaVendedor)
+        // 1. Sumar Compras (VentaVendedor - Histórico)
         misVentas.forEach(v => {
             let totalVenta = 0;
             const vDate = v.fecha.split('T')[0];
@@ -409,9 +413,52 @@ const ExternalVendorDashboard: React.FC<{
             comprado += totalVenta;
             historialCombinado.push({
                 fecha: v.fecha,
-                concepto: 'Compra de Stock',
-                monto: -totalVenta, // Egreso para la cuenta corriente (Deuda)
+                concepto: 'Compra de Stock (Histórica)',
+                monto: -totalVenta,
                 detalle: `${v.movimientos.length} productos`
+            });
+        });
+
+        // 1.1 Sumar Compras (Remitos - Unificado)
+        misRemitos.forEach(r => {
+            let totalRemito = 0;
+            const rDate = r.fecha.split('T')[0];
+            
+            const defaultPriceType = user.tipo === TipoVendedor.EXTERNO ? 'reventa' : 'lista';
+
+            r.movimientos.forEach(m => {
+                const prod = productosMap.get(m.productoId);
+                if (prod) {
+                    const precioEsp = user.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
+                    const precioSugerido = defaultPriceType === 'reventa' ? (prod.precioReventa || prod.precio) : prod.precio;
+                    const precioFinal = m.precioUnitario || precioEsp || precioSugerido;
+                    totalRemito += m.entregados * precioFinal;
+
+                    if (prod.tipo === TipoProducto.RETORNABLE) {
+                        if (rDate === todayStr) hoy[prod.nombre] = (hoy[prod.nombre] || 0) + m.entregados;
+                        if (rDate === yesterdayStr) ayer[prod.nombre] = (ayer[prod.nombre] || 0) + m.entregados;
+                    }
+                }
+            });
+            comprado += totalRemito;
+            historialCombinado.push({
+                fecha: r.fecha,
+                concepto: `Compra de Stock (#${r.puntoVenta}-${r.numero})`,
+                monto: -totalRemito,
+                detalle: `${r.movimientos.length} productos`
+            });
+        });
+
+        // 1.5 Sumar Gastos asignados (Deuda)
+        const misGastos = gastos.filter(g => g.vendedorId === user.id);
+        misGastos.forEach(g => {
+            const montoGasto = g.pagos.reduce((sum, p) => sum + p.monto, 0);
+            totalG += montoGasto;
+            historialCombinado.push({
+                fecha: g.fecha,
+                concepto: `Gasto Asignado: ${g.concepto}`,
+                monto: -montoGasto,
+                detalle: g.nroRecibo ? `Recibo: ${g.nroRecibo}` : '-'
             });
         });
 
@@ -429,13 +476,13 @@ const ExternalVendorDashboard: React.FC<{
             });
         });
 
-        const deuda = comprado - pagado;
+        const deuda = (comprado + totalG) - pagado;
 
         // Ordenar historial
         historialCombinado.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        return { totalComprado: comprado, totalPagado: pagado, saldoPendiente: deuda, historial: historialCombinado, retiradosHoy: hoy, retiradosAyer: ayer };
-    }, [misVentas, pagos, user.id, productosMap, user.preciosEspeciales]);
+        return { totalComprado: comprado, totalPagado: pagado, totalGastos: totalG, saldoPendiente: deuda, historial: historialCombinado, retiradosHoy: hoy, retiradosAyer: ayer };
+    }, [misVentas, misRemitos, pagos, gastos, user.id, productosMap, user.preciosEspeciales, user.tipo]);
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -535,13 +582,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // States for Modals
   const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
-  // Nuevo state para la compra de stock del vendedor externo
-  const [isStockPurchaseModalOpen, setIsStockPurchaseModalOpen] = useState(false);
   
   // Data for Modals
   const [newRemitoData, setNewRemitoData] = useState<any>(null);
   const [newPagoData, setNewPagoData] = useState<any>(null);
-  const [newStockPurchaseData, setNewStockPurchaseData] = useState<any>(null);
   const [stickyVendedorId, setStickyVendedorId] = useState<string>(user?.id || '');
 
   const productosMap = useMemo(() => new Map<string, Producto>(productos.map(p => [p.id, p])), [productos]);
@@ -593,20 +637,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Handler para abrir Compra de Stock (Externos)
   const handleOpenStockPurchase = useCallback(() => {
-      setNewStockPurchaseData({
+      setNewRemitoData({
           fecha: getLocalDateString(),
           vendedorId: user?.id,
-          // No necesitamos clienteId porque es autocompra
-          concepto: 'Retiro de Mercadería',
+          clienteId: null,
+          puntoVenta: '0001',
+          numero: '',
+          movimientos: [{ productoId: '', entregados: 1, recibidos: 0 }],
           pagos: [] // Inicialmente sin pago, genera deuda
       });
-      setIsStockPurchaseModalOpen(true);
+      setIsRemitoModalOpen(true);
   }, [user]);
 
   // ATAJO DE TECLADO GLOBAL PARA NUEVO REMITO (Alt+N)
   useEffect(() => {
       const handleGlobalKeys = (e: KeyboardEvent) => {
-          if (e.altKey && (e.code === 'KeyN' || e.key === 'n' || e.key === 'N') && !isRemitoModalOpen && !isPagoModalOpen && !isStockPurchaseModalOpen) {
+          if (e.altKey && (e.code === 'KeyN' || e.key === 'n' || e.key === 'N') && !isRemitoModalOpen && !isPagoModalOpen) {
               // Permitir a Repartidores (Internos y Externos) y Administradores
               if (user?.rol === Rol.REPARTIDOR || user?.rol === Rol.ADMINISTRADOR) {
                   e.preventDefault();
@@ -616,7 +662,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       };
       window.addEventListener('keydown', handleGlobalKeys);
       return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isRemitoModalOpen, isPagoModalOpen, isStockPurchaseModalOpen, handleOpenRemito, user]);
+  }, [isRemitoModalOpen, isPagoModalOpen, handleOpenRemito, user]);
 
   // Handler para Guardar Remito (Internos)
   const handleSaveRemito = async (remito: any) => {
@@ -651,23 +697,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   };
 
-  // Handler para Guardar Compra de Stock (Vendedor Externo)
-  const handleSaveStockPurchase = async (data: any) => {
-      if (!addVentaVendedor) return;
-      try {
-          await addVentaVendedor({
-              fecha: data.fecha,
-              vendedorId: user?.id,
-              clienteId: null, // Importante: Sin cliente final
-              movimientos: data.movimientos,
-              pagos: data.pagos
-          });
-          showNotification('Retiro de mercadería registrado.', 'success');
-          setIsStockPurchaseModalOpen(false);
-      } catch (e) {
-          showNotification('Error al registrar retiro.', 'error');
-      }
-  };
 
   // Handler wrapper para addCliente
   const handleAddClienteWrapper = async (c: any) => {
@@ -1200,19 +1229,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     user={user} 
                     ventas={ventasVendedor} 
                     pagos={registrosPago} 
+                    gastos={gastos}
+                    remitos={remitos}
                     productosMap={productosMap} 
-                    onOpenStockPurchase={handleOpenStockPurchase} // AHORA: Retiro de Mercadería
+                    onOpenStockPurchase={handleOpenStockPurchase} // AHORA: Retiro de Mercadería (vía Remito)
                     onOpenPago={handleOpenPago}
                 />
             </div>
         )}
 
-        {/* MODAL REMITO COMPARTIDO (Solo Internos) */}
+        {/* MODAL REMITO COMPARTIDO (Internos y Externos) */}
         {isRemitoModalOpen && (
             <Modal isOpen={isRemitoModalOpen} onClose={() => setIsRemitoModalOpen(false)}>
                 <RemitoForm 
                     remito={newRemitoData} 
-                    clientes={visibleClientes} // AHORA FILTRADOS POR USUARIO
+                    clientes={visibleClientes} 
                     vendedores={usuarios} 
                     productos={productos} 
                     currentUser={user} 
@@ -1241,30 +1272,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     clientes={visibleClientes} 
                     vendedores={usuarios} 
                     productos={productos} 
-                    ventasVendedor={ventasVendedor} 
                 />
             </Modal>
         )}
 
-        {/* NUEVO MODAL COMPRA STOCK (Para Externos) */}
-        {isStockPurchaseModalOpen && (
-            <Modal isOpen={isStockPurchaseModalOpen} onClose={() => setIsStockPurchaseModalOpen(false)} className="max-w-4xl">
-                <MovimientoCajaForm 
-                    type="ingreso" // Contextual: Es un "ingreso" de venta para la empresa
-                    movimiento={newStockPurchaseData} 
-                    isEdit={false} 
-                    onSave={handleSaveStockPurchase} 
-                    onAddCliente={handleAddClienteWrapper} 
-                    onClose={() => setIsStockPurchaseModalOpen(false)} 
-                    clientes={[]} // No necesita clientes
-                    vendedores={usuarios} 
-                    productos={productos} 
-                    ventasVendedor={ventasVendedor} 
-                    initialVentaMode={true} // Forzar modo venta
-                    hideClientSelector={true} // Ocultar selector de cliente (es autocompra)
-                />
-            </Modal>
-        )}
       </>
   );
 

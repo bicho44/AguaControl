@@ -185,7 +185,7 @@ export interface Movimiento {
 export interface Remito {
     id: string;
     fecha: string;
-    clienteId: string;
+    clienteId?: string;
     sucursalId?: string;
     vendedorId: string;
     puntoVenta: string;
