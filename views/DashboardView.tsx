@@ -520,7 +520,8 @@ const ExternalVendorDashboard: React.FC<{
 const DashboardView: React.FC<DashboardViewProps> = ({ 
     remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio, planillas, movimientosPlanta,
     preformas, moldes, produccionSoplado, entregasSoplado,
-    addRemito, addPagoManual, addVentaVendedor, addCliente, setCurrentView
+    facturas = [],
+    addRemito, addPagoManual, addVentaVendedor, addCliente, addPagoToFactura, setCurrentView
 }) => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
@@ -1221,6 +1222,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     remitos={remitos} 
                     registrosPago={registrosPago} 
                     causasRecambio={causasRecambio}
+                    facturas={facturas}
+                    onAddPagoToFactura={addPagoToFactura}
                 />
             </Modal>
         )}

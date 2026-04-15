@@ -181,7 +181,7 @@ const PaymentStatusBadge: React.FC<{ remito: any }> = ({ remito }) => {
     }
 }
 
-const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente, causasRecambio, empresaSettings }) => {
+const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores, productos, registrosPago, currentUser, addRemito, updateRemito, deleteRemito, addCliente, causasRecambio, empresaSettings, facturas = [], addPagoToFactura }) => {
   const [activeTab, setActiveTab] = useState<'listado' | 'balance'>('listado');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRemito, setEditingRemito] = useState<any>(null);
@@ -511,6 +511,8 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 registrosPago={registrosPago} 
                 isReadOnly={!!editingRemito?.facturaId}
                 causasRecambio={causasRecambio}
+                facturas={facturas}
+                onAddPagoToFactura={addPagoToFactura}
             />
         </Card>
         <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />

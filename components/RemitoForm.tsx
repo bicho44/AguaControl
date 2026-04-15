@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto, EstadoProducto } from '../types';
+import { Remito, Cliente, Usuario, Sucursal, MetodoPago, Producto, Movimiento, PagoDetalle, RegistroPago, Rol, EstadoCliente, TipoTelefono, Recambio, CausaRecambio, TipoProducto, EstadoProducto, Factura } from '../types';
 import SearchableSelect from './SearchableSelect';
 import AppButton from './ui/AppButton';
 import AppInput from './ui/AppInput';
@@ -8,6 +8,7 @@ import AppSelect from './ui/AppSelect';
 import { TrashIcon } from './icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import QuickClientModal from './QuickClientModal';
+import { getPendingFacturas, FacturaPendiente } from '../utils/invoiceUtils';
 
 // Force sync
 
@@ -36,7 +37,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const [clienteSucursales, setClienteSucursales] = useState<Sucursal[]>([]);
   const [isCtaCte, setIsCtaCte] = useState(false);
   const [deudaPendiente, setDeudaPendiente] = useState(0);
-  const [pendingFacturas, setPendingFacturas] = useState<any[]>([]);
+  const [pendingFacturas, setPendingFacturas] = useState<FacturaPendiente[]>([]);
   const [facturaPagos, setFacturaPagos] = useState<Record<string, PagoDetalle[]>>({});
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = React.useRef(false);
@@ -133,13 +134,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         setPendingFacturas([]);
       } else {
         setDeudaPendiente(0);
-        // Calcular facturas pendientes
-        const facturasCliente = facturas.filter(f => f.clienteId === formData.clienteId && f.estado !== 'anulada');
-        const pending = facturasCliente.map(f => {
-            const pagosFactura = registrosPago.filter(p => p.origen.tipo === 'factura' && p.origen.id === f.id);
-            const totalPagado = pagosFactura.reduce((sum, p) => sum + p.monto, 0);
-            return { ...f, totalPagado, saldoPendiente: f.monto - totalPagado };
-        }).filter(f => f.saldoPendiente > 0);
+        // Calcular facturas pendientes usando la utilidad
+        const pending = getPendingFacturas(formData.clienteId, facturas as Factura[], registrosPago);
         setPendingFacturas(pending);
       }
 
