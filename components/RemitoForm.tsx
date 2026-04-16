@@ -45,6 +45,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [clientStock, setClientStock] = useState<Record<string, number>>({});
   const [showRecambios, setShowRecambios] = useState(remito.recambios && remito.recambios.length > 0);
+  const [showPrices, setShowPrices] = useState(false);
   const { showNotification } = useNotification();
 
   const isNew = !remito.id;
@@ -462,7 +463,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         handleSubmit();
         return;
       }
-      if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+      if (e.altKey && (e.key === 'i' || e.key === 'I' || e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
         addMovimiento();
         return;
@@ -476,42 +477,42 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         return;
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Usar keydown en el window para capturar globalmente en el modal
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isReadOnly, addMovimiento, addPago, handleSubmit, isCtaCte, formData]);
   
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-6 pb-4">
+      <form onSubmit={handleSubmit} className="space-y-4 pb-4">
         {/* Header Section */}
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
-                    {formData.esVentaMostrador ? 'Operación de Mostrador' : (remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo') + ' Remito'} {formData.esAjuste && '(Ajuste)'}
+        <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                <h2 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tighter leading-none">
+                    {formData.esVentaMostrador ? 'Mostrador' : (remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo') + ' Remito'} {formData.esAjuste && '(Ajuste)'}
                 </h2>
-                {!formData.esVentaMostrador && isAdmin && !isReadOnly && (
-                    <div className="w-40">
-                        <SearchableSelect 
-                            placeholder="Vendedor" 
-                            options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
-                            value={formData.vendedorId || ''} 
-                            onChange={v => setFormData({...formData, vendedorId: v})} 
-                        />
+                
+                <div className="flex items-center gap-2">
+                    <div className="w-32">
+                        <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} className="scale-90 origin-right transition-all hover:scale-100 focus-within:scale-100" />
                     </div>
-                )}
+                    {!formData.esVentaMostrador && isAdmin && !isReadOnly && (
+                        <div className="w-40 scale-90 origin-right">
+                            <SearchableSelect 
+                                placeholder="Vendedor" 
+                                options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
+                                value={formData.vendedorId || ''} 
+                                onChange={v => setFormData({...formData, vendedorId: v})} 
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
             
-            {!formData.esVentaMostrador ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {!formData.esVentaMostrador && (
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 max-w-sm">
                     <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} />
                     <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} />
-                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} />
-                </div>
-            ) : (
-                <div className="flex justify-end">
-                     <div className="w-32">
-                        <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} />
-                     </div>
                 </div>
             )}
         </div>
@@ -574,20 +575,38 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         </div>
 
         {/* Movimientos Section */}
-        <fieldset className="border-t dark:border-gray-700 pt-5">
-          <div className="flex justify-between items-center mb-4">
-            <legend className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-2">Movimientos / Productos</legend>
+        <fieldset className="border-t dark:border-gray-700 pt-3">
+          <div className="flex justify-between items-end mb-2 px-1">
+            <legend className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Movimientos / Productos</legend>
+            {!isReadOnly && (
+                <button 
+                  type="button" 
+                  onClick={() => setShowPrices(!showPrices)}
+                  className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-colors ${showPrices ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:bg-gray-100'}`}
+                >
+                    {showPrices ? 'Ocultar Precios' : 'Ver Precios'}
+                </button>
+            )}
           </div>
           
-          <div className="space-y-3">
+          {/* Desktop Headers */}
+          <div className="hidden lg:grid grid-cols-12 gap-3 px-1 mb-2">
+              <div className="col-span-5 text-[9px] font-black text-gray-300 uppercase tracking-widest">Producto</div>
+              <div className="col-span-2 text-[9px] font-black text-gray-300 uppercase tracking-widest text-center">Entrega</div>
+              <div className="col-span-2 text-[9px] font-black text-gray-300 uppercase tracking-widest text-center">Recibe</div>
+              {showPrices && <div className="col-span-2 text-[9px] font-black text-gray-300 uppercase tracking-widest text-center">Precio</div>}
+              <div className={`col-span-1 ${!showPrices ? 'col-start-12' : ''}`}></div>
+          </div>
+
+          <div className="space-y-2 lg:space-y-1">
             {(formData.movimientos || []).map((mov, index) => (
-                <div key={index} className="grid grid-cols-12 lg:grid-cols-12 gap-2 lg:gap-3 p-3 lg:p-0 bg-gray-50 lg:bg-transparent dark:bg-gray-800/50 lg:dark:bg-transparent rounded-xl lg:rounded-none border lg:border-none border-gray-100 dark:border-gray-700 items-end lg:items-center">
-                    <div className="col-span-12 lg:col-span-4">
-                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
+                <div key={index} className="grid grid-cols-12 gap-1.5 lg:gap-3 p-2 lg:p-0 bg-gray-50 lg:bg-transparent dark:bg-gray-800/30 lg:dark:bg-transparent rounded-xl lg:rounded-none border lg:border-none border-gray-100 dark:border-gray-700 items-center">
+                    <div className="col-span-12 lg:col-span-5">
                         <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
                     </div>
-                    <div className="col-span-4 lg:col-span-2">
-                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Entrega</label>
+                    
+                    <div className="col-span-5 lg:col-span-2 flex items-center gap-1">
+                        <label className="lg:hidden text-[8px] font-black text-gray-400 uppercase w-8 text-right">Ent</label>
                         <AppInput 
                           id={index === 0 ? "primer-input-cantidad" : undefined}
                           type="number" 
@@ -595,57 +614,60 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                           onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
                           required 
                           disabled={isReadOnly} 
-                          className="text-center font-black"
+                          className="text-center font-black !h-9 lg:!h-[46px]"
                         />
                     </div>
-                    <div className="col-span-4 lg:col-span-2">
-                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Recibe</label>
+                    
+                    <div className="col-span-5 lg:col-span-2 flex items-center gap-1">
+                        <label className="lg:hidden text-[8px] font-black text-gray-400 uppercase w-8 text-right">Rec</label>
                         <AppInput 
                           type="number" 
                           value={mov.recibidos} 
                           onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
                           required 
                           disabled={isReadOnly} 
-                          className="text-center"
+                          className="text-center !h-9 lg:!h-[46px]"
                         />
                     </div>
-                    <div className="col-span-4 lg:col-span-3">
-                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Precio c/u</label>
-                        <AppInput 
-                          type="number" 
-                          value={mov.precioUnitario ?? 0}
-                          onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} 
-                          required 
-                          disabled={isReadOnly} 
-                          className="text-center text-primary-600 font-bold"
-                        />
-                    </div>
-                    <div className="col-span-2 lg:col-span-1 flex justify-center">
-                        <AppButton 
-                            variant="danger" 
-                            size="sm" 
+
+                    {showPrices && (
+                        <div className="col-span-10 lg:col-span-2 flex items-center gap-1">
+                            <label className="lg:hidden text-[8px] font-black text-gray-400 uppercase w-8 text-right">$$</label>
+                            <AppInput 
+                            type="number" 
+                            value={mov.precioUnitario ?? 0}
+                            onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} 
+                            required 
+                            disabled={isReadOnly} 
+                            className="text-center text-primary-600 font-bold !h-9 lg:!h-[46px]"
+                            />
+                        </div>
+                    )}
+                    
+                    <div className={`col-span-2 lg:col-span-1 flex justify-center ${!showPrices ? 'lg:col-start-12' : ''}`}>
+                        <button 
                             onClick={() => removeMovimiento(index)} 
                             disabled={isReadOnly} 
-                            className="w-full h-[42px] lg:h-[46px] flex items-center justify-center" 
+                            className="text-gray-300 hover:text-red-500 p-2 transition-colors disabled:opacity-30"
                             type="button"
                         >
                             <TrashIcon className="w-4 h-4 lg:w-5 lg:h-5"/>
-                        </AppButton>
+                        </button>
                     </div>
                 </div>
             ))}
           </div>
           {!isReadOnly && (
-            <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full mt-4 border-dashed border-2 bg-white/50 dark:bg-gray-800/50">
-                + Agregar Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+I)</span>
+            <AppButton variant="secondary" size="sm" onClick={addMovimiento} className="w-full mt-2 border-dashed border-2 bg-white/50 dark:bg-gray-800/50 py-2 h-10">
+                + Item <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+M / Alt+I)</span>
             </AppButton>
           )}
         </fieldset>
 
         {/* Recambios Section */}
-        <fieldset className="border-t dark:border-gray-700 pt-5">
-          <div className="flex justify-between items-center mb-4">
-            <legend className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] px-2">Recambios (Sin Cargo)</legend>
+        <fieldset className="border-t dark:border-gray-700 pt-3">
+          <div className="flex justify-between items-end mb-2 px-1">
+            <legend className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em]">Recambios (Sin Cargo)</legend>
             {!showRecambios && (
               <AppButton variant="ghost" size="sm" onClick={() => setShowRecambios(true)} className="text-[10px] text-orange-600 font-black uppercase">+ Agregar Recambio</AppButton>
             )}
@@ -654,10 +676,10 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           {showRecambios && (
             <>
               {/* Desktop Header Row */}
-              <div className="hidden lg:grid grid-cols-12 gap-3 px-4 mb-2">
-                  <div className="col-span-5 text-[10px] font-black text-orange-400/60 uppercase tracking-widest">Producto</div>
-                  <div className="col-span-2 text-[10px] font-black text-orange-400/60 uppercase tracking-widest text-center">Cant.</div>
-                  <div className="col-span-4 text-[10px] font-black text-orange-400/60 uppercase tracking-widest">Causa</div>
+              <div className="hidden lg:grid grid-cols-12 gap-3 px-1 mb-2">
+                  <div className="col-span-5 text-[9px] font-black text-orange-400/50 uppercase tracking-widest">Producto</div>
+                  <div className="col-span-2 text-[9px] font-black text-orange-400/50 uppercase tracking-widest text-center">Cant.</div>
+                  <div className="col-span-4 text-[9px] font-black text-orange-400/50 uppercase tracking-widest">Causa</div>
                   <div className="col-span-1"></div>
               </div>
 
