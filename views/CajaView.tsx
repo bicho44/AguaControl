@@ -11,6 +11,7 @@ import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import MovimientoCajaForm from '../components/MovimientoCajaForm';
 import RemitoForm from '../components/RemitoForm';
+import VentaMostradorForm from '../components/VentaMostradorForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
 // Force sync
@@ -41,6 +42,7 @@ interface CajaViewProps {
   deleteGasto: (gastoId: string) => Promise<void>;
   updateRemito: (remito: Remito & { pagos?: any[] }) => Promise<void>;
   updateVentaVendedor: (venta: VentaVendedor & { pagos?: any[] }) => Promise<void>;
+  currentUser: Usuario | null;
 }
 
 interface CombinedMovement {
@@ -57,10 +59,12 @@ interface CombinedMovement {
 
 const CajaView: React.FC<CajaViewProps> = ({
     registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos,
-    addPagoManual, addGasto, addVentaVendedor, addRemito, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor
+    addPagoManual, addGasto, addVentaVendedor, addRemito, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor,
+    currentUser
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
+  const [isVentaMostradorModalOpen, setIsVentaMostradorModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
   const [remitoModalData, setRemitoModalData] = useState<any>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -134,20 +138,15 @@ const CajaView: React.FC<CajaViewProps> = ({
             showNotification('Remito/Venta registrado.', 'success');
         }
         setIsRemitoModalOpen(false);
+        setIsVentaMostradorModalOpen(false);
     } catch (e) {
         console.error(e);
         showNotification('Error al guardar venta.', 'error');
     }
   };
 
-  const openVentaModal = useCallback(() => {
-    setRemitoModalData({
-        fecha: getLocalDateString(),
-        puntoVenta: '0001', // Punto de venta por defecto para caja
-        movimientos: [{ productoId: '', entregados: 1, recibidos: 0 }],
-        pagos: [{ monto: 0, metodo: MetodoPago.EFECTIVO }]
-    });
-    setIsRemitoModalOpen(true);
+  const openVentaMostradorModal = useCallback(() => {
+    setIsVentaMostradorModalOpen(true);
   }, []);
 
   const openIngresoModal = useCallback(() => {
@@ -162,13 +161,13 @@ const CajaView: React.FC<CajaViewProps> = ({
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-        if (e.altKey && (e.key === 'v' || e.key === 'V') && !isModalOpen && !isRemitoModalOpen) { e.preventDefault(); openVentaModal(); }
-        else if (e.altKey && (e.key === 'n' || e.key === 'N') && !isModalOpen && !isRemitoModalOpen) { e.preventDefault(); openIngresoModal(); } 
-        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen && !isRemitoModalOpen) { e.preventDefault(); openGastoModal(); }
+        if (e.altKey && (e.key === 'v' || e.key === 'V') && !isModalOpen && !isRemitoModalOpen && !isVentaMostradorModalOpen) { e.preventDefault(); openVentaMostradorModal(); }
+        else if (e.altKey && (e.key === 'c' || e.key === 'C') && !isModalOpen && !isRemitoModalOpen && !isVentaMostradorModalOpen) { e.preventDefault(); openIngresoModal(); } 
+        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen && !isRemitoModalOpen && !isVentaMostradorModalOpen) { e.preventDefault(); openGastoModal(); }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isModalOpen, isRemitoModalOpen, openIngresoModal, openGastoModal, openVentaModal]);
+  }, [isModalOpen, isRemitoModalOpen, isVentaMostradorModalOpen, openIngresoModal, openGastoModal, openVentaMostradorModal]);
 
   // Balance Diario
   const todayStr = useMemo(() => getLocalDateString(), []);
@@ -234,8 +233,8 @@ const CajaView: React.FC<CajaViewProps> = ({
       if (p1.origen.tipo === 'remito') {
           processedRemitoIds.add(p1.origen.id);
           const r = remitosMap.get(p1.origen.id);
-          const clientName = r?.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(r?.vendedorId!)?.nombre || 'Venta Stock');
-          concepto = r?.clienteId ? `${clientName} (#${r?.puntoVenta}-${r?.numero})` : `${clientName} (Venta Stock)`;
+          const clientName = r?.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (r?.esVentaMostrador ? 'Venta Mostrador' : (vendedoresMap.get(r?.vendedorId!)?.nombre || 'Venta Stock'));
+          concepto = r?.clienteId ? `${clientName} (#${r?.puntoVenta}-${r?.numero})` : `${clientName}`;
           ventaId = p1.origen.id;
       } else if (p1.origen.tipo === 'venta_vendedor') {
           const v = ventasVendedorMap.get(p1.origen.id);
@@ -280,12 +279,12 @@ const CajaView: React.FC<CajaViewProps> = ({
             if (!processedRemitoIds.has(r.id) && !r.esAjuste) {
                 const totalR = getRemitoTotal(r);
                 if (totalR > 0) {
-                    const clientName = r.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (vendedoresMap.get(r.vendedorId)?.nombre || 'Venta Stock');
+                    const clientName = r.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (r.esVentaMostrador ? 'Venta Mostrador' : (vendedoresMap.get(r.vendedorId)?.nombre || 'Venta Stock'));
                     allMovements.push({
                         id: r.id,
                         fecha: r.fecha,
                         type: 'ingreso',
-                        concepto: r.clienteId ? `${clientName} (#${r.puntoVenta}-${r.numero} Cta. Cte.)` : `${clientName} (Venta Stock Cta. Cte.)`,
+                        concepto: r.clienteId ? `${clientName} (#${r.puntoVenta}-${r.numero} Cta. Cte.)` : `${clientName} (Cta. Cte.)`,
                         pagos: [{ metodo: MetodoPago.CTA_CTE, monto: totalR }],
                         total: totalR,
                         original: r,
@@ -327,8 +326,8 @@ const CajaView: React.FC<CajaViewProps> = ({
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
         <div className="flex gap-2">
-            <AppButton variant="primary" onClick={openVentaModal}>+ Venta (Remito) <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+V)</span></AppButton>
-            <AppButton variant="secondary" onClick={openIngresoModal}>+ Ingreso Manual <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+N)</span></AppButton>
+            <AppButton variant="primary" onClick={openVentaMostradorModal}>+ Venta Mostrador <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+V)</span></AppButton>
+            <AppButton variant="secondary" onClick={openIngresoModal}>+ Cobro / Ingreso <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+C)</span></AppButton>
             <AppButton variant="danger" onClick={openGastoModal}>- Gasto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+G)</span></AppButton>
         </div>
       </div>
@@ -464,6 +463,17 @@ const CajaView: React.FC<CajaViewProps> = ({
             )}
         </div>
       </Card>
+
+      {isVentaMostradorModalOpen && (
+        <Modal isOpen={isVentaMostradorModalOpen} onClose={() => setIsVentaMostradorModalOpen(false)} className="max-w-2xl">
+          <VentaMostradorForm 
+              productos={productos} 
+              currentUser={currentUser || vendedores[0]} 
+              onSave={handleSaveRemito} 
+              onClose={() => setIsVentaMostradorModalOpen(false)} 
+          />
+        </Modal>
+      )}
 
       {isModalOpen && (
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-4xl">

@@ -81,14 +81,14 @@ const MovimientoCajaForm: React.FC<MovimientoCajaFormProps> = ({
     <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
       <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2 pr-12">
          <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter pr-12">
-            {isEdit ? 'Editar' : 'Registrar'} {type === 'ingreso' ? (hideClientSelector ? 'Cobro' : 'Ingreso Manual') : 'Gasto'}
+            {isEdit ? 'Editar' : 'Registrar'} {type === 'ingreso' ? 'Cobro / Ingreso' : 'Gasto'}
          </h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required />
-            <AppInput label="Concepto / Referencia" type="text" name="concepto" placeholder="Ej: Pago de servicios..." value={formData.concepto || ''} onChange={handleChange} required />
+            <AppInput label="Concepto / Referencia" type="text" name="concepto" placeholder="Ej: Pago de deuda, Cobro de factura..." value={formData.concepto || ''} onChange={handleChange} required />
         </div>
 
         {type === 'gasto' && (

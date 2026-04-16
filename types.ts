@@ -191,6 +191,7 @@ export interface Remito {
     puntoVenta: string;
     numero: string;
     esAjuste?: boolean;
+    esVentaMostrador?: boolean;
     movimientos: Movimiento[];
     recambios?: Recambio[];
     pagoIds?: string[];

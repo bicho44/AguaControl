@@ -177,6 +177,7 @@ function AppContent() {
                   deleteGasto={dataStore.deleteGasto}
                   updateRemito={dataStore.updateRemito}
                   updateVentaVendedor={dataStore.updateVentaVendedor}
+                  currentUser={user}
                 />;
       case 'cuentacorriente':
         return <FacturacionView
