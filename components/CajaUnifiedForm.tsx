@@ -54,7 +54,7 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
     };
 
     return (
-        <div className="flex flex-col h-full max-h-[85vh]">
+        <div className="flex flex-col h-full">
             {/* TABS DE MODO */}
             <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl mb-6 w-fit mx-auto shadow-inner border dark:border-gray-700">
                 <button

@@ -43,6 +43,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const isSavingRef = React.useRef(false);
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
   const [clientStock, setClientStock] = useState<Record<string, number>>({});
+  const [showRecambios, setShowRecambios] = useState(remito.recambios && remito.recambios.length > 0);
   const { showNotification } = useNotification();
 
   const isNew = !remito.id;
@@ -496,7 +497,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-6 max-h-[85vh] overflow-y-auto pr-2 pb-4">
+      <form onSubmit={handleSubmit} className="space-y-6 pb-4">
         {/* Header Section */}
         <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -589,25 +590,19 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
         {/* Movimientos Section */}
         <fieldset className="border-t dark:border-gray-700 pt-5">
-          <legend className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-2 mb-4">Movimientos</legend>
-          
-          {/* Desktop Header Row */}
-          <div className="hidden lg:grid grid-cols-12 gap-3 px-4 mb-2">
-              <div className="col-span-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Producto</div>
-              <div className="col-span-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Entrega</div>
-              <div className="col-span-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Recibe</div>
-              <div className="col-span-1"></div>
+          <div className="flex justify-between items-center mb-4">
+            <legend className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-2">Movimientos / Productos</legend>
           </div>
-
+          
           <div className="space-y-3">
             {(formData.movimientos || []).map((mov, index) => (
-                <div key={index} className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-4 lg:p-0 bg-gray-50 lg:bg-transparent dark:bg-gray-800/50 lg:dark:bg-transparent rounded-2xl border lg:border-none border-gray-100 dark:border-gray-700 items-center">
-                    <div className="lg:col-span-5">
-                        <label className="lg:hidden text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
+                <div key={index} className="grid grid-cols-12 lg:grid-cols-12 gap-2 lg:gap-3 p-3 lg:p-0 bg-gray-50 lg:bg-transparent dark:bg-gray-800/50 lg:dark:bg-transparent rounded-xl lg:rounded-none border lg:border-none border-gray-100 dark:border-gray-700 items-end lg:items-center">
+                    <div className="col-span-12 lg:col-span-5">
+                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
                         <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
                     </div>
-                    <div className="lg:col-span-3">
-                        <label className="lg:hidden text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Entrega</label>
+                    <div className="col-span-5 lg:col-span-3">
+                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Entrega</label>
                         <AppInput 
                           id={index === 0 ? "primer-input-cantidad" : undefined}
                           type="number" 
@@ -616,30 +611,30 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                           required 
                           disabled={isReadOnly} 
                           autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
-                          className="text-center font-bold text-lg"
+                          className="text-center font-bold"
                         />
                     </div>
-                    <div className="lg:col-span-3">
-                        <label className="lg:hidden text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Recibe</label>
+                    <div className="col-span-5 lg:col-span-3">
+                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Recibe</label>
                         <AppInput 
                           type="number" 
                           value={mov.recibidos} 
                           onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
                           required 
                           disabled={isReadOnly} 
-                          className="text-center font-bold text-lg"
+                          className="text-center font-bold"
                         />
                     </div>
-                    <div className="lg:col-span-1 flex justify-center">
+                    <div className="col-span-2 lg:col-span-1 flex justify-center">
                         <AppButton 
                             variant="danger" 
                             size="sm" 
                             onClick={() => removeMovimiento(index)} 
                             disabled={isReadOnly} 
-                            className="w-full lg:w-11 h-[46px] flex items-center justify-center" 
+                            className="w-full h-[42px] lg:h-[46px] flex items-center justify-center" 
                             type="button"
                         >
-                            <TrashIcon className="w-5 h-5"/>
+                            <TrashIcon className="w-4 h-4 lg:w-5 lg:h-5"/>
                         </AppButton>
                     </div>
                 </div>
@@ -654,52 +649,61 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
         {/* Recambios Section */}
         <fieldset className="border-t dark:border-gray-700 pt-5">
-          <legend className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] px-2 mb-4">Recambios (Sin Cargo)</legend>
+          <div className="flex justify-between items-center mb-4">
+            <legend className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] px-2">Recambios (Sin Cargo)</legend>
+            {!showRecambios && (
+              <AppButton variant="ghost" size="sm" onClick={() => setShowRecambios(true)} className="text-[10px] text-orange-600 font-black uppercase">+ Agregar Recambio</AppButton>
+            )}
+          </div>
           
-          {/* Desktop Header Row */}
-          <div className="hidden lg:grid grid-cols-12 gap-3 px-4 mb-2">
-              <div className="col-span-5 text-[10px] font-black text-orange-400/60 uppercase tracking-widest">Producto</div>
-              <div className="col-span-2 text-[10px] font-black text-orange-400/60 uppercase tracking-widest text-center">Cant.</div>
-              <div className="col-span-4 text-[10px] font-black text-orange-400/60 uppercase tracking-widest">Causa</div>
-              <div className="col-span-1"></div>
-          </div>
+          {showRecambios && (
+            <>
+              {/* Desktop Header Row */}
+              <div className="hidden lg:grid grid-cols-12 gap-3 px-4 mb-2">
+                  <div className="col-span-5 text-[10px] font-black text-orange-400/60 uppercase tracking-widest">Producto</div>
+                  <div className="col-span-2 text-[10px] font-black text-orange-400/60 uppercase tracking-widest text-center">Cant.</div>
+                  <div className="col-span-4 text-[10px] font-black text-orange-400/60 uppercase tracking-widest">Causa</div>
+                  <div className="col-span-1"></div>
+              </div>
 
-          <div className="space-y-3">
-            {(formData.recambios || []).map((rec, index) => (
-                <div key={index} className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-4 lg:p-0 bg-orange-50/50 lg:bg-transparent dark:bg-orange-900/10 lg:dark:bg-transparent rounded-2xl border lg:border-none border-orange-100 dark:border-orange-900/30 items-center">
-                    <div className="lg:col-span-5">
-                        <label className="lg:hidden text-[10px] font-black text-orange-400 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
-                        <SearchableSelect options={productosOptions} value={rec.productoId} onChange={(v) => handleRecambioChange(index, 'productoId', v)} disabled={isReadOnly} />
+              <div className="space-y-3">
+                {(formData.recambios || []).map((rec, index) => (
+                    <div key={index} className="grid grid-cols-12 lg:grid-cols-12 gap-2 lg:gap-3 p-3 lg:p-0 bg-orange-50/50 lg:bg-transparent dark:bg-orange-900/10 lg:dark:bg-transparent rounded-xl lg:rounded-none border lg:border-none border-orange-100 dark:border-orange-900/30 items-end lg:items-center">
+                        <div className="col-span-12 lg:col-span-5">
+                            <label className="lg:hidden text-[9px] font-black text-orange-400 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
+                            <SearchableSelect options={productosOptions} value={rec.productoId} onChange={(v) => handleRecambioChange(index, 'productoId', v)} disabled={isReadOnly} />
+                        </div>
+                        <div className="col-span-4 lg:col-span-2">
+                            <label className="lg:hidden text-[9px] font-black text-orange-400 uppercase tracking-widest ml-1 mb-1 block">Cant.</label>
+                            <AppInput type="number" value={rec.cantidad} onChange={(e) => handleRecambioChange(index, 'cantidad', e.target.value)} required disabled={isReadOnly} className="text-center font-bold" />
+                        </div>
+                        <div className="col-span-6 lg:col-span-4">
+                            <label className="lg:hidden text-[9px] font-black text-orange-400 uppercase tracking-widest ml-1 mb-1 block">Causa</label>
+                            <AppSelect 
+                                value={rec.causaId} 
+                                onChange={(e) => handleRecambioChange(index, 'causaId', e.target.value)} 
+                                options={causasRecambio.map(c => ({ value: c.id, label: c.nombre }))}
+                                disabled={isReadOnly}
+                            />
+                        </div>
+                        <div className="col-span-2 lg:col-span-1 flex justify-center text-center">
+                            <AppButton variant="danger" size="sm" onClick={() => removeRecambio(index)} disabled={isReadOnly} className="w-full h-[42px] lg:h-[46px] flex items-center justify-center mb-0.5" type="button">
+                                <TrashIcon className="w-4 h-4"/>
+                            </AppButton>
+                        </div>
                     </div>
-                    <div className="lg:col-span-2">
-                        <label className="lg:hidden text-[10px] font-black text-orange-400 uppercase tracking-widest ml-1 mb-1 block">Cant.</label>
-                        <AppInput type="number" value={rec.cantidad} onChange={(e) => handleRecambioChange(index, 'cantidad', e.target.value)} required disabled={isReadOnly} className="text-center font-bold" />
-                    </div>
-                    <div className="lg:col-span-4">
-                        <label className="lg:hidden text-[10px] font-black text-orange-400 uppercase tracking-widest ml-1 mb-1 block">Causa</label>
-                        <AppSelect 
-                            value={rec.causaId} 
-                            onChange={(e) => handleRecambioChange(index, 'causaId', e.target.value)} 
-                            options={causasRecambio.map(c => ({ value: c.id, label: c.nombre }))}
-                            disabled={isReadOnly}
-                        />
-                    </div>
-                    <div className="lg:col-span-1 flex justify-center">
-                        <AppButton variant="danger" size="sm" onClick={() => removeRecambio(index)} disabled={isReadOnly} className="w-full lg:w-11 h-[46px] flex items-center justify-center" type="button">
-                            <TrashIcon className="w-5 h-5"/>
-                        </AppButton>
-                    </div>
-                </div>
-            ))}
-          </div>
-          {!isReadOnly && (
-            <AppButton variant="secondary" size="sm" onClick={addRecambio} className="w-full mt-4 border-dashed border-2 border-orange-200 dark:border-orange-800 text-orange-600 bg-white/50 dark:bg-orange-900/5">
-                + Agregar Recambio
-            </AppButton>
+                ))}
+              </div>
+              {!isReadOnly && (
+                <AppButton variant="secondary" size="sm" onClick={addRecambio} className="w-full mt-4 border-dashed border-2 border-orange-200 dark:border-orange-800 text-orange-600 bg-white/50 dark:bg-orange-900/5">
+                    + Nuevo Recambio
+                </AppButton>
+              )}
+            </>
           )}
         </fieldset>
 
-        {(!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
+        {(!isCtaCte || formData.esVentaMostrador || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
             <fieldset className="border-t dark:border-gray-700 pt-6">
                 <legend className="text-[10px] font-black text-primary-600 uppercase tracking-[0.2em] px-2 mb-4">Información de Cobro</legend>
                 <div className="space-y-3 bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl border border-primary-100 dark:border-primary-800">

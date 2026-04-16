@@ -34,11 +34,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className }) =
 
   return (
     <div 
-      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm px-4 py-6 sm:py-12 flex justify-center items-start sm:items-center"
+      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm p-0 sm:p-4 md:p-8 flex justify-center items-start"
       onClick={onClose}
     >
       <div 
-        className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full relative transform transition-all animate-fade-in-up ${className || 'max-w-2xl'}`}
+        className={`bg-white dark:bg-gray-800 rounded-none sm:rounded-2xl shadow-2xl p-4 sm:p-6 w-full relative transform transition-all animate-fade-in-up min-h-screen sm:min-h-0 sm:my-8 ${className || 'max-w-2xl'}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Botón de cierre rápido en la esquina superior derecha */}
