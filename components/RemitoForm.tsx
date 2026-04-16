@@ -9,6 +9,7 @@ import { TrashIcon } from './icons/TrashIcon';
 import { useNotification } from '../context/NotificationContext';
 import QuickClientModal from './QuickClientModal';
 import { getPendingFacturas, FacturaPendiente } from '../utils/invoiceUtils';
+import { calculateRemitoTotal, shouldShowPaymentSection, calculateStockAtentivo } from '../utils/salesUtils';
 
 // Force sync
 
@@ -101,33 +102,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   }, [registrosPago]);
 
   const getRemitoTotal = useCallback((r: Remito | Partial<Remito>) => {
-    if (r.esAjuste) return 0;
-    if (!r.movimientos) return 0;
-    
-    let preciosEspecialesMap = new Map<string, number>();
-    let defaultPriceType: 'lista' | 'reventa' = 'lista';
-
-    if (r.clienteId) {
-        const cliente = clientes.find(c => c.id === r.clienteId);
-        if (cliente) {
-            preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-        }
-    } else if (r.vendedorId) {
-        const vendedor = vendedores.find(v => v.id === r.vendedorId);
-        if (vendedor) {
-            preciosEspecialesMap = new Map(vendedor.preciosEspeciales?.map(p => [p.productoId, p.precio]));
-            if (vendedor.tipo === TipoVendedor.EXTERNO) defaultPriceType = 'reventa';
-        }
-    }
-
-    return r.movimientos.reduce((total, mov) => {
-        if (!mov.productoId) return total;
-        const producto = productosMap.get(mov.productoId);
-        if (!producto) return total;
-        const precioSugerido = defaultPriceType === 'reventa' ? (producto.precioReventa || producto.precio) : producto.precio;
-        const precio = mov.precioUnitario ?? preciosEspecialesMap.get(mov.productoId) ?? precioSugerido;
-        return total + (mov.entregados * precio);
-    }, 0);
+    return calculateRemitoTotal(r, clientes, vendedores, productosMap);
   }, [clientes, vendedores, productosMap]);
 
   useEffect(() => { 
@@ -182,20 +157,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
       }
 
       // Calcular Stock del Cliente (Filtrar por sucursal si existe)
-      const stock: Record<string, number> = {};
-      remitos.filter(r => {
-          if (r.clienteId !== formData.clienteId) return false;
-          if (!formData.sucursalId) return true; // Si no hay sucursal seleccionada, mostrar total
-          const rSucId = r.sucursalId || 'main'; // Tratar remitos sin sucursal como 'main'
-          return rSucId === formData.sucursalId;
-      }).forEach(r => {
-          r.movimientos.forEach(m => {
-              const prod = productosMap.get(m.productoId);
-              if (prod?.tipo === TipoProducto.RETORNABLE) {
-                  stock[m.productoId] = (stock[m.productoId] || 0) + (m.entregados - m.recibidos);
-              }
-          });
-      });
+      const stock = calculateStockAtentivo(formData.clienteId!, true, formData.sucursalId, remitos, productosMap);
       setClientStock(stock);
 
       // Pre-seleccionar productos si hay stock (Solo para remitos nuevos)
@@ -213,7 +175,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         setClienteSucursales([]);
         setIsCtaCte(true); // Los externos siempre tienen CC
         setDeudaPendiente(0);
-        setClientStock({});
+        const stock = calculateStockAtentivo(formData.vendedorId!, false, undefined, remitos, productosMap);
+        setClientStock(stock);
         setPendingFacturas([]);
     } else { setClienteSucursales([]); setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
   }, [formData.clienteId, formData.vendedorId, formData.sucursalId, clientes, remitos, getRemitoTotal, registrosPago, formData.id, productosMap, isNew, facturas]);
@@ -703,7 +666,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           )}
         </fieldset>
 
-        {(!isCtaCte || formData.esVentaMostrador || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste && (
+        {shouldShowPaymentSection(isCtaCte, !!formData.esVentaMostrador, formData.pagos?.length || 0, !!formData.esAjuste) && (
             <fieldset className="border-t dark:border-gray-700 pt-6">
                 <legend className="text-[10px] font-black text-primary-600 uppercase tracking-[0.2em] px-2 mb-4">Información de Cobro</legend>
                 <div className="space-y-3 bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl border border-primary-100 dark:border-primary-800">
