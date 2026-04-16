@@ -1,7 +1,7 @@
 
 import { describe, it, expect } from 'vitest';
-import { shouldShowPaymentSection, calculateRemitoTotal } from './salesUtils';
-import { Cliente, Usuario, Producto, TipoVendedor, Rol, EstadoCliente, MetodoPago } from '../types';
+import { shouldShowPaymentSection, calculateRemitoTotal, calculateStockAtentivo } from './salesUtils';
+import { Cliente, Usuario, Producto, TipoVendedor, Rol, EstadoCliente, MetodoPago, TipoProducto } from '../types';
 
 describe('salesUtils', () => {
     describe('shouldShowPaymentSection', () => {
@@ -70,11 +70,37 @@ describe('salesUtils', () => {
             expect(calculateRemitoTotal(remito, [cliente], [], productosMap)).toBe(10 * 900);
         });
 
-        it('should override with manual price if present in movimiento', () => {
+        it('should override with manual price if present in movimiento (Crucial Fix)', () => {
             const remito = { 
                 movimientos: [{ productoId: 'p1', entregados: 10, recibidos: 0, precioUnitario: 1200 }] 
             };
             expect(calculateRemitoTotal(remito, [], [], productosMap)).toBe(10 * 1200);
+        });
+
+        it('should handle zero entregados', () => {
+            const remito = { movimientos: [{ productoId: 'p1', entregados: 0, recibidos: 5 }] };
+            expect(calculateRemitoTotal(remito, [], [], productosMap)).toBe(0);
+        });
+    });
+
+    describe('calculateStockAtentivo', () => {
+        const mockProductos = [{ id: 'p1', tipo: TipoProducto.RETORNABLE }, { id: 'p2', tipo: TipoProducto.DESCARTABLE }] as Producto[];
+        const productosMap = new Map(mockProductos.map(p => [p.id, p]));
+        
+        const remitos = [
+            { clienteId: 'c1', movimientos: [{ productoId: 'p1', entregados: 10, recibidos: 5 }] },
+            { clienteId: 'c1', movimientos: [{ productoId: 'p1', entregados: 2, recibidos: 4 }] }
+        ] as any[];
+
+        it('should calculate net balance of returnable products', () => {
+            const stock = calculateStockAtentivo('c1', true, undefined, remitos, productosMap);
+            expect(stock['p1']).toBe(3); // (10-5) + (2-4) = 5 - 2 = 3
+        });
+
+        it('should ignore non-returnable products', () => {
+            const r2 = [{ clienteId: 'c1', movimientos: [{ productoId: 'p2', entregados: 10, recibidos: 0 }] }] as any[];
+            const stock = calculateStockAtentivo('c1', true, undefined, r2, productosMap);
+            expect(stock['p2']).toBeUndefined();
         });
     });
 });

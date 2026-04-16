@@ -192,14 +192,23 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         const input = document.getElementById(`pago-monto-${lastIndex}`);
         if (input) {
           input.focus();
-          if (input instanceof HTMLInputElement) {
-            input.select();
-          }
+          if (input instanceof HTMLInputElement) input.select();
         }
-      }, 100);
+      }, 50);
     }
     prevPagosLength.current = currentLength;
   }, [formData.pagos?.length, isReadOnly]);
+
+  // Efecto para scroll automático al final cuando se agregan movimientos
+  const prevMovimientosLength = React.useRef(formData.movimientos?.length || 0);
+  useEffect(() => {
+    const currentLength = formData.movimientos?.length || 0;
+    if (currentLength > prevMovimientosLength.current && !isReadOnly) {
+        // En realidad no necesitamos scroll si el modal es largo y el navegador lo maneja
+        // pero podemos enfocar el nuevo producto
+    }
+    prevMovimientosLength.current = currentLength;
+  }, [formData.movimientos?.length, isReadOnly]);
 
   // Focus on the first quantity input when opening a pre-filled remito
   useEffect(() => {
@@ -268,7 +277,24 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   
   const handleProductoChange = (index: number, productoId: string) => {
     const newMovimientos = [...(formData.movimientos || [])];
-    newMovimientos[index] = { ...newMovimientos[index], productoId };
+    const producto = productosMap.get(productoId);
+    
+    // Calcular precio por defecto
+    let precio = producto?.precio || 0;
+    if (formData.clienteId) {
+        const cliente = clientes.find(c => c.id === formData.clienteId);
+        const espec = cliente?.preciosEspeciales?.find(p => p.productoId === productoId);
+        if (espec) precio = espec.precio;
+    } else if (formData.vendedorId) {
+        const vendedor = vendedores.find(v => v.id === formData.vendedorId);
+        if (vendedor) {
+            const espec = vendedor.preciosEspeciales?.find(p => p.productoId === productoId);
+            if (espec) precio = espec.precio;
+            else if (vendedor.tipo === TipoVendedor.EXTERNO) precio = producto?.precioReventa || producto?.precio || 0;
+        }
+    }
+
+    newMovimientos[index] = { ...newMovimientos[index], productoId, precioUnitario: precio };
     setFormData(prev => ({ ...prev, movimientos: newMovimientos }));
   }
   
@@ -376,14 +402,9 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         puntoVenta: puntoVentaLimpio,
         numero: numeroLimpio,
         movimientos: formData.movimientos?.map(mov => {
-            // Si ya tiene precio (ej: estamos editando un remito que ya lo guardó), lo mantenemos
-            if (mov.precioUnitario !== undefined) return mov;
-            
-            // Si no tiene precio (remito nuevo o antiguo sin el campo), buscamos el precio actual
-            const cliente = clientes.find(c => c.id === formData.clienteId);
+            // USAR EL PRECIO QUE YA TIENE EL MOVIMIENTO (Manual o defalteado en handleProductoChange)
             const producto = productosMap.get(mov.productoId);
-            const precio = cliente?.preciosEspeciales?.find(p => p.productoId === mov.productoId)?.precio ?? producto?.precio ?? 0;
-            
+            const precio = mov.precioUnitario ?? producto?.precio ?? 0;
             return { ...mov, precioUnitario: precio };
         })
     };
@@ -448,7 +469,8 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
       }
       if (e.altKey && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
-        if ((!isCtaCte || (formData.pagos && formData.pagos.length > 0)) && !formData.esAjuste) {
+        // Usar la misma lógica de visibilidad para permitir agregar pagos
+        if (shouldShowPaymentSection(isCtaCte, !!formData.esVentaMostrador, formData.pagos?.length || 0, !!formData.esAjuste)) {
             addPago();
         }
         return;
@@ -560,11 +582,11 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
           <div className="space-y-3">
             {(formData.movimientos || []).map((mov, index) => (
                 <div key={index} className="grid grid-cols-12 lg:grid-cols-12 gap-2 lg:gap-3 p-3 lg:p-0 bg-gray-50 lg:bg-transparent dark:bg-gray-800/50 lg:dark:bg-transparent rounded-xl lg:rounded-none border lg:border-none border-gray-100 dark:border-gray-700 items-end lg:items-center">
-                    <div className="col-span-12 lg:col-span-5">
+                    <div className="col-span-12 lg:col-span-4">
                         <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Producto</label>
                         <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
                     </div>
-                    <div className="col-span-5 lg:col-span-3">
+                    <div className="col-span-4 lg:col-span-2">
                         <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Entrega</label>
                         <AppInput 
                           id={index === 0 ? "primer-input-cantidad" : undefined}
@@ -573,11 +595,10 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                           onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 
                           required 
                           disabled={isReadOnly} 
-                          autoFocus={!isReadOnly && !!formData.clienteId && index === 0}
-                          className="text-center font-bold"
+                          className="text-center font-black"
                         />
                     </div>
-                    <div className="col-span-5 lg:col-span-3">
+                    <div className="col-span-4 lg:col-span-2">
                         <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Recibe</label>
                         <AppInput 
                           type="number" 
@@ -585,7 +606,18 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                           onChange={(e) => handleMovimientoChange(index, 'recibidos', e.target.value)} 
                           required 
                           disabled={isReadOnly} 
-                          className="text-center font-bold"
+                          className="text-center"
+                        />
+                    </div>
+                    <div className="col-span-4 lg:col-span-3">
+                        <label className="lg:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">Precio c/u</label>
+                        <AppInput 
+                          type="number" 
+                          value={mov.precioUnitario ?? 0}
+                          onChange={(e) => handleMovimientoChange(index, 'precioUnitario', e.target.value)} 
+                          required 
+                          disabled={isReadOnly} 
+                          className="text-center text-primary-600 font-bold"
                         />
                     </div>
                     <div className="col-span-2 lg:col-span-1 flex justify-center">

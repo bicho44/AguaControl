@@ -188,6 +188,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [clienteFilter, setClienteFilter] = useState('');
   const [remitoNumberFilter, setRemitoNumberFilter] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilter>('todos');
+  const [showVentaCaja, setShowVentaCaja] = useState(false);
   const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
   const [balanceFilter, setBalanceFilter] = useState<'todos' | 'perdidos' | 'recuperados' | 'ambos'>('todos');
   const [showRemitosColumn, setShowRemitosColumn] = useState(true);
@@ -200,6 +201,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   const [stickyVendedorId, setStickyVendedorId] = useState<string>(currentUser.id);
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
+  const vendedoresMap = useMemo(() => new Map(vendedores.map(v => [v.id, v])), [vendedores]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   
   // Filtrar clientes si es vendedor externo
@@ -229,16 +231,33 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const getRemitoTotal = useCallback((r: Remito) => {
     if (r.esAjuste) return 0;
-    const c = clientesMap.get(r.clienteId);
-    if (!c) return 0;
-    const peMap = new Map(c.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+    
+    let preciosEspecialesMap = new Map<string, number>();
+    let defaultPriceType: 'lista' | 'reventa' = 'lista';
+
+    if (r.clienteId) {
+        const cliente = clientesMap.get(r.clienteId);
+        if (cliente) {
+            preciosEspecialesMap = new Map(cliente.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+        }
+    } else if (r.vendedorId) {
+        const vendedor = vendedoresMap.get(r.vendedorId);
+        if (vendedor) {
+            preciosEspecialesMap = new Map(vendedor.preciosEspeciales?.map(p => [p.productoId, p.precio]));
+            if (vendedor.tipo === TipoVendedor.EXTERNO) defaultPriceType = 'reventa';
+        }
+    }
+
     return r.movimientos.reduce((total, mov) => {
         const prod = productosMap.get(mov.productoId);
         if (!prod) return total;
-        const precio = mov.precioUnitario ?? peMap.get(mov.productoId) ?? prod.precio;
+        
+        const precioSugerido = defaultPriceType === 'reventa' ? (prod.precioReventa || prod.precio) : prod.precio;
+        const precio = mov.precioUnitario ?? preciosEspecialesMap.get(mov.productoId) ?? precioSugerido;
+        
         return total + (mov.entregados * precio);
     }, 0);
-  }, [clientesMap, productosMap]);
+  }, [clientesMap, vendedoresMap, productosMap]);
 
   const processedRemitos = useMemo(() => {
     return remitos.map(r => {
@@ -256,6 +275,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
 
   const filteredRemitos = useMemo(() => {
     return processedRemitos.filter(r => {
+        if (!showVentaCaja && r.esVentaMostrador) return false;
         if (currentUser.rol === Rol.REPARTIDOR && r.vendedorId !== currentUser.id) return false;
         if (clienteFilter && r.clienteId !== clienteFilter) return false;
         if (paymentStatusFilter !== 'todos' && r.paymentStatus !== paymentStatusFilter) return false;
@@ -571,7 +591,15 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 <div className="w-full">
                     <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
                 </div>
-                <div className="w-full lg:col-span-2">
+                <div className="w-full flex items-center justify-center pb-1">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${showVentaCaja ? 'bg-primary-500' : 'bg-gray-300'}`} onClick={() => setShowVentaCaja(!showVentaCaja)}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showVentaCaja ? 'translate-x-4' : ''}`}></div>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary-600">Ver Ventas Caja</span>
+                    </label>
+                </div>
+                <div className="w-full">
                     <div className="grid grid-cols-2 gap-2 w-full">
                         <div className="w-full">
                             <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
@@ -591,7 +619,10 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             <div>
                                 <p className="text-[10px] text-gray-500 uppercase font-bold">Cliente</p>
                                 <p className="font-bold text-sm truncate">
-                                    {clientesMap.get(remito.clienteId)?.nombre || 'N/A'}
+                                    {remito.clienteId 
+                                        ? (clientesMap.get(remito.clienteId)?.nombre || 'Cliente Desconocido')
+                                        : (remito.vendedorId ? `VENTA CAJA - ${vendedoresMap.get(remito.vendedorId)?.nombre || 'Repartidor'}` : 'Venta de Mostrador')
+                                    }
                                     {remito.sucursalId && (
                                         <span className="ml-1 text-[10px] font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
                                             {clientesMap.get(remito.clienteId)?.sucursales.find(s => s.id === remito.sucursalId)?.nombre}

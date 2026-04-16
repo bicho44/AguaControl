@@ -34,13 +34,18 @@ export const calculateUsuarioBalance = (
             return sum + (m.cantidad * precio);
         }, 0);
         comprado += totalVenta;
+        const detalleProductos = v.movimientos.map(m => {
+            const prod = productosMap.get(m.productoId);
+            return `${m.cantidad}x ${prod?.nombre || '?'}`;
+        }).join(', ');
+        
         historial.push({
             id: v.id,
             type: 'sale',
             fecha: v.fecha,
             concepto: 'Compra de Stock (Histórica)',
             monto: -totalVenta,
-            detalle: `${v.movimientos.length} items`,
+            detalle: detalleProductos,
             original: v
         });
     });
@@ -61,13 +66,18 @@ export const calculateUsuarioBalance = (
             }
         });
         comprado += totalRemito;
+        const detalleProductos = r.movimientos.map(m => {
+            const prod = productosMap.get(m.productoId);
+            return `${m.entregados}x ${prod?.nombre || '?'}`;
+        }).join(', ');
+
         historial.push({
             id: r.id,
             type: 'remito',
             fecha: r.fecha,
             concepto: `Compra de Stock (#${r.puntoVenta}-${r.numero})`,
             monto: -totalRemito,
-            detalle: `${r.movimientos.length} items`,
+            detalle: detalleProductos,
             original: r
         });
     });

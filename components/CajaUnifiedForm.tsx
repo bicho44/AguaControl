@@ -56,39 +56,39 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
     return (
         <div className="flex flex-col h-full">
             {/* TABS DE MODO */}
-            <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl mb-6 w-fit mx-auto shadow-inner border dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-center gap-1.5 p-1.5 bg-gray-100 dark:bg-gray-800 rounded-2xl mb-6 w-full max-w-[95%] sm:w-fit mx-auto shadow-inner border dark:border-gray-700">
                 <button
                     onClick={() => setMode('VENTA')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-6 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                         mode === 'VENTA' 
-                        ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-md scale-105' 
+                        ? 'bg-white dark:bg-gray-700 text-primary-600 shadow-sm scale-105' 
                         : 'text-gray-400 hover:text-gray-600'
                     }`}
                 >
-                    <ShoppingCartIcon className="w-4 h-4" />
-                    Venta / Productos
+                    <ShoppingCartIcon className="w-3.5 h-3.5 sm:w-4 h-4" />
+                    Venta
                 </button>
                 <button
                     onClick={() => setMode('COBRO')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-6 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                         mode === 'COBRO' 
-                        ? 'bg-white dark:bg-gray-700 text-green-600 shadow-md scale-105' 
+                        ? 'bg-white dark:bg-gray-700 text-green-600 shadow-sm scale-105' 
                         : 'text-gray-400 hover:text-gray-600'
                     }`}
                 >
-                    <PlusIcon className="w-4 h-4" />
-                    Cobro / Recibo
+                    <PlusIcon className="w-3.5 h-3.5 sm:w-4 h-4" />
+                    Cobro
                 </button>
                 <button
                     onClick={() => setMode('GASTO')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-6 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                         mode === 'GASTO' 
-                        ? 'bg-white dark:bg-gray-700 text-red-600 shadow-md scale-105' 
+                        ? 'bg-white dark:bg-gray-700 text-red-600 shadow-sm scale-105' 
                         : 'text-gray-400 hover:text-gray-600'
                     }`}
                 >
-                    <ArrowDownCircleIcon className="w-4 h-4" />
-                    Gasto / Salida
+                    <ArrowDownCircleIcon className="w-3.5 h-3.5 sm:w-4 h-4" />
+                    Gasto
                 </button>
             </div>
 
