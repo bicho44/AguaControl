@@ -13,7 +13,7 @@ import AppSelect from '../components/ui/AppSelect';
 import SearchableSelect from '../components/SearchableSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 
-import CajaActionForm from '../components/CajaActionForm';
+import CajaUnifiedForm from '../components/CajaUnifiedForm';
 import RemitoForm from '../components/RemitoForm';
 
 // Force sync
@@ -30,10 +30,15 @@ interface UsuariosViewProps {
   updateUsuario: (usuario: Usuario) => void;
   addVentaVendedor: (venta: Omit<VentaVendedor, 'id' | 'pagoIds'> & { pagos?: PagoDetalle[] }) => void;
   addPagoManual: (pago: any) => Promise<void>;
+  addGasto: (gasto: any) => Promise<void>;
+  addRemito: (remito: any) => Promise<void>;
   updateRegistroPago: (pago: RegistroPago) => Promise<void>;
   updateVentaVendedor: (venta: VentaVendedor) => Promise<void>;
+  updateRemito: (remito: any) => Promise<void>;
+  addPagoToFactura: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => Promise<void>;
   deleteRegistroPago: (id: string) => Promise<void>;
   deleteVentaVendedor: (id: string) => Promise<void>;
+  deleteRemito: (id: string) => Promise<void>;
 }
 
 const UsuarioForm: React.FC<{
@@ -401,19 +406,25 @@ const VendorAccountModal: React.FC<{
                 </div>
 
                 {isFormOpen && (
-                    <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} className="max-w-2xl">
-                        <CajaActionForm 
+                    <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} className="max-w-4xl">
+                        <CajaUnifiedForm 
                             initialType="COBRO"
-                            hideTypeSelector={true}
-                            fixedVendedorId={user.id}
                             productos={productos}
                             clientes={clientes}
                             vendedores={vendedores}
                             currentUser={user}
-                            onSavePago={async (data) => {
-                                await onSaveMovement(data, false);
-                                setIsFormOpen(false);
+                            remitos={remitos}
+                            registrosPago={registrosPago}
+                            causasRecambio={[]}
+                            onSaveRemito={async (r) => { 
+                                await onSaveMovement(r, 'REMITO'); 
+                                setIsFormOpen(false); 
                             }}
+                            onSaveGasto={async (g) => { 
+                                await onSaveMovement(g, 'GASTO'); 
+                                setIsFormOpen(false); 
+                            }}
+                            onAddCliente={async () => ""}
                             onClose={() => setIsFormOpen(false)}
                         />
                     </Modal>
@@ -447,7 +458,7 @@ const VendorAccountModal: React.FC<{
 
 const UsuariosView: React.FC<UsuariosViewProps> = ({ 
     usuarios, registrosPago, remitos, clientes, productos, ventasVendedor, gastos,
-    addUsuario, updateUsuario, addVentaVendedor, addPagoManual, updateRegistroPago, updateVentaVendedor, deleteRegistroPago, deleteVentaVendedor,
+    addUsuario, updateUsuario, addVentaVendedor, addPagoManual, addGasto, updateRegistroPago, updateVentaVendedor, deleteRegistroPago, deleteVentaVendedor,
     addRemito, updateRemito, deleteRemito, addPagoToFactura, causasRecambio, facturas
 }) => {
   const [editingUsuario, setEditingUsuario] = useState<Partial<Usuario> | null>(null);
@@ -470,16 +481,19 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({
     } catch (e) { showNotification('Error al guardar.', 'error'); }
   };
 
-  const handleSaveMovement = async (data: any, isVenta: boolean) => {
+  const handleSaveMovement = async (data: any, type: 'REMITO' | 'PAGO' | 'GASTO') => {
       try {
-          if (isVenta) {
-              if (data.id) await updateVentaVendedor(data);
-              else await addVentaVendedor(data);
-              showNotification('Venta/Stock actualizado.', 'success');
+          if (type === 'REMITO') {
+              if (data.id) await updateRemito(data);
+              else await addRemito(data);
+              showNotification('Operación de Stock registrada.', 'success');
+          } else if (type === 'GASTO') {
+              await addGasto(data);
+              showNotification('Gasto registrado.', 'success');
           } else {
               if (data.id) await updateRegistroPago(data);
               else await addPagoManual(data);
-              showNotification('Pago actualizado.', 'success');
+              showNotification('Pago registrado.', 'success');
           }
       } catch (e) {
           console.error(e);

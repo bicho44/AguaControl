@@ -128,6 +128,7 @@ function AppContent() {
         // Acciones para botones rápidos
         addRemito: dataStore.addRemito,
         addPagoManual: dataStore.addPagoManual,
+        addGasto: dataStore.addGasto,
         addVentaVendedor: dataStore.addVentaVendedor,
         addCliente: dataStore.addCliente,
         addPagoToFactura: dataStore.addPagoToFactura,

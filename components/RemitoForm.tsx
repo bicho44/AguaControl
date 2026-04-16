@@ -48,11 +48,37 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const isNew = !remito.id;
   const isAdmin = currentUser.rol === Rol.ADMINISTRADOR;
 
-  const clienteOptions = useMemo(() => {
-    return clientes
+  const subjectOptions = useMemo(() => {
+    const clients = clientes
         .filter(c => c.estado === EstadoCliente.ACTIVO || c.id === formData.clienteId)
-        .map(c => ({ value: c.id, label: c.nombre }));
-  }, [clientes, formData.clienteId]);
+        .map(c => ({ value: `client_${c.id}`, label: `👤 CLIENTE: ${c.nombre}`, originalId: c.id, type: 'client' }));
+    
+    const externals = vendedores
+        .filter(v => v.tipo === TipoVendedor.EXTERNO)
+        .map(v => ({ value: `vendor_${v.id}`, label: `🚚 VENDEDOR: ${v.nombre}`, originalId: v.id, type: 'vendor' }));
+    
+    return [...clients, ...externals];
+  }, [clientes, vendedores, formData.clienteId]);
+
+  const selectedSubjectValue = useMemo(() => {
+    if (formData.clienteId) return `client_${formData.clienteId}`;
+    if (formData.vendedorId && !formData.clienteId && formData.esVentaMostrador) return `vendor_${formData.vendedorId}`;
+    return '';
+  }, [formData.clienteId, formData.vendedorId, formData.esVentaMostrador]);
+
+  const handleSubjectChange = (val: string) => {
+    const option = subjectOptions.find(o => o.value === val);
+    if (!option) {
+        setFormData(prev => ({ ...prev, clienteId: '', vendedorId: currentUser.id }));
+        return;
+    }
+    
+    if (option.type === 'client') {
+        setFormData(prev => ({ ...prev, clienteId: option.originalId, vendedorId: currentUser.id, sucursalId: '' }));
+    } else {
+        setFormData(prev => ({ ...prev, clienteId: '', vendedorId: option.originalId, sucursalId: '' }));
+    }
+  };
 
   const productosOptions = useMemo(() => 
     productos
@@ -368,7 +394,14 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     if (e) e.preventDefault();
     if (isSavingRef.current) return;
     if (isReadOnly) return;
-    if (!formData.clienteId || !formData.vendedorId || !formData.movimientos?.length) return showNotification('Datos incompletos.', 'error');
+    
+    // Si no es venta mostrador, requiere cliente
+    const isVentaDirecta = formData.esVentaMostrador || (formData.vendedorId && !formData.clienteId);
+    const isPurePayment = formData.pagos && formData.pagos.length > 0 && (!formData.movimientos || formData.movimientos.length === 0);
+    
+    if ((!isVentaDirecta && !formData.clienteId) || !formData.vendedorId || (!formData.movimientos?.length && !isPurePayment)) {
+        return showNotification('Datos incompletos. Seleccione un cliente o vendedor y productos (o un pago).', 'error');
+    }
     
     // --- SANITIZACIÓN ---
     const puntoVentaLimpio = parseInt(formData.puntoVenta || '0').toString();
@@ -468,9 +501,9 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
-                    {remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo'} Remito {formData.esAjuste && '(Ajuste)'}
+                    {formData.esVentaMostrador ? 'Operación de Mostrador' : (remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo') + ' Remito'} {formData.esAjuste && '(Ajuste)'}
                 </h2>
-                {isAdmin && !isReadOnly && (
+                {!formData.esVentaMostrador && isAdmin && !isReadOnly && (
                     <div className="w-40">
                         <SearchableSelect 
                             placeholder="Vendedor" 
@@ -482,11 +515,19 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 )}
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} />
-                <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} />
-                <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} />
-            </div>
+            {!formData.esVentaMostrador ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} />
+                    <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} />
+                    <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} />
+                </div>
+            ) : (
+                <div className="flex justify-end">
+                     <div className="w-32">
+                        <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} />
+                     </div>
+                </div>
+            )}
         </div>
 
         {deudaPendiente > 0 && (
@@ -496,19 +537,22 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
             </div>
         )}
         
-        {/* Cliente / Sucursal Section */}
+        {/* Cliente / Vendedor Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
             <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center h-4 px-1">
-                    <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Cliente</label>
-                    {!isReadOnly && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-widest">+ Nuevo</button>}
+                    <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                        {formData.esVentaMostrador ? 'Comprador / Responsable' : 'Cliente'}
+                    </label>
+                    {!isReadOnly && !formData.esVentaMostrador && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-widest">+ Nuevo</button>}
                 </div>
                 <SearchableSelect 
-                  options={clienteOptions} 
-                  value={formData.clienteId || ''} 
-                  onChange={(v) => handleSelectChange('clienteId', v)} 
+                  placeholder={formData.esVentaMostrador ? "Seleccionar Cliente o Vendedor Externo..." : "Seleccionar Cliente..."}
+                  options={subjectOptions} 
+                  value={selectedSubjectValue} 
+                  onChange={handleSubjectChange} 
                   disabled={isReadOnly}
-                  autoFocus={!isReadOnly && !formData.clienteId}
+                  autoFocus={!isReadOnly && !formData.clienteId && !formData.vendedorId}
                 />
                 {Object.keys(clientStock).length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">

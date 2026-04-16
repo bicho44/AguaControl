@@ -17,7 +17,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 // Importamos formularios
 
 import RemitoForm from '../components/RemitoForm';
-import CajaActionForm from '../components/CajaActionForm';
+import CajaUnifiedForm from '../components/CajaUnifiedForm';
 import SopladoDashboardWidget from '../plugins/soplado/SopladoDashboardWidget';
 import { Preforma, Molde, ProduccionSoplado, EntregaSoplado } from '../plugins/soplado/types';
 
@@ -44,6 +44,7 @@ interface DashboardViewProps {
   // New props for actions
   addRemito?: (remito: any) => Promise<void>;
   addPagoManual?: (pago: any) => Promise<void>;
+  addGasto?: (gasto: any) => Promise<void>;
   addVentaVendedor?: (venta: any) => Promise<void>;
   addCliente?: (cliente: any) => Promise<string>;
   addPagoToFactura?: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => Promise<void>;
@@ -568,7 +569,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio, planillas, movimientosPlanta,
     preformas, moldes, produccionSoplado, entregasSoplado,
     facturas = [],
-    addRemito, addPagoManual, addVentaVendedor, addCliente, addPagoToFactura, setCurrentView
+    addRemito, addPagoManual, addGasto, addVentaVendedor, addCliente, addPagoToFactura, setCurrentView
 }) => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
@@ -1261,16 +1262,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* MODAL PAGO CAJA (Para Externos) */}
         {isPagoModalOpen && (
-            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-2xl">
-                <CajaActionForm 
+            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-4xl">
+                <CajaUnifiedForm 
                     initialType="COBRO"
-                    hideTypeSelector={true}
-                    fixedVendedorId={user?.id}
                     productos={productos}
                     clientes={visibleClientes}
                     vendedores={usuarios}
                     currentUser={user!}
-                    onSavePago={handleSavePago}
+                    remitos={remitos}
+                    registrosPago={registrosPago}
+                    causasRecambio={[]}
+                    onSaveRemito={handleSaveRemito}
+                    onSaveGasto={addGasto}
+                    onAddCliente={handleAddClienteWrapper}
                     onClose={() => setIsPagoModalOpen(false)}
                 />
             </Modal>

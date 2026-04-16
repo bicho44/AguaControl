@@ -9,7 +9,7 @@ import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
-import CajaActionForm from '../components/CajaActionForm';
+import CajaUnifiedForm from '../components/CajaUnifiedForm';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 import { PlusIcon } from 'lucide-react';
@@ -433,16 +433,19 @@ const CajaView: React.FC<CajaViewProps> = ({
       </Card>
 
       {isActionModalOpen && (
-        <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} className="max-w-2xl">
-          <CajaActionForm 
-            initialType={actionInitialType}
+        <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} className="max-w-4xl">
+          <CajaUnifiedForm 
+            initialType={actionInitialType === 'VENTA' ? 'VENTA' : (actionInitialType === 'GASTO' ? 'GASTO' : 'VENTA')}
             productos={productos}
             clientes={clientes}
             vendedores={vendedores}
             currentUser={currentUser || vendedores[0]}
+            remitos={remitos}
+            registrosPago={registrosPago}
+            causasRecambio={[]}
             onSaveRemito={handleSaveRemito}
-            onSavePago={addPagoManual}
             onSaveGasto={addGasto}
+            onAddCliente={handleAddQuickClient}
             onClose={() => setIsActionModalOpen(false)}
           />
         </Modal>
