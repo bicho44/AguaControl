@@ -13,7 +13,7 @@ import AppSelect from '../components/ui/AppSelect';
 import SearchableSelect from '../components/SearchableSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 
-import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import CajaActionForm from '../components/CajaActionForm';
 import RemitoForm from '../components/RemitoForm';
 
 // Force sync
@@ -401,21 +401,20 @@ const VendorAccountModal: React.FC<{
                 </div>
 
                 {isFormOpen && (
-                    <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} className="max-w-4xl">
-                        <MovimientoCajaForm 
-                            type={formConfig.type} 
-                            movimiento={formConfig.data} 
-                            isEdit={formConfig.isEdit} 
-                            onSave={async (data, isVenta) => {
-                                await onSaveMovement(data, isVenta);
+                    <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} className="max-w-2xl">
+                        <CajaActionForm 
+                            initialType="COBRO"
+                            hideTypeSelector={true}
+                            fixedVendedorId={user.id}
+                            productos={productos}
+                            clientes={clientes}
+                            vendedores={vendedores}
+                            currentUser={user}
+                            onSavePago={async (data) => {
+                                await onSaveMovement(data, false);
                                 setIsFormOpen(false);
-                            }} 
-                            onAddCliente={async () => ""} // No habilitado aquí
-                            onClose={() => setIsFormOpen(false)} 
-                            clientes={clientes} 
-                            vendedores={vendedores} 
-                            productos={productos} 
-                            hideClientSelector={true} // Forzar contexto de vendedor
+                            }}
+                            onClose={() => setIsFormOpen(false)}
                         />
                     </Modal>
                 )}

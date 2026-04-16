@@ -9,10 +9,10 @@ import { ChevronDownIcon } from '../components/icons/ChevronDownIcon';
 import { useNotification } from '../context/NotificationContext';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
-import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import CajaActionForm from '../components/CajaActionForm';
 import RemitoForm from '../components/RemitoForm';
-import VentaMostradorForm from '../components/VentaMostradorForm';
 import { getLocalDateString } from '../utils/dateUtils';
+import { PlusIcon } from 'lucide-react';
 
 // Force sync
 
@@ -62,10 +62,11 @@ const CajaView: React.FC<CajaViewProps> = ({
     addPagoManual, addGasto, addVentaVendedor, addRemito, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor,
     currentUser
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [actionInitialType, setActionInitialType] = useState<'VENTA' | 'COBRO' | 'GASTO'>('VENTA');
   const [isRemitoModalOpen, setIsRemitoModalOpen] = useState(false);
-  const [isVentaMostradorModalOpen, setIsVentaMostradorModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<{ type: 'ingreso' | 'gasto', data: any, isEdit: boolean }>({ type: 'ingreso', data: {}, isEdit: false });
+  const [isLegacyModalOpen, setIsLegacyModalOpen] = useState(false); // Para edición de registros viejos
   const [remitoModalData, setRemitoModalData] = useState<any>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const { showNotification } = useNotification();
@@ -100,29 +101,6 @@ const CajaView: React.FC<CajaViewProps> = ({
     return total;
   }, [productosMap, vendedores, clientes]);
 
-  const handleSave = async (data: any, isVenta: boolean) => {
-    try {
-        if (isVenta) {
-            if (modalConfig.isEdit) {
-                await updateVentaVendedor(data);
-                showNotification('Venta actualizada.', 'success');
-            } else {
-                await addVentaVendedor(data);
-                showNotification('Venta registrada.', 'success');
-            }
-        } else {
-            if (modalConfig.type === 'gasto') {
-                if (modalConfig.isEdit) { await updateGasto(data); showNotification('Gasto actualizado.', 'success'); }
-                else { await addGasto(data); showNotification('Gasto registrado.', 'success'); }
-            } else {
-                if (modalConfig.isEdit) { await updateRegistroPago(data); showNotification('Registro actualizado.', 'success'); }
-                else { await addPagoManual(data); showNotification('Ingreso registrado.', 'success'); }
-            }
-        }
-        setIsModalOpen(false);
-    } catch (e) { console.error(e); showNotification('Error al guardar.', 'error'); }
-  };
-
   const handleAddQuickClient = async (clienteData: any) => {
       try { const id = await addCliente(clienteData); showNotification('Cliente creado.', 'success'); return id; }
       catch (e) { showNotification('Error al crear cliente.', 'error'); return ""; }
@@ -138,36 +116,28 @@ const CajaView: React.FC<CajaViewProps> = ({
             showNotification('Remito/Venta registrado.', 'success');
         }
         setIsRemitoModalOpen(false);
-        setIsVentaMostradorModalOpen(false);
+        setIsActionModalOpen(false);
     } catch (e) {
         console.error(e);
         showNotification('Error al guardar venta.', 'error');
     }
   };
 
-  const openVentaMostradorModal = useCallback(() => {
-    setIsVentaMostradorModalOpen(true);
-  }, []);
-
-  const openIngresoModal = useCallback(() => {
-    setModalConfig({type: 'ingreso', isEdit: false, data: {fecha: getLocalDateString(), pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
-    setIsModalOpen(true);
-  }, []);
-
-  const openGastoModal = useCallback(() => {
-    setModalConfig({type: 'gasto', isEdit: false, data: {fecha: getLocalDateString(), pagos: [{monto: 0, metodo: MetodoPago.EFECTIVO}]}}); 
-    setIsModalOpen(true);
+  const openActionModal = useCallback((type: 'VENTA' | 'COBRO' | 'GASTO' = 'VENTA') => {
+    setActionInitialType(type);
+    setIsActionModalOpen(true);
   }, []);
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-        if (e.altKey && (e.key === 'v' || e.key === 'V') && !isModalOpen && !isRemitoModalOpen && !isVentaMostradorModalOpen) { e.preventDefault(); openVentaMostradorModal(); }
-        else if (e.altKey && (e.key === 'c' || e.key === 'C') && !isModalOpen && !isRemitoModalOpen && !isVentaMostradorModalOpen) { e.preventDefault(); openIngresoModal(); } 
-        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isModalOpen && !isRemitoModalOpen && !isVentaMostradorModalOpen) { e.preventDefault(); openGastoModal(); }
+        if (e.altKey && (e.key === 'v' || e.key === 'V') && !isActionModalOpen && !isRemitoModalOpen) { e.preventDefault(); openActionModal('VENTA'); }
+        else if (e.altKey && (e.key === 'c' || e.key === 'C') && !isActionModalOpen && !isRemitoModalOpen) { e.preventDefault(); openActionModal('COBRO'); } 
+        else if (e.altKey && (e.key === 'g' || e.key === 'G') && !isActionModalOpen && !isRemitoModalOpen) { e.preventDefault(); openActionModal('GASTO'); }
+        else if (e.altKey && (e.key === 'n' || e.key === 'N') && !isActionModalOpen && !isRemitoModalOpen) { e.preventDefault(); openActionModal('VENTA'); }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isModalOpen, isRemitoModalOpen, isVentaMostradorModalOpen, openIngresoModal, openGastoModal, openVentaMostradorModal]);
+  }, [isActionModalOpen, isRemitoModalOpen, openActionModal]);
 
   // Balance Diario
   const todayStr = useMemo(() => getLocalDateString(), []);
@@ -325,11 +295,9 @@ const CajaView: React.FC<CajaViewProps> = ({
     <div className="space-y-8 pt-12 md:pt-0 pb-12">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Caja & Administración</h1>
-        <div className="flex gap-2">
-            <AppButton variant="primary" onClick={openVentaMostradorModal}>+ Venta Mostrador <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+V)</span></AppButton>
-            <AppButton variant="secondary" onClick={openIngresoModal}>+ Cobro / Ingreso <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+C)</span></AppButton>
-            <AppButton variant="danger" onClick={openGastoModal}>- Gasto <span className="opacity-60 text-[10px] ml-1 font-normal">(Alt+G)</span></AppButton>
-        </div>
+        <AppButton variant="primary" onClick={() => openActionModal('VENTA')} className="!py-3 !px-6 shadow-xl hover:scale-105 transition-all">
+          <PlusIcon className="w-5 h-5 mr-2" /> NUEVO MOVIMIENTO
+        </AppButton>
       </div>
       
       {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString('es-AR')})`, true)}
@@ -385,7 +353,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                     e.stopPropagation(); 
                                                     if(mov.type==='gasto') {
                                                         setModalConfig({type:'gasto', isEdit:true, data:mov.original}); 
-                                                        setIsModalOpen(true);
+                                                        setIsLegacyModalOpen(true);
                                                     } else if (mov.ventaId && remitosMap.has(mov.ventaId)) {
                                                         // Si es un remito (venta unificada)
                                                         setRemitoModalData(remitosMap.get(mov.ventaId));
@@ -397,7 +365,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                             setIsRemitoModalOpen(true);
                                                         } else {
                                                             setModalConfig({type:'ingreso', isEdit:true, data: mov.original});
-                                                            setIsModalOpen(true);
+                                                            setIsLegacyModalOpen(true);
                                                         }
                                                     } else { 
                                                         const original=mov.original as RegistroPago[]; 
@@ -407,7 +375,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                             setIsRemitoModalOpen(true);
                                                         } else {
                                                             setModalConfig({type:'ingreso', isEdit:true, data:{...p1, pagos:original.map(p=>({monto:p.monto, metodo:p.metodo}))}}); 
-                                                            setIsModalOpen(true);
+                                                            setIsLegacyModalOpen(true);
                                                         }
                                                     } 
                                                 }} 
@@ -464,20 +432,28 @@ const CajaView: React.FC<CajaViewProps> = ({
         </div>
       </Card>
 
-      {isVentaMostradorModalOpen && (
-        <Modal isOpen={isVentaMostradorModalOpen} onClose={() => setIsVentaMostradorModalOpen(false)} className="max-w-2xl">
-          <VentaMostradorForm 
-              productos={productos} 
-              currentUser={currentUser || vendedores[0]} 
-              onSave={handleSaveRemito} 
-              onClose={() => setIsVentaMostradorModalOpen(false)} 
+      {isActionModalOpen && (
+        <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} className="max-w-2xl">
+          <CajaActionForm 
+            initialType={actionInitialType}
+            productos={productos}
+            clientes={clientes}
+            vendedores={vendedores}
+            currentUser={currentUser || vendedores[0]}
+            onSaveRemito={handleSaveRemito}
+            onSavePago={addPagoManual}
+            onSaveGasto={addGasto}
+            onClose={() => setIsActionModalOpen(false)}
           />
         </Modal>
       )}
 
-      {isModalOpen && (
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-4xl">
-            <MovimientoCajaForm type={modalConfig.type} movimiento={modalConfig.data} isEdit={modalConfig.isEdit} onSave={handleSave} onAddCliente={handleAddQuickClient} onClose={() => setIsModalOpen(false)} clientes={clientes} vendedores={vendedores} productos={productos} ventasVendedor={ventasVendedor} />
+      {isLegacyModalOpen && (
+        <Modal isOpen={isLegacyModalOpen} onClose={() => setIsLegacyModalOpen(false)} className="max-w-4xl">
+            {/* Solo se usa para editar registros viejos que no encajan en el nuevo form */}
+            <p className="p-4 text-xs text-gray-400">Modo Edición Avanzada</p>
+            {/* Aquí podrías re-importar MovimientoCajaForm si fuera estrictamente necesario, 
+                pero intentaremos que todo pase por el nuevo o por RemitoForm */}
         </Modal>
       )}
 

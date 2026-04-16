@@ -17,7 +17,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 // Importamos formularios
 
 import RemitoForm from '../components/RemitoForm';
-import MovimientoCajaForm from '../components/MovimientoCajaForm';
+import CajaActionForm from '../components/CajaActionForm';
 import SopladoDashboardWidget from '../plugins/soplado/SopladoDashboardWidget';
 import { Preforma, Molde, ProduccionSoplado, EntregaSoplado } from '../plugins/soplado/types';
 
@@ -1261,17 +1261,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* MODAL PAGO CAJA (Para Externos) */}
         {isPagoModalOpen && (
-            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-4xl">
-                <MovimientoCajaForm 
-                    type="ingreso" // Vendedor carga plata (pago de su deuda)
-                    movimiento={newPagoData} 
-                    isEdit={false} 
-                    onSave={handleSavePago} 
-                    onAddCliente={handleAddClienteWrapper} 
-                    onClose={() => setIsPagoModalOpen(false)} 
-                    clientes={visibleClientes} 
-                    vendedores={usuarios} 
-                    productos={productos} 
+            <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-2xl">
+                <CajaActionForm 
+                    initialType="COBRO"
+                    hideTypeSelector={true}
+                    fixedVendedorId={user?.id}
+                    productos={productos}
+                    clientes={visibleClientes}
+                    vendedores={usuarios}
+                    currentUser={user!}
+                    onSavePago={handleSavePago}
+                    onClose={() => setIsPagoModalOpen(false)}
                 />
             </Modal>
         )}
