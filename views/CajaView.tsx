@@ -75,6 +75,7 @@ const CajaView: React.FC<CajaViewProps> = ({
   
   // FILTROS DE FECHA
   const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
+  const [hideCtaCte, setHideCtaCte] = useState(true);
   // PAGINACIÓN
   const [itemsLimit, setItemsLimit] = useState(50);
 
@@ -275,8 +276,10 @@ const CajaView: React.FC<CajaViewProps> = ({
         }
     });
 
-    return allMovements.sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime() || b.id.localeCompare(a.id));
-  }, [gastos, registrosPago, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal]);
+    return allMovements
+        .filter(m => !hideCtaCte || !m.isCtaCtePura)
+        .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime() || b.id.localeCompare(a.id));
+  }, [gastos, registrosPago, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal, hideCtaCte]);
 
   const displayedMovements = useMemo(() => combinedMovements.slice(0, itemsLimit), [combinedMovements, itemsLimit]);
 
@@ -312,7 +315,22 @@ const CajaView: React.FC<CajaViewProps> = ({
       {renderBalanceSection(dailyBalances, `Arqueo de Caja del Día (${new Date().toLocaleDateString('es-AR')})`, true)}
       {renderBalanceSection(totalBalances, 'Acumulado Histórico', false)}
 
-      <div className="flex flex-col md:flex-row justify-end items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+      <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+          <div className="flex items-center gap-3 bg-white dark:bg-gray-900 px-4 py-2 rounded-lg border dark:border-gray-700 shadow-sm">
+            <label className="flex items-center gap-2 cursor-pointer group">
+                <div 
+                    className={`w-10 h-5 flex items-center rounded-full p-1 transition-colors ${!hideCtaCte ? 'bg-primary-500' : 'bg-gray-300'}`} 
+                    onClick={() => setHideCtaCte(!hideCtaCte)}
+                >
+                    <div className={`bg-white w-3.5 h-3.5 rounded-full shadow-md transform transition-transform ${!hideCtaCte ? 'translate-x-5' : ''}`}></div>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-primary-600 leading-none">Ventas Crédito</span>
+                    <span className="text-[9px] text-gray-400 font-bold">{hideCtaCte ? 'OCULTAS' : 'VISIBLES'}</span>
+                </div>
+            </label>
+          </div>
+
           <div className="flex flex-wrap gap-2 items-end w-full md:w-auto">
               <div className="flex-1 min-w-[140px]">
                   <AppInput type="date" label="Desde" value={dateFilter.from} onChange={e => setDateFilter({...dateFilter, from: e.target.value})} />

@@ -534,6 +534,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 causasRecambio={causasRecambio}
                 facturas={facturas}
                 onAddPagoToFactura={addPagoToFactura}
+                onVendedorChange={setStickyVendedorId}
             />
         </Card>
         <ShortcutsHelp isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
@@ -582,7 +583,7 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       {activeTab === 'listado' ? (
         <>
           <Card>
-            <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <div className="p-5 border-b dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-start">
                 <div className="w-full">
                     <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                 </div>
@@ -592,21 +593,27 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                 <div className="w-full">
                     <AppSelect label="Estado" value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value as any)} options={[{value:"todos", label:"Todos"}, {value:"pendiente", label:"Pendientes"}, {value:"pagado", label:"Pagados"}, {value:"facturado", label:"Facturados"}, {value:"ajuste", label:"Carga Inicial"}]} />
                 </div>
-                <div className="w-full flex items-center justify-center pb-1">
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                        <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${showVentaCaja ? 'bg-primary-500' : 'bg-gray-300'}`} onClick={() => setShowVentaCaja(!showVentaCaja)}>
-                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showVentaCaja ? 'translate-x-4' : ''}`}></div>
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary-600">Ver Ventas Caja</span>
-                    </label>
-                </div>
+                
                 <div className="w-full">
-                    <div className="grid grid-cols-2 gap-2 w-full">
-                        <div className="w-full">
-                            <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 ml-1">Mostrar</label>
+                        <div className="flex items-center h-[46px] px-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <label className="flex items-center gap-3 cursor-pointer group w-full">
+                                <div className={`w-9 h-5 flex items-center rounded-full p-1 transition-colors ${showVentaCaja ? 'bg-primary-500' : 'bg-gray-300'}`} onClick={() => setShowVentaCaja(!showVentaCaja)}>
+                                    <div className={`bg-white w-3 h-3 rounded-full shadow-md transform transition-transform ${showVentaCaja ? 'translate-x-4' : ''}`}></div>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-primary-600">Ventas Caja</span>
+                            </label>
                         </div>
-                        <div className="w-full">
-                            <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+                    </div>
+                </div>
+
+                <div className="w-full">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 ml-1">Rango de Fechas</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <AppInput type="date" className="!gap-0" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
+                            <AppInput type="date" className="!gap-0" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
                         </div>
                     </div>
                 </div>
@@ -672,23 +679,22 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
       ) : (
         <div className="space-y-4">
             <Card>
-                <div className="p-4 border-b dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-                    <div className="lg:col-span-3">
-                        <SearchableSelect label="Filtrar Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
+                <div className="p-5 border-b dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-6 items-start">
+                    <div className="lg:col-span-3 w-full">
+                        <SearchableSelect label="Cliente" value={clienteFilter} onChange={setClienteFilter} options={filterClienteOptions} />
                     </div>
-                    <div className="lg:col-span-4">
-                        <div className="grid grid-cols-2 gap-2 w-full">
-                            <div className="w-full">
-                                <AppInput type="date" label="Desde" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
-                            </div>
-                            <div className="w-full">
-                                <AppInput type="date" label="Hasta" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
+                    <div className="lg:col-span-4 w-full">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 ml-1">Rango de Fechas</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <AppInput type="date" className="!gap-0" value={dateFilter.from} onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))} />
+                                <AppInput type="date" className="!gap-0" value={dateFilter.to} onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))} />
                             </div>
                         </div>
                     </div>
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-3 w-full">
                         <AppSelect 
-                            label="Filtrar Balance"
+                            label="Filtro de Balance"
                             value={balanceFilter}
                             onChange={(e) => setBalanceFilter(e.target.value as any)}
                             options={[
@@ -699,13 +705,13 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                             ]}
                         />
                     </div>
-                    <div className="flex flex-col gap-1 lg:col-span-1">
-                        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Remitos</label>
+                    <div className="flex flex-col gap-1.5 lg:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 ml-1">Ver</label>
                         <AppButton 
                             variant="secondary"
                             onClick={() => setShowRemitosColumn(!showRemitosColumn)}
-                            className={`!px-0 w-full ${showRemitosColumn ? 'text-primary-600 border-primary-200 bg-primary-50 dark:bg-primary-900/20' : 'text-gray-400'}`}
-                            title={showRemitosColumn ? 'Ocultar Remitos' : 'Mostrar Remitos'}
+                            className={`h-[46px] w-full !px-0 flex items-center justify-center transition-all ${showRemitosColumn ? 'text-primary-600 border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'text-gray-400 border-gray-200 dark:border-gray-700'}`}
+                            title={showRemitosColumn ? 'Ocultar Nros de Remito' : 'Mostrar Nros de Remito'}
                         >
                             {showRemitosColumn ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                         </AppButton>
