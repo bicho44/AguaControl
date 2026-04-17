@@ -17,7 +17,7 @@ const AppInput: React.FC<AppInputProps> = ({ label, error, className = '', ...pr
       <input
         className={`w-full h-[46px] px-4 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-primary-500 transition-all ${
           error ? 'border-red-500 focus:ring-red-500' : ''
-        }`}
+        } ${props.type === 'date' ? '[&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-100' : ''} ${className}`}
         aria-invalid={error ? "true" : undefined}
         {...props}
       />

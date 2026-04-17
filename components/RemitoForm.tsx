@@ -502,36 +502,51 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4 pb-4">
-        {/* Header Section */}
-        <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                <h2 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tighter leading-none">
+        {/* Header Section - Unificado y Alineado */}
+        <div className="bg-gray-100/50 dark:bg-gray-800/50 p-5 rounded-2xl border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tighter leading-none border-l-4 border-primary-500 pl-4">
                     {formData.esVentaMostrador ? 'Mostrador' : (remito.id ? (isReadOnly ? 'Ver' : 'Editar') : 'Nuevo') + ' Remito'} {formData.esAjuste && '(Ajuste)'}
                 </h2>
                 
-                <div className="flex items-center gap-2">
-                    <div className="w-32">
-                        <AppInput label="Fecha" type="date" name="fecha" value={formData.fecha || ''} onChange={handleChange} required disabled={!isAdmin || isReadOnly} className="scale-90 origin-right transition-all hover:scale-100 focus-within:scale-100" />
+                <div className="flex items-center gap-3">
+                    <div className="bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Periodo Global</span>
+                        <span className="text-xs font-bold text-primary-600 truncate">{new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).toUpperCase()}</span>
                     </div>
-                    {!formData.esVentaMostrador && isAdmin && !isReadOnly && (
-                        <div className="w-40 scale-90 origin-right">
-                            <SearchableSelect 
-                                placeholder="Vendedor" 
-                                options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
-                                value={formData.vendedorId || ''} 
-                                onChange={v => setFormData({...formData, vendedorId: v})} 
-                            />
-                        </div>
-                    )}
                 </div>
             </div>
-            
-            {!formData.esVentaMostrador && (
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 max-w-sm">
-                    <AppInput label="Pto Vta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} />
-                    <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="flex flex-col">
+                    <AppInput 
+                        label="Fecha de Emisión" 
+                        type="date" 
+                        name="fecha" 
+                        value={formData.fecha || ''} 
+                        onChange={handleChange} 
+                        required 
+                        disabled={!isAdmin || isReadOnly} 
+                    />
                 </div>
-            )}
+
+                {!formData.esVentaMostrador ? (
+                    <>
+                        <AppInput label="Punto de Venta" type="number" name="puntoVenta" value={formData.puntoVenta || ''} onChange={handleChange} required disabled={isReadOnly} />
+                        <AppInput label="Número" type="number" name="numero" value={formData.numero || ''} onChange={handleChange} required disabled={isReadOnly} />
+                    </>
+                ) : <div className="hidden lg:block lg:col-span-2"></div>}
+
+                {isAdmin && !isReadOnly && (
+                    <SearchableSelect 
+                        label="Vendedor"
+                        placeholder="Asignar Vendedor" 
+                        options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
+                        value={formData.vendedorId || ''} 
+                        onChange={v => setFormData({...formData, vendedorId: v})} 
+                    />
+                )}
+            </div>
         </div>
 
         {deudaPendiente > 0 && (
