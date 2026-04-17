@@ -7,6 +7,7 @@ import AppInput from './ui/AppInput';
 import AppSelect from './ui/AppSelect';
 import { ShoppingCartIcon, ArrowDownCircleIcon, PlusIcon } from 'lucide-react';
 import SearchableSelect from './SearchableSelect';
+import MarkdownEditor from './ui/MarkdownEditor';
 
 interface CajaUnifiedFormProps {
     clientes: Cliente[];
@@ -35,7 +36,8 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
         concepto: '',
         monto: 0,
         metodo: MetodoPago.EFECTIVO,
-        vendedorId: ''
+        vendedorId: '',
+        observaciones: ''
     });
 
     const handleSaveGasto = async (e: React.FormEvent) => {
@@ -45,7 +47,8 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
                 fecha: gastoData.fecha,
                 concepto: gastoData.concepto,
                 pagos: [{ monto: gastoData.monto, metodo: gastoData.metodo }],
-                vendedorId: gastoData.vendedorId || undefined
+                vendedorId: gastoData.vendedorId || undefined,
+                observaciones: gastoData.observaciones
             });
             onClose();
         } catch (e) {
@@ -145,6 +148,14 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
                             />
                             <p className="text-[9px] text-gray-400 mt-1 ml-1">Si se asigna a un usuario, afectará su cuenta corriente.</p>
                         </div>
+                    </div>
+
+                    <div className="px-1 border-t dark:border-gray-700 pt-4">
+                        <MarkdownEditor 
+                            value={gastoData.observaciones} 
+                            onChange={val => setGastoData({...gastoData, observaciones: val})}
+                            placeholder="Ej: Detalles del gasto, motivo, etc..."
+                        />
                     </div>
 
                     <div className="flex justify-end gap-3 pt-6 border-t dark:border-gray-700">

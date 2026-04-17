@@ -196,6 +196,7 @@ export interface Remito {
     recambios?: Recambio[];
     pagoIds?: string[];
     facturaId?: string;
+    observaciones?: string;
 }
 
 export interface Recambio {
@@ -233,6 +234,7 @@ export interface Gasto {
     concepto: string;
     nroRecibo?: string;
     vendedorId?: string;
+    observaciones?: string;
 }
 
 export interface MovimientoVenta {

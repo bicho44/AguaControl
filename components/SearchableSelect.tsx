@@ -15,6 +15,7 @@ interface SearchableSelectProps {
   label?: string;
   autoFocus?: boolean;
   disableSort?: boolean; // Nueva prop para controlar el ordenamiento
+  id?: string;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({ 
@@ -25,7 +26,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     disabled = false, 
     label, 
     autoFocus = false,
-    disableSort = false 
+    disableSort = false,
+    id
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -157,6 +159,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
       )}
       <div className="relative">
         <input
+            id={id}
             ref={inputRef}
             type="text"
             className="w-full h-[46px] px-4 py-2.5 pr-10 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"

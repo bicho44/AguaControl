@@ -6,6 +6,7 @@ interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   isCancel?: boolean;
+  fullWidth?: boolean;
 }
 
 const AppButton: React.FC<AppButtonProps> = ({ 
@@ -14,6 +15,7 @@ const AppButton: React.FC<AppButtonProps> = ({
   size = 'md', 
   isLoading, 
   isCancel,
+  fullWidth = false,
   className = '', 
   type = 'button', // Ahora por defecto es button, no submit
   ...props 
@@ -70,7 +72,7 @@ const AppButton: React.FC<AppButtonProps> = ({
     <button 
       ref={buttonRef}
       type={type}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
       disabled={isLoading || props.disabled}
       {...props}
     >

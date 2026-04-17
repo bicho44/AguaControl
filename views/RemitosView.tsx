@@ -17,6 +17,7 @@ import { CogIcon } from '../components/icons/CogIcon';
 import { PdfIcon } from '../components/icons/PdfIcon';
 import { CsvIcon } from '../components/icons/CsvIcon';
 import { Eye, EyeOff } from 'lucide-react';
+import MarkdownPreview from '../components/ui/MarkdownPreview';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -654,6 +655,13 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
                                 <thead className="text-gray-400 uppercase font-black"><tr><th className="py-2">Producto</th><th className="py-2 text-center">Entregados</th><th className="py-2 text-center">Retirados</th></tr></thead>
                                 <tbody>{remito.movimientos.map((m, i)=>(<tr key={i} className="border-t dark:border-gray-700"><td className="py-2">{productosMap.get(m.productoId)?.nombre}</td><td className="py-2 text-center font-bold text-blue-600">{m.entregados}</td><td className="py-2 text-center text-gray-400">{m.recibidos}</td></tr>))}</tbody>
                             </table>
+
+                            {remito.observaciones && (
+                                <div className="mt-4 pt-4 border-t border-dashed dark:border-gray-700 bg-white/40 dark:bg-gray-900/40 p-3 rounded-xl">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Notas / Observaciones</p>
+                                    <MarkdownPreview value={remito.observaciones} className="text-gray-600 dark:text-gray-300" />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

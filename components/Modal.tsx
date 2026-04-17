@@ -8,9 +8,10 @@ interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
+  title?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className, title }) => {
   useEffect(() => {
     if (!isOpen) return;
 

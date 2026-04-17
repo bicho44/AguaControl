@@ -11,6 +11,8 @@ import QuickClientModal from './QuickClientModal';
 import { getPendingFacturas, FacturaPendiente } from '../utils/invoiceUtils';
 import { calculateRemitoTotal, shouldShowPaymentSection, calculateStockAtentivo } from '../utils/salesUtils';
 
+import MarkdownEditor from './ui/MarkdownEditor';
+
 // Force sync
 
 interface RemitoFormProps {
@@ -211,33 +213,48 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     prevMovimientosLength.current = currentLength;
   }, [formData.movimientos?.length, isReadOnly]);
 
-  // Focus on the first quantity input when opening a pre-filled remito
+  // Multi-step focus management (Desktop only)
   useEffect(() => {
-    if (remito.clienteId && !isReadOnly) {
-      let attempts = 0;
-      const interval = setInterval(() => {
+    if (isReadOnly || window.innerWidth < 1024) return;
+    
+    // Initial focus on mount
+    const timer = setTimeout(() => {
+      const clientSelect = document.getElementById('client-select');
+      if (clientSelect) clientSelect.focus();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [isReadOnly]);
+
+  // Focus transition: Client -> Branch
+  useEffect(() => {
+    if (isReadOnly || window.innerWidth < 1024 || !formData.clienteId) return;
+    
+    if (clienteSucursales.length > 1 && !formData.sucursalId) {
+      setTimeout(() => {
+        document.getElementById('sucursal-select')?.focus();
+      }, 100);
+    } else if (clienteSucursales.length <= 1 || formData.sucursalId) {
+      // Focus quantity if already have branch or only one
+      setTimeout(() => {
         const input = document.getElementById('primer-input-cantidad');
         if (input) {
           input.focus();
-          // Select the text inside the input for easier overwriting
-          if (input instanceof HTMLInputElement) {
-            input.select();
-          }
-          attempts++;
-          // Try a few times to ensure it sticks after any re-renders caused by stock calculation
-          if (attempts > 3) {
-            clearInterval(interval);
-          }
-        } else if (attempts > 15) {
-          // Stop trying after 1.5 seconds if element never appears
-          clearInterval(interval);
-        } else {
-          attempts++;
+          if (input instanceof HTMLInputElement) input.select();
         }
-      }, 100);
-      return () => clearInterval(interval);
+      }, 200);
     }
-  }, [remito.clienteId, isReadOnly]);
+  }, [formData.clienteId, clienteSucursales.length, isReadOnly]); // Depend on clienteId change
+
+  // Focus transition: Branch -> Quantity (Manual change)
+  useEffect(() => {
+    if (isReadOnly || window.innerWidth < 1024 || !formData.sucursalId || clienteSucursales.length <= 1) return;
+    
+    const qtyInput = document.getElementById('primer-input-cantidad');
+    if (qtyInput) {
+      qtyInput.focus();
+      if (qtyInput instanceof HTMLInputElement) qtyInput.select();
+    }
+  }, [formData.sucursalId, isReadOnly, clienteSucursales.length]);
 
   // Obtener dirección actual para mostrar
   const currentAddress = useMemo(() => {
@@ -534,12 +551,13 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     {!isReadOnly && !formData.esVentaMostrador && <button type="button" onClick={() => setIsQuickClientOpen(true)} className="text-[10px] font-black text-primary-600 hover:underline uppercase tracking-widest">+ Nuevo</button>}
                 </div>
                 <SearchableSelect 
+                  id="client-select"
                   placeholder={formData.esVentaMostrador ? "Seleccionar Cliente o Vendedor Externo..." : "Seleccionar Cliente..."}
                   options={subjectOptions} 
                   value={selectedSubjectValue} 
                   onChange={handleSubjectChange} 
                   disabled={isReadOnly}
-                  autoFocus={!isReadOnly && !formData.clienteId && !formData.vendedorId}
+                  autoFocus={!isReadOnly && !formData.clienteId && !formData.vendedorId && window.innerWidth < 1024}
                 />
                 {Object.keys(clientStock).length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
@@ -563,6 +581,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
             </div>
             <div className={clienteSucursales.length <= 1 ? 'invisible md:visible' : ''}>
                 <AppSelect 
+                    id="sucursal-select"
                     label="Sucursal" 
                     name="sucursalId" 
                     value={formData.sucursalId || ''} 
@@ -804,6 +823,14 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Total del Remito</p>
                 <p className="text-3xl font-black text-gray-800 dark:text-white tracking-tighter">${totalRemito.toLocaleString()}</p>
             </div>
+        </div>
+
+        <div className="px-2">
+            <MarkdownEditor 
+                value={formData.observaciones || ''} 
+                onChange={(val) => setFormData(prev => ({ ...prev, observaciones: val }))}
+                placeholder="Ej: Cliente solicitó entregar después de las 10hs..."
+            />
         </div>
 
         <div className="flex justify-end gap-3 pt-6 border-t dark:border-gray-700">

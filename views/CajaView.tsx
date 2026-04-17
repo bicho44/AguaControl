@@ -13,6 +13,7 @@ import CajaUnifiedForm from '../components/CajaUnifiedForm';
 import RemitoForm from '../components/RemitoForm';
 import { getLocalDateString } from '../utils/dateUtils';
 import { PlusIcon } from 'lucide-react';
+import MarkdownPreview from '../components/ui/MarkdownPreview';
 
 // Force sync
 
@@ -52,7 +53,7 @@ interface CombinedMovement {
   concepto: string;
   pagos: any[];
   total: number;
-  original: Gasto | RegistroPago[] | VentaVendedor;
+  original: Gasto | RegistroPago[] | VentaVendedor | Remito;
   ventaId?: string;
   isCtaCtePura?: boolean;
 }
@@ -413,8 +414,16 @@ const CajaView: React.FC<CajaViewProps> = ({
                                                     })}
                                                 </div>
                                                 )}
-                                                <div className="md:col-span-2 flex justify-end">
-                                                    {!isEditDisabled && <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }} className="!py-1 shadow-sm">Eliminar Registro</AppButton>}
+                                                <div className="md:col-span-2 flex flex-col gap-4">
+                                                    {(mov.original as any).observaciones && (
+                                                        <div className="bg-white/40 dark:bg-gray-800 p-3 rounded-xl border dark:border-gray-700">
+                                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Observaciones</p>
+                                                            <MarkdownPreview value={(mov.original as any).observaciones} />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-end">
+                                                        {!isEditDisabled && <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setMovimientoParaBorrar(mov); }} className="!py-1 shadow-sm">Eliminar Registro</AppButton>}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
