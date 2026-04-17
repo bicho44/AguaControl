@@ -207,7 +207,7 @@ const CajaView: React.FC<CajaViewProps> = ({
           const vendorName = vendorObj?.nombre || 'N/A';
           const clientName = r?.clienteId 
             ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') 
-            : (r?.esVentaMostrador ? `Venta Mostrador - ${vendorName}` : (vendorName || 'Venta Stock'));
+            : (r?.esVentaMostrador ? `${vendorName} - Venta Mostrador` : (vendorName || 'Venta Stock'));
           concepto = r?.clienteId ? `${clientName} (#${r?.puntoVenta}-${r?.numero})` : `${clientName}`;
           ventaId = p1.origen.id;
       } else if (p1.origen.tipo === 'venta_vendedor') {
@@ -257,7 +257,7 @@ const CajaView: React.FC<CajaViewProps> = ({
                     const vendorName = vendorObj?.nombre || 'N/A';
                     const clientName = r.clienteId 
                         ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') 
-                        : (r.esVentaMostrador ? `Venta Mostrador - ${vendorName}` : (vendorName || 'Venta Stock'));
+                        : (r.esVentaMostrador ? `${vendorName} - Venta Mostrador` : (vendorName || 'Venta Stock'));
                     allMovements.push({
                         id: r.id,
                         fecha: r.fecha,
