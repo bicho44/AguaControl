@@ -203,7 +203,11 @@ const CajaView: React.FC<CajaViewProps> = ({
       if (p1.origen.tipo === 'remito') {
           processedRemitoIds.add(p1.origen.id);
           const r = remitosMap.get(p1.origen.id);
-          const clientName = r?.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (r?.esVentaMostrador ? 'Venta Mostrador' : (vendedoresMap.get(r?.vendedorId!)?.nombre || 'Venta Stock'));
+          const vendorObj = r?.vendedorId ? vendedoresMap.get(r.vendedorId) : null;
+          const vendorName = vendorObj?.nombre || 'N/A';
+          const clientName = r?.clienteId 
+            ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') 
+            : (r?.esVentaMostrador ? `Venta Mostrador - ${vendorName}` : (vendorName || 'Venta Stock'));
           concepto = r?.clienteId ? `${clientName} (#${r?.puntoVenta}-${r?.numero})` : `${clientName}`;
           ventaId = p1.origen.id;
       } else if (p1.origen.tipo === 'venta_vendedor') {
@@ -249,7 +253,11 @@ const CajaView: React.FC<CajaViewProps> = ({
             if (!processedRemitoIds.has(r.id) && !r.esAjuste) {
                 const totalR = getRemitoTotal(r);
                 if (totalR > 0) {
-                    const clientName = r.clienteId ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') : (r.esVentaMostrador ? 'Venta Mostrador' : (vendedoresMap.get(r.vendedorId)?.nombre || 'Venta Stock'));
+                    const vendorObj = r.vendedorId ? vendedoresMap.get(r.vendedorId) : null;
+                    const vendorName = vendorObj?.nombre || 'N/A';
+                    const clientName = r.clienteId 
+                        ? (clientesMap.get(r.clienteId)?.nombre || 'N/A') 
+                        : (r.esVentaMostrador ? `Venta Mostrador - ${vendorName}` : (vendorName || 'Venta Stock'));
                     allMovements.push({
                         id: r.id,
                         fecha: r.fecha,
