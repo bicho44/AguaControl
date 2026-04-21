@@ -891,7 +891,9 @@ export const useDataStore = () => {
             entrega.insumos.forEach(insumoEntrega => {
                 const insumoDb = insumosSoplado.find(i => i.id === insumoEntrega.insumoId);
                 if (insumoDb) {
-                    const newStock = insumoDb.stockActual - insumoEntrega.cantidad;
+                    const currentStock = Number(insumoDb.stockActual) || 0;
+                    const cantidadADescontar = Number(insumoEntrega.cantidad) || 0;
+                    const newStock = currentStock - cantidadADescontar;
                     batch.update(doc(db, 'insumos_soplado', insumoDb.id), { stockActual: newStock });
                 }
             });
@@ -923,7 +925,9 @@ export const useDataStore = () => {
             entrega.insumos.forEach(insumoEntrega => {
                 const insumoDb = insumosSoplado.find(i => i.id === insumoEntrega.insumoId);
                 if (insumoDb) {
-                    const newStock = insumoDb.stockActual + insumoEntrega.cantidad;
+                    const currentStock = Number(insumoDb.stockActual) || 0;
+                    const cantidadAReportar = Number(insumoEntrega.cantidad) || 0;
+                    const newStock = currentStock + cantidadAReportar;
                     batch.update(doc(db, 'insumos_soplado', insumoDb.id), { stockActual: newStock });
                 }
             });
