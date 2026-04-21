@@ -80,8 +80,10 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const handleSubjectChange = (val: string) => {
     const option = subjectOptions.find(o => o.value === val);
     if (!option) {
-        setFormData(prev => ({ ...prev, clienteId: '', vendedorId: currentUser.id }));
-        onVendedorChange?.(currentUser.id);
+        setFormData(prev => {
+            // Keep the current vendor, just clear client info
+            return { ...prev, clienteId: '', sucursalId: '' };
+        });
         return;
     }
     
@@ -90,8 +92,15 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         const cliente = clientes.find(c => c.id === clienteId);
         const sucs = cliente?.sucursales || [];
         const sucursalId = sucs.length === 1 ? sucs[0].id : '';
-        setFormData(prev => ({ ...prev, clienteId, vendedorId: currentUser.id, sucursalId }));
-        onVendedorChange?.(currentUser.id);
+        
+        setFormData(prev => {
+            // If the current vendor is an external acting as the main subject (no client was selected),
+            // we should probably revert the vendor to the main user or keep it?
+            // Safer to just keep the currently assigned vendor if it's explicitly set.
+            // But if they switch from Externo to Client, maybe the seller should remain that Externo or the sticky one.
+            // Best is to leave the prev.vendedorId intact.
+            return { ...prev, clienteId, sucursalId };
+        });
     } else {
         const vendedorIdOver = option.originalId;
         setFormData(prev => ({ ...prev, clienteId: '', vendedorId: vendedorIdOver, sucursalId: '' }));
@@ -124,8 +133,12 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
   useEffect(() => { 
     const initialPagos = remito.id ? (pagosMap.get(remito.id) || []).map(p => ({ monto: p.monto, metodo: p.metodo })) : (remito.pagos || []);
-    setFormData({ ...remito, pagos: initialPagos }); 
-  }, [remito, pagosMap]);
+    setFormData(prev => {
+        // Prevent wiping progress. Only update pagos if they have actually changed from the outside.
+        // This avoids resetting vendedorId, clienteId, and movimientos if a background Firebase sync triggers pagosMap change.
+        return { ...prev, pagos: initialPagos };
+    }); 
+  }, [remito.id, remito.pagos, pagosMap]);
 
   useEffect(() => {
     if (isNew && formData.puntoVenta && !formData.numero) {
@@ -534,7 +547,10 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                         placeholder="Vendedor" 
                         options={vendedores.map(v => ({value: v.id, label: v.nombre}))} 
                         value={formData.vendedorId || ''} 
-                        onChange={v => setFormData({...formData, vendedorId: v})} 
+                        onChange={v => {
+                            setFormData(prev => ({...prev, vendedorId: v}));
+                            onVendedorChange?.(v);
+                        }} 
                     />
                 )}
             </div>
