@@ -27,19 +27,19 @@ vi.mock('../../hooks/useDataStore', () => ({
 describe('SopladoPlugin Interface', () => {
     beforeEach(() => {
         mockDataStore = {
-            preformas: [],
-            moldes: [{ id: 'm1', nombre: 'BIDON 20L', litros: 20, stockActual: 150 }],
-            produccionSoplado: [
-                { id: 'p1', cantidadProducida: 50 },
-                { id: 'p2', cantidadProducida: 100 }
-            ],
-            entregasSoplado: [
-                { id: 'e1', cantidad: 30, fecha: '2026-04-10T12:00:00Z', moldeId: 'm1' },
-                { id: 'e2', cantidad: 20, fecha: '2026-04-15T12:00:00Z', moldeId: 'm1' }
-            ],
-            productos: [{ id: 'prod1', nombre: 'DESCARTABLE 20L', tipo: 'Descartable', litros: 20 }],
-            clientes: [],
-            insumosSoplado: [],
+            preformas: Object.freeze([]),
+            moldes: Object.freeze([{ id: 'm1', nombre: 'BIDON 20L', litros: 20, stockActual: 150 }]),
+            produccionSoplado: Object.freeze([
+                { id: 'p1', cantidadProducida: 50, fecha: '2026-04-10', moldeId: 'm1', merma: 0 },
+                { id: 'p2', cantidadProducida: 100, fecha: '2026-04-11', moldeId: 'm1', merma: 0 }
+            ]),
+            entregasSoplado: Object.freeze([
+                { id: 'e1', cantidad: 30, fecha: '2026-04-10T12:00:00Z', moldeId: 'm1', destino: 'PLANTA' },
+                { id: 'e2', cantidad: 20, fecha: '2026-04-15T12:00:00Z', moldeId: 'm1', destino: 'PLANTA' }
+            ]),
+            productos: Object.freeze([{ id: 'prod1', nombre: 'DESCARTABLE 20L', tipo: 'Descartable', litros: 20 }]),
+            clientes: Object.freeze([]),
+            insumosSoplado: Object.freeze([]),
             addPreforma: vi.fn(), 
             updatePreforma: vi.fn(), 
             deletePreforma: vi.fn(),
@@ -55,7 +55,7 @@ describe('SopladoPlugin Interface', () => {
             addEntregaSoplado: vi.fn(), 
             updateEntregaSoplado: vi.fn(), 
             deleteEntregaSoplado: vi.fn(),
-            empresaSettings: { sopladoConfig: { integratedWithPlant: true } }
+            empresaSettings: Object.freeze({ sopladoConfig: { integratedWithPlant: true } })
         };
     });
 
@@ -101,5 +101,21 @@ describe('SopladoPlugin Interface', () => {
 
         // Chequear que las opciones del AppSelect carguen productos internos
         expect(screen.getByText(/DESCARTABLE 20L/i)).toBeDefined();
+    });
+
+    test('Logística and Producción tabs render correctly without fatal errors over strictly frozen state', () => {
+        // Enforce navigation test strictly
+        render(<SopladoPlugin />);
+        
+        // 1. Initial should be Dashboard
+        expect(screen.getByText('Evolución de Salidas')).toBeDefined();
+
+        // 2. Click Producción and verify it renders without crashing (must contain Producción Diaria)
+        fireEvent.click(screen.getByText('Producción'));
+        expect(screen.getByText('Producción Diaria')).toBeDefined();
+
+        // 3. Click Logística and verify it renders without crashing (must contain Entregas y Salidas)
+        fireEvent.click(screen.getByText('Logística'));
+        expect(screen.getByText('Entregas y Salidas')).toBeDefined();
     });
 });
