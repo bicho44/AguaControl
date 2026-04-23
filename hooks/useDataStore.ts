@@ -880,6 +880,34 @@ export const useDataStore = () => {
         await batch.commit();
     }, [produccionSoplado, moldes, preformas]);
 
+    const updateProduccionSoplado = useCallback(async (prod: ProduccionSoplado) => {
+        const oldProd = produccionSoplado.find(p => p.id === prod.id);
+        if (!oldProd) return;
+
+        const batch = writeBatch(db);
+
+        // Revertir vieja producción en memoria y aplicar la nueva
+        const oldRevertUpdates = calculateProduccionReversions(oldProd, moldes);
+        const virtualMoldes = moldes.map(m => m.id === oldRevertUpdates?.moldeId ? { ...m, stockActual: oldRevertUpdates.newStock } : m);
+        const newUpdates = calculateProduccionSubmits(prod, virtualMoldes);
+
+        if (newUpdates) {
+            batch.update(doc(db, 'moldes', newUpdates.moldeId), { stockActual: newUpdates.newStock });
+            
+            const preforma = preformas.find(p => p.id === newUpdates.preformaId);
+            if (preforma) {
+                const oldConsumido = Number(oldProd.cantidadProducida) + Number(oldProd.merma);
+                const newConsumido = Number(prod.cantidadProducida) + Number(prod.merma);
+                const diff = newConsumido - oldConsumido;
+                const newStockPreforma = Number(preforma.stockActual) - diff;
+                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStockPreforma });
+            }
+        }
+
+        batch.update(doc(db, 'produccion_soplado', prod.id), cleanUndefineds(prod));
+        await batch.commit();
+    }, [produccionSoplado, moldes, preformas]);
+
     const addEntregaSoplado = useCallback(async (entrega: Omit<EntregaSoplado, 'id'>) => {
         const batch = writeBatch(db);
         
@@ -894,7 +922,7 @@ export const useDataStore = () => {
             batch.update(doc(db, 'moldes', moldeUpdates.moldeId), { stockActual: moldeUpdates.newStock });
         }
 
-        if (empresaSettings.sopladoConfig?.integratedWithPlant && entrega.destino === 'PLANTA') {
+        if (entrega.destino === 'PLANTA') {
             const plantaUpdates = calculateEntregaPlantaUpdates(entrega, productos);
             if (plantaUpdates) {
                 batch.update(doc(db, 'productos', plantaUpdates.productoId), { stockEnvases: plantaUpdates.newStockEnvases });
@@ -908,7 +936,7 @@ export const useDataStore = () => {
         });
 
         await batch.commit();
-    }, [empresaSettings, moldes, productos, insumosSoplado]);
+    }, [moldes, productos, insumosSoplado]);
 
     const deleteEntregaSoplado = useCallback(async (id: string) => {
         const entrega = entregasSoplado.find(e => e.id === id);
@@ -923,7 +951,7 @@ export const useDataStore = () => {
             batch.update(doc(db, 'moldes', revertMoldeUpdates.moldeId), { stockActual: revertMoldeUpdates.newStock });
         }
 
-        if (empresaSettings.sopladoConfig?.integratedWithPlant && entrega.destino === 'PLANTA') {
+        if (entrega.destino === 'PLANTA') {
             const revertPlantaUpdates = calculateEntregaPlantaReversions(entrega, productos);
             if (revertPlantaUpdates) {
                 batch.update(doc(db, 'productos', revertPlantaUpdates.productoId), { stockEnvases: revertPlantaUpdates.newStockEnvases });
@@ -940,7 +968,54 @@ export const useDataStore = () => {
         batch.delete(doc(db, 'entregas_soplado', id));
 
         await batch.commit();
-    }, [entregasSoplado, empresaSettings, moldes, productos, insumosSoplado]);
+    }, [entregasSoplado, moldes, productos, insumosSoplado]);
+
+    const updateEntregaSoplado = useCallback(async (entrega: EntregaSoplado) => {
+        const oldEntrega = entregasSoplado.find(e => e.id === entrega.id);
+        if (!oldEntrega) return;
+
+        const batch = writeBatch(db);
+
+        // Old Reversals
+        const insumoReversas = calculateInsumoStockReversions(oldEntrega, insumosSoplado);
+        const moldeReversas = calculateEntregaMoldeReversions(oldEntrega, moldes);
+        const plantaReversas = oldEntrega.destino === 'PLANTA' ? calculateEntregaPlantaReversions(oldEntrega, productos) : null;
+
+        let insumoStocks = new Map(insumosSoplado.map(i => [i.id, Number(i.stockActual) || 0]));
+        let moldeStocks = new Map(moldes.map(m => [m.id, Number(m.stockActual) || 0]));
+        let prodEnvasesStocks = new Map(productos.map(p => [p.id, Number(p.stockEnvases) || 0]));
+
+        insumoReversas.forEach(r => insumoStocks.set(r.id, r.newStock));
+        if (moldeReversas) moldeStocks.set(moldeReversas.moldeId, moldeReversas.newStock);
+        if (plantaReversas) prodEnvasesStocks.set(plantaReversas.productoId, plantaReversas.newStockEnvases);
+        
+        const virtualInsumos = insumosSoplado.map(i => ({...i, stockActual: insumoStocks.get(i.id) || 0}));
+        const virtualMoldes = moldes.map(m => ({...m, stockActual: moldeStocks.get(m.id) || 0}));
+        const virtualProductos = productos.map(p => ({...p, stockEnvases: prodEnvasesStocks.get(p.id) || 0}));
+
+        const newInsumoUpdates = calculateInsumoStockUpdates(entrega, virtualInsumos);
+        newInsumoUpdates.forEach(r => insumoStocks.set(r.id, r.newStock));
+        
+        const newMoldeUpdates = calculateEntregaMoldeUpdates(entrega, virtualMoldes);
+        if (newMoldeUpdates) moldeStocks.set(newMoldeUpdates.moldeId, newMoldeUpdates.newStock);
+        
+        const newPlantaUpdates = entrega.destino === 'PLANTA' ? calculateEntregaPlantaUpdates(entrega, virtualProductos) : null;
+        if (newPlantaUpdates) prodEnvasesStocks.set(newPlantaUpdates.productoId, newPlantaUpdates.newStockEnvases);
+
+        // Apply changes
+        insumosSoplado.forEach(i => {
+           if (insumoStocks.get(i.id) !== Number(i.stockActual)) batch.update(doc(db, 'insumos_soplado', i.id), { stockActual: insumoStocks.get(i.id) });
+        });
+        moldes.forEach(m => {
+           if (moldeStocks.get(m.id) !== Number(m.stockActual)) batch.update(doc(db, 'moldes', m.id), { stockActual: moldeStocks.get(m.id) });
+        });
+        productos.forEach(p => {
+           if (prodEnvasesStocks.get(p.id) !== Number(p.stockEnvases)) batch.update(doc(db, 'productos', p.id), { stockEnvases: prodEnvasesStocks.get(p.id) });
+        });
+
+        batch.update(doc(db, 'entregas_soplado', entrega.id), cleanUndefineds(entrega));
+        await batch.commit();
+    }, [entregasSoplado, insumosSoplado, moldes, productos]);
 
     const updateRutasMasivo = useCallback(async (updates: { clienteId: string, sucursalId: string, dia: DiaSemana, repartidorId: string | null }[]) => {
         if (!updates.length) return;
@@ -1006,8 +1081,8 @@ export const useDataStore = () => {
         addPreforma, updatePreforma, deletePreforma,
         addMolde, updateMolde, deleteMolde,
         addInsumoSoplado, updateInsumoSoplado, deleteInsumoSoplado,
-        addProduccionSoplado, deleteProduccionSoplado,
-        addEntregaSoplado, deleteEntregaSoplado,
+        addProduccionSoplado, updateProduccionSoplado, deleteProduccionSoplado,
+        addEntregaSoplado, updateEntregaSoplado, deleteEntregaSoplado,
         cierresPlanta,
         addLog
     };

@@ -16,8 +16,8 @@ const SopladoPlugin: React.FC = () => {
         addPreforma, updatePreforma, deletePreforma,
         addMolde, updateMolde, deleteMolde,
         addInsumoSoplado, updateInsumoSoplado, deleteInsumoSoplado,
-        addProduccionSoplado, deleteProduccionSoplado,
-        addEntregaSoplado, deleteEntregaSoplado,
+        addProduccionSoplado, updateProduccionSoplado, deleteProduccionSoplado,
+        addEntregaSoplado, updateEntregaSoplado, deleteEntregaSoplado,
         empresaSettings
     } = useDataStore();
     const { user } = useAuth();
@@ -26,7 +26,7 @@ const SopladoPlugin: React.FC = () => {
     const [modalType, setModalType] = useState<'preforma' | 'molde' | 'produccion' | 'entrega' | 'insumo' | null>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
 
-    const isAdmin = user?.rol === Rol.ADMINISTRADOR;
+    const isAdmin = user?.rol === Rol.ADMINISTRADOR || user?.rol === Rol.SOPLADOR;
 
     // --- FORM STATES ---
     const [preformaForm, setPreformaForm] = useState<Partial<Preforma>>({ color: '', peso: 0, material: 'PET', stockActual: 0, puntoReposicion: 0 });
@@ -65,9 +65,11 @@ const SopladoPlugin: React.FC = () => {
             if (editingItem) await updateInsumoSoplado({ ...editingItem, ...insumoForm } as InsumoSoplado);
             else await addInsumoSoplado(insumoForm as InsumoSoplado);
         } else if (modalType === 'produccion') {
-            await addProduccionSoplado({ ...produccionForm, operadorId: user?.id || '' } as ProduccionSoplado);
+            if (editingItem) await updateProduccionSoplado({ ...editingItem, ...produccionForm, operadorId: user?.id || '' } as ProduccionSoplado);
+            else await addProduccionSoplado({ ...produccionForm, operadorId: user?.id || '' } as ProduccionSoplado);
         } else if (modalType === 'entrega') {
-            await addEntregaSoplado(entregaForm as EntregaSoplado);
+            if (editingItem) await updateEntregaSoplado({ ...editingItem, ...entregaForm } as EntregaSoplado);
+            else await addEntregaSoplado(entregaForm as EntregaSoplado);
         }
         setIsModalOpen(false);
     };
@@ -175,9 +177,14 @@ const SopladoPlugin: React.FC = () => {
                             {p.merma > 0 && <p className="text-xs text-red-400">Merma: {p.merma}</p>}
                         </div>
                         {isAdmin && (
-                            <button onClick={() => deleteProduccionSoplado(p.id)} className="ml-4 text-red-500 hover:text-red-700">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            <div className="ml-4 flex gap-2">
+                                <button onClick={() => openModal('produccion', p)} className="text-gray-400 hover:text-primary-600">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                                <button onClick={() => deleteProduccionSoplado(p.id)} className="text-red-500 hover:text-red-700">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
                         )}
                     </div>
                 ))}
@@ -213,9 +220,14 @@ const SopladoPlugin: React.FC = () => {
                             <p className="text-lg font-black text-blue-600">-{e.cantidad}</p>
                         </div>
                         {isAdmin && (
-                            <button onClick={() => deleteEntregaSoplado(e.id)} className="ml-4 text-red-500 hover:text-red-700">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            <div className="ml-4 flex gap-2">
+                                <button onClick={() => openModal('entrega', e)} className="text-gray-400 hover:text-primary-600">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                                <button onClick={() => deleteEntregaSoplado(e.id)} className="text-red-500 hover:text-red-700">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
                         )}
                     </div>
                 ))}
@@ -360,7 +372,7 @@ const SopladoPlugin: React.FC = () => {
                                     ...clientes.map(c => ({ value: c.id, label: c.nombre }))
                                 ]}
                             />
-                            {entregaForm.destino === 'PLANTA' && empresaSettings.sopladoConfig?.integratedWithPlant && (
+                            {entregaForm.destino === 'PLANTA' && (
                                 <AppSelect 
                                     label="Asociar a Producto (Stock Envases de Planta)" 
                                     value={entregaForm.productoDestinoId || ''} 

@@ -15,7 +15,7 @@ vi.mock('../context/NotificationContext', () => ({
 const mockCurrentUser = {
   id: 'user1',
   nombre: 'Vendedor 1',
-  rol: Rol.VENDEDOR,
+  rol: Rol.REPARTIDOR,
   email: 'v1@test.com'
 };
 
