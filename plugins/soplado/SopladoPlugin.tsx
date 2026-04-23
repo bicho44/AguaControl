@@ -386,7 +386,10 @@ const SopladoPlugin: React.FC = () => {
                     </svg>
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black text-gray-800 dark:text-white">Soplado de Bidones</h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Soplado de Bidones</h1>
+                        <span className="px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs font-bold border border-primary-200 dark:border-primary-800">v2.0.0</span>
+                    </div>
                     <p className="text-sm text-gray-500">Gestión de producción y stock de descartables</p>
                 </div>
             </div>

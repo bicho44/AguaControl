@@ -27,7 +27,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { app as firebaseApp } from './firebase/config';
 
 // --- Configuración de la Versión ---
-const APP_VERSION = '2.8.5 (2 columns)';
+const APP_VERSION = '2.9.0 (Integración Soplado)';
 
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
