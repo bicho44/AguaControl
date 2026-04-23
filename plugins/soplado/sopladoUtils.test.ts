@@ -4,7 +4,8 @@ import {
     calculateInsumoStockReversions,
     calculateProduccionSubmits,
     calculateEntregaMoldeUpdates,
-    calculateEntregaPlantaUpdates
+    calculateEntregaPlantaUpdates,
+    calculateEntregaPlantaReversions
 } from './sopladoUtils';
 import { EntregaSoplado, InsumoSoplado, ProduccionSoplado, Molde } from './types';
 import { Producto, EstadoProducto } from '../../types';
@@ -125,5 +126,36 @@ describe('Soplado Logic: Produccion y Logistica', () => {
         
         expect(result?.productoId).toBe('prod-desc-12');
         expect(result?.newStockEnvases).toBe(1050); // 1000 + 50
+    });
+});
+
+describe('Soplado Logic: Update Reversions & Commits', () => {
+    test('Simula la actualización de una Entrega a PLANTA (Revertir y Re-Aplicar)', () => {
+        // En useDataStore.ts, cuando un usuario EDITA una entrega:
+        // 1. Se toman los valores "Viejos" y se hace REVERSA en la memoria
+        // 2. A ese virtual se le calculan los UPDATES de los valores "Nuevos"
+        // Vamos a probar math de update puramente con planta:
+        
+        const oldEntrega: EntregaSoplado = {
+            id: 'e1', fecha: '2026-04-22', moldeId: 'molde-12', destino: 'PLANTA', productoDestinoId: 'prod-desc-12', cantidad: 50
+        };
+        const newEntrega: EntregaSoplado = {
+            id: 'e1', fecha: '2026-04-22', moldeId: 'molde-12', destino: 'PLANTA', productoDestinoId: 'prod-desc-12', cantidad: 80 // El usuario ajusta de 50 a 80
+        };
+
+        const productos: Producto[] = [
+            { id: 'prod-desc-12', nombre: 'Bidón Descartable 12L', tipo: 'Descartable', litros: 12, precio: 0, estado: EstadoProducto.ACTIVO, stockEnvases: 1050 } // Está en 1050 (los 1000 + 50 viejo)
+        ];
+
+        // 1. Reverso el viejo (Quito 50 de la planta)
+        const reversa = calculateEntregaPlantaReversions(oldEntrega, productos);
+        expect(reversa?.newStockEnvases).toBe(1000); // 1050 - 50
+        
+        // 2. Memoria Virtual
+        const virtualProductos = [{ ...productos[0], stockEnvases: reversa!.newStockEnvases }];
+
+        // 3. Aplico Nuevo
+        const sumbidoNuevo = calculateEntregaPlantaUpdates(newEntrega, virtualProductos);
+        expect(sumbidoNuevo?.newStockEnvases).toBe(1080); // 1000 + 80
     });
 });

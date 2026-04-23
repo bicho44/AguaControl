@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDataStore } from '../../hooks/useDataStore';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/Card';
@@ -9,6 +9,7 @@ import AppSelect from '../../components/ui/AppSelect';
 import Modal from '../../components/Modal';
 import { Preforma, Molde, ProduccionSoplado, EntregaSoplado, InsumoSoplado } from './types';
 import { Rol } from '../../types';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 const SopladoPlugin: React.FC = () => {
     const { 
@@ -21,7 +22,7 @@ const SopladoPlugin: React.FC = () => {
         empresaSettings
     } = useDataStore();
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'inventario' | 'produccion' | 'logistica'>('produccion');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario' | 'produccion' | 'logistica'>('dashboard');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState<'preforma' | 'molde' | 'produccion' | 'entrega' | 'insumo' | null>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
@@ -235,6 +236,83 @@ const SopladoPlugin: React.FC = () => {
         </div>
     );
 
+    const renderDashboard = () => {
+        // Cálculo de métricas
+        const totalProducido = produccionSoplado.reduce((sum, p) => sum + p.cantidadProducida, 0);
+        const totalEntregado = entregasSoplado.reduce((sum, e) => sum + e.cantidad, 0);
+        
+        // Evolución de Salidas por mes-Molde
+        const chartDataMap: Record<string, any> = {};
+        entregasSoplado.forEach(e => {
+            const dateMonth = e.fecha.substring(0, 7); // YYYY-MM
+            if (!chartDataMap[dateMonth]) {
+                chartDataMap[dateMonth] = { name: dateMonth };
+            }
+            const moldeName = moldes.find(m => m.id === e.moldeId)?.nombre || 'Desconocido';
+            chartDataMap[dateMonth][moldeName] = (chartDataMap[dateMonth][moldeName] || 0) + e.cantidad;
+        });
+        const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
+
+        return (
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="bg-primary-50 dark:bg-primary-900/20 border-primary-100 dark:border-primary-800">
+                        <p className="text-sm font-bold text-primary-600 dark:text-primary-400">Total Producido (Histórico)</p>
+                        <p className="text-3xl font-black text-gray-800 dark:text-white mt-2">{totalProducido}</p>
+                    </Card>
+                    <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800">
+                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">Total Entregado</p>
+                        <p className="text-3xl font-black text-gray-800 dark:text-white mt-2">{totalEntregado}</p>
+                    </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 space-y-4">
+                        <h3 className="text-lg font-bold dark:text-white">Evolución de Salidas</h3>
+                        <Card>
+                            {chartData.length > 0 ? (
+                                <div className="h-64 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData}>
+                                            <XAxis dataKey="name" fontSize={12} stroke="#888888" />
+                                            <YAxis fontSize={12} stroke="#888888" />
+                                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                            <Legend />
+                                            {moldes.map((m, idx) => (
+                                                <Bar key={m.id} dataKey={m.nombre} stackId="a" fill={`hsl(${idx * 45}, 70%, 50%)`} radius={[4, 4, 0, 0]} />
+                                            ))}
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500 py-12">No hay datos de salidas registrados aún.</p>
+                            )}
+                        </Card>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-bold dark:text-white">Stock Soplado Actual (Terminados)</h3>
+                        <div className="space-y-3">
+                            {moldes.map(m => (
+                                <Card key={m.id} className="p-4">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
+                                            <p className="text-xs text-gray-500">{m.litros}L</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-2xl font-black text-primary-600">{m.stockActual || 0}</p>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="p-4 pb-24">
             <div className="flex items-center gap-3 mb-6">
@@ -250,27 +328,34 @@ const SopladoPlugin: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6">
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6 flex-wrap md:flex-nowrap gap-1 md:gap-0">
+                <button 
+                    onClick={() => setActiveTab('dashboard')}
+                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                >
+                    Dashboard
+                </button>
                 <button 
                     onClick={() => setActiveTab('produccion')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'produccion' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'produccion' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
                     Producción
                 </button>
                 <button 
                     onClick={() => setActiveTab('logistica')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'logistica' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'logistica' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
                     Logística
                 </button>
                 <button 
                     onClick={() => setActiveTab('inventario')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'inventario' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'inventario' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
-                    Inventario
+                    Inventario Base
                 </button>
             </div>
 
+            {activeTab === 'dashboard' && renderDashboard()}
             {activeTab === 'inventario' && renderInventario()}
             {activeTab === 'produccion' && renderProduccion()}
             {activeTab === 'logistica' && renderLogistica()}
