@@ -167,7 +167,7 @@ const SopladoPlugin: React.FC = () => {
                 <AppButton onClick={() => openModal('produccion')}>+ Cargar Soplado</AppButton>
             </div>
             <div className="space-y-2">
-                {produccionSoplado.sort((a, b) => b.fecha.localeCompare(a.fecha)).map(p => (
+                {[...produccionSoplado].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(p => (
                     <div key={p.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
                         <div>
                             <p className="font-bold dark:text-white">{moldes.find(m => m.id === p.moldeId)?.nombre || 'Molde Desconocido'}</p>
@@ -200,7 +200,7 @@ const SopladoPlugin: React.FC = () => {
                 <AppButton onClick={() => openModal('entrega')}>+ Registrar Entrega</AppButton>
             </div>
             <div className="space-y-2">
-                {entregasSoplado.sort((a, b) => b.fecha.localeCompare(a.fecha)).map(e => (
+                {[...entregasSoplado].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(e => (
                     <div key={e.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
                         <div>
                             <p className="font-bold dark:text-white">{moldes.find(m => m.id === e.moldeId)?.nombre || 'Molde Desconocido'}</p>
