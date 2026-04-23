@@ -238,18 +238,18 @@ const SopladoPlugin: React.FC = () => {
 
     const renderDashboard = () => {
         // Cálculo de métricas
-        const totalProducido = produccionSoplado.reduce((sum, p) => sum + p.cantidadProducida, 0);
-        const totalEntregado = entregasSoplado.reduce((sum, e) => sum + e.cantidad, 0);
+        const totalProducido = produccionSoplado.reduce((sum, p) => sum + (p.cantidadProducida || 0), 0);
+        const totalEntregado = entregasSoplado.reduce((sum, e) => sum + (e.cantidad || 0), 0);
         
-        // Evolución de Salidas por mes-Molde
+        // Evolución de Salidas por DÍA-Molde
         const chartDataMap: Record<string, any> = {};
         entregasSoplado.forEach(e => {
-            const dateMonth = e.fecha.substring(0, 7); // YYYY-MM
-            if (!chartDataMap[dateMonth]) {
-                chartDataMap[dateMonth] = { name: dateMonth };
+            const dateDay = e.fecha.substring(0, 10); // YYYY-MM-DD
+            if (!chartDataMap[dateDay]) {
+                chartDataMap[dateDay] = { name: dateDay };
             }
             const moldeName = moldes.find(m => m.id === e.moldeId)?.nombre || 'Desconocido';
-            chartDataMap[dateMonth][moldeName] = (chartDataMap[dateMonth][moldeName] || 0) + e.cantidad;
+            chartDataMap[dateDay][moldeName] = (chartDataMap[dateDay][moldeName] || 0) + (e.cantidad || 0);
         });
         const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -268,13 +268,13 @@ const SopladoPlugin: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-4">
-                        <h3 className="text-lg font-bold dark:text-white">Evolución de Salidas</h3>
+                        <h3 className="text-lg font-bold dark:text-white">Evolución de Salidas (Diario)</h3>
                         <Card>
                             {chartData.length > 0 ? (
                                 <div className="h-64 w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={chartData}>
-                                            <XAxis dataKey="name" fontSize={12} stroke="#888888" />
+                                            <XAxis dataKey="name" fontSize={12} stroke="#888888" tickFormatter={(val) => val.substring(5).replace('-', '/')} />
                                             <YAxis fontSize={12} stroke="#888888" />
                                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                                             <Legend />
@@ -293,19 +293,25 @@ const SopladoPlugin: React.FC = () => {
                     <div className="space-y-4">
                         <h3 className="text-lg font-bold dark:text-white">Stock Soplado Actual (Terminados)</h3>
                         <div className="space-y-3">
-                            {moldes.map(m => (
-                                <Card key={m.id} className="p-4">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
-                                            <p className="text-xs text-gray-500">{m.litros}L</p>
+                            {moldes.map(m => {
+                                const prodHistorica = produccionSoplado.filter(p => p.moldeId === m.id).reduce((sum, p) => sum + (p.cantidadProducida || 0), 0);
+                                const entregaHistorica = entregasSoplado.filter(e => e.moldeId === m.id).reduce((sum, e) => sum + (e.cantidad || 0), 0);
+                                const stockDinamico = prodHistorica - entregaHistorica;
+                                
+                                return (
+                                    <Card key={m.id} className="p-4">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
+                                                <p className="text-xs text-gray-500">{m.litros}L</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-2xl font-black ${stockDinamico < 0 ? 'text-red-500' : 'text-primary-600'}`}>{stockDinamico}</p>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-2xl font-black text-primary-600">{m.stockActual || 0}</p>
-                                        </div>
-                                    </div>
-                                </Card>
-                            ))}
+                                    </Card>
+                                )
+                            })}
                         </div>
                     </div>
                 </div>
@@ -328,28 +334,28 @@ const SopladoPlugin: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6 flex-wrap md:flex-nowrap gap-1 md:gap-0">
+            <div className="grid grid-cols-2 lg:grid-cols-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6 gap-1">
                 <button 
                     onClick={() => setActiveTab('dashboard')}
-                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
                     Dashboard
                 </button>
                 <button 
                     onClick={() => setActiveTab('produccion')}
-                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'produccion' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'produccion' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
                     Producción
                 </button>
                 <button 
                     onClick={() => setActiveTab('logistica')}
-                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'logistica' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'logistica' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
                     Logística
                 </button>
                 <button 
                     onClick={() => setActiveTab('inventario')}
-                    className={`flex-1 min-w-[45%] py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'inventario' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
+                    className={`py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'inventario' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500'}`}
                 >
                     Inventario Base
                 </button>

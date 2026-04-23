@@ -82,8 +82,9 @@ describe('SopladoPlugin Interface', () => {
 
         // El stock actual del molde
         expect(screen.getByText('Stock Soplado Actual (Terminados)')).toBeDefined();
-        // Hay un molde de 20L que tiene 150 definido en stockActual del mock
+        // Hay un molde de 20L. produccion (50+100=150) - entregas (30+20=50) = 100 de stock dinamico final
         expect(screen.getByText('BIDON 20L')).toBeDefined();
+        expect(screen.getAllByText('100').length).toBeGreaterThan(0);
     });
 
     test('shows producto destino selector when PLANTA is selected in Entrega', () => {
