@@ -85,6 +85,9 @@ describe('SopladoPlugin Interface', () => {
         // Hay un molde de 20L. produccion (50+100=150) - entregas (30+20=50) = 100 de stock dinamico final
         expect(screen.getByText('BIDON 20L')).toBeDefined();
         expect(screen.getAllByText('100').length).toBeGreaterThan(0);
+
+        // Check if cards for Insumos Asociados is rendered correctly based on frozen mock memory
+        expect(screen.getByText('Stock Insumos Asociados')).toBeDefined();
     });
 
     test('shows producto destino selector when PLANTA is selected in Entrega', () => {
@@ -109,7 +112,7 @@ describe('SopladoPlugin Interface', () => {
         render(<SopladoPlugin />);
         
         // 1. Initial should be Dashboard
-        expect(screen.getByText('Evolución de Salidas')).toBeDefined();
+        expect(screen.getByText('Evolución de Salidas (Diario)')).toBeDefined();
 
         // 2. Click Producción and verify it renders without crashing (must contain Producción Diaria)
         fireEvent.click(screen.getByText('Producción'));

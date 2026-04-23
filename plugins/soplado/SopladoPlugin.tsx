@@ -23,6 +23,7 @@ const SopladoPlugin: React.FC = () => {
     } = useDataStore();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario' | 'produccion' | 'logistica'>('dashboard');
+    const [activeBar, setActiveBar] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState<'preforma' | 'molde' | 'produccion' | 'entrega' | 'insumo' | null>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
@@ -236,6 +237,29 @@ const SopladoPlugin: React.FC = () => {
         </div>
     );
 
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            // Filter payload if we have an active bar hovered to only show that info, making it less cluttered.
+            const items = activeBar ? payload.filter((p: any) => p.dataKey === activeBar) : payload;
+            
+            if (items.length === 0) return null;
+
+            return (
+                <div className="bg-white dark:bg-gray-800 px-3 py-2 shadow-lg rounded-xl border border-gray-100 dark:border-gray-700">
+                    <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">{label}</p>
+                    {items.map((entry: any, index: number) => (
+                        <div key={index} className="flex items-center gap-2 mb-1 last:mb-0">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{entry.name}:</span>
+                            <span className="text-xs font-black" style={{ color: entry.color }}>{entry.value}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        return null;
+    };
+
     const renderDashboard = () => {
         // Cálculo de métricas
         const totalProducido = produccionSoplado.reduce((sum, p) => sum + (p.cantidadProducida || 0), 0);
@@ -276,10 +300,18 @@ const SopladoPlugin: React.FC = () => {
                                         <BarChart data={chartData}>
                                             <XAxis dataKey="name" fontSize={12} stroke="#888888" tickFormatter={(val) => val.substring(5).replace('-', '/')} />
                                             <YAxis fontSize={12} stroke="#888888" />
-                                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{fill: 'transparent'}} />
                                             <Legend />
                                             {moldes.map((m, idx) => (
-                                                <Bar key={m.id} dataKey={m.nombre} stackId="a" fill={`hsl(${idx * 45}, 70%, 50%)`} radius={[4, 4, 0, 0]} />
+                                                <Bar 
+                                                    key={m.id} 
+                                                    dataKey={m.nombre} 
+                                                    stackId="a" 
+                                                    fill={`hsl(${idx * 45}, 70%, 50%)`} 
+                                                    radius={[4, 4, 0, 0]}
+                                                    onMouseEnter={() => setActiveBar(m.nombre)}
+                                                    onMouseLeave={() => setActiveBar(null)}
+                                                />
                                             ))}
                                         </BarChart>
                                     </ResponsiveContainer>
@@ -290,28 +322,54 @@ const SopladoPlugin: React.FC = () => {
                         </Card>
                     </div>
 
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-bold dark:text-white">Stock Soplado Actual (Terminados)</h3>
-                        <div className="space-y-3">
-                            {moldes.map(m => {
-                                const prodHistorica = produccionSoplado.filter(p => p.moldeId === m.id).reduce((sum, p) => sum + (p.cantidadProducida || 0), 0);
-                                const entregaHistorica = entregasSoplado.filter(e => e.moldeId === m.id).reduce((sum, e) => sum + (e.cantidad || 0), 0);
-                                const stockDinamico = prodHistorica - entregaHistorica;
-                                
-                                return (
-                                    <Card key={m.id} className="p-4">
+                    <div className="space-y-6">
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold dark:text-white">Stock Soplado Actual (Terminados)</h3>
+                            <div className="space-y-3">
+                                {moldes.map(m => {
+                                    const prodHistorica = produccionSoplado.filter(p => p.moldeId === m.id).reduce((sum, p) => sum + (p.cantidadProducida || 0), 0);
+                                    const entregaHistorica = entregasSoplado.filter(e => e.moldeId === m.id).reduce((sum, e) => sum + (e.cantidad || 0), 0);
+                                    const stockDinamico = prodHistorica - entregaHistorica;
+                                    
+                                    return (
+                                        <Card key={m.id} className="p-4">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
+                                                    <p className="text-xs text-gray-500">{m.litros}L</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className={`text-2xl font-black ${stockDinamico < 0 ? 'text-red-500' : 'text-primary-600'}`}>{stockDinamico}</p>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold dark:text-white">Stock Insumos Asociados</h3>
+                            <div className="space-y-3">
+                                {insumosSoplado.map(i => (
+                                    <Card key={i.id} className="p-4">
                                         <div className="flex justify-between items-center">
                                             <div>
-                                                <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
-                                                <p className="text-xs text-gray-500">{m.litros}L</p>
+                                                <p className="font-bold text-gray-800 dark:text-white">{i.nombre}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className={`text-2xl font-black ${stockDinamico < 0 ? 'text-red-500' : 'text-primary-600'}`}>{stockDinamico}</p>
+                                                <p className={`text-2xl font-black ${i.stockActual <= i.puntoReposicion ? 'text-red-500' : 'text-green-600'}`}>
+                                                    {i.stockActual || 0}
+                                                </p>
+                                                <p className="text-[10px] uppercase text-gray-400">Restante</p>
                                             </div>
                                         </div>
                                     </Card>
-                                )
-                            })}
+                                ))}
+                                {insumosSoplado.length === 0 && (
+                                    <p className="text-sm text-gray-500">No hay insumos registrados.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
