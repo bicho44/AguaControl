@@ -108,9 +108,19 @@ const SopladoPlugin: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {moldes.map(m => (
                     <Card key={m.id}>
-                        <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
-                        <p className="text-sm text-gray-500">{m.litros} Litros</p>
-                        <p className="text-xs text-gray-400 mt-1">Preforma: {preformas.find(p => p.id === m.preformaId)?.color || 'N/A'}</p>
+                        <div className="flex justify-between">
+                            <div>
+                                <p className="font-bold text-gray-800 dark:text-white">{m.nombre}</p>
+                                <p className="text-sm text-gray-500">{m.litros} Litros</p>
+                                <p className="text-xs text-gray-400 mt-1">Preforma: {preformas.find(p => p.id === m.preformaId)?.color || 'N/A'}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xl font-black text-gray-800 dark:text-white">
+                                    {m.stockActual || 0}
+                                </p>
+                                <p className="text-[10px] uppercase text-gray-400">Bidones Tr.</p>
+                            </div>
+                        </div>
                         <div className="mt-4 flex gap-2">
                             <AppButton variant="secondary" size="sm" className="flex-1" onClick={() => openModal('molde', m)}>Editar</AppButton>
                             {isAdmin && <AppButton variant="danger" size="sm" onClick={() => deleteMolde(m.id)}>Eliminar</AppButton>}
@@ -350,6 +360,18 @@ const SopladoPlugin: React.FC = () => {
                                     ...clientes.map(c => ({ value: c.id, label: c.nombre }))
                                 ]}
                             />
+                            {entregaForm.destino === 'PLANTA' && empresaSettings.sopladoConfig?.integratedWithPlant && (
+                                <AppSelect 
+                                    label="Asociar a Producto (Stock Envases de Planta)" 
+                                    value={entregaForm.productoDestinoId || ''} 
+                                    onChange={e => setEntregaForm({...entregaForm, productoDestinoId: e.target.value})}
+                                    options={[
+                                        { value: '', label: 'Seleccione producto a impactar...' },
+                                        ...productos.filter(p => p.tipo === 'Descartable').map(p => ({ value: p.id, label: p.nombre + ' (' + p.litros + 'L)' }))
+                                    ]}
+                                    required
+                                />
+                            )}
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-gray-500 ml-1">Cantidad</label>
                                 <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">

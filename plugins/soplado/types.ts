@@ -15,6 +15,7 @@ export interface Molde {
     nombre: string; // ej: Bidón 5L, Bidón 8L
     litros: number;
     preformaId: string; // La preforma que usa este molde
+    stockActual?: number; // Creado para trackear el stock de bidones terminados en el sector Soplado
 }
 
 export interface InsumoSoplado {
@@ -38,6 +39,7 @@ export interface EntregaSoplado {
     fecha: string;
     moldeId: string;
     destino: 'PLANTA' | string; // ID del cliente o 'PLANTA'
+    productoDestinoId?: string; // Para asociar a un producto interno si va a PLANTA
     cantidad: number;
     insumos?: { insumoId: string; cantidad: number }[];
 }

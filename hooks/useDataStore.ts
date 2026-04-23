@@ -53,6 +53,16 @@ import {
   EntregaSoplado,
   InsumoSoplado
 } from '../plugins/soplado/types';
+import { 
+    calculateInsumoStockUpdates, 
+    calculateInsumoStockReversions,
+    calculateProduccionSubmits,
+    calculateProduccionReversions,
+    calculateEntregaMoldeUpdates,
+    calculateEntregaMoldeReversions,
+    calculateEntregaPlantaUpdates,
+    calculateEntregaPlantaReversions
+} from '../plugins/soplado/sopladoUtils';
 
 const cleanUndefineds = (obj: any): any => {
     if (obj === null || obj === undefined) return obj;
@@ -829,14 +839,16 @@ export const useDataStore = () => {
         const prodRef = doc(collection(db, 'produccion_soplado'));
         batch.set(prodRef, cleanUndefineds(prod));
 
-        // 2. Descontar preforma
-        const molde = moldes.find(m => m.id === prod.moldeId);
-        if (molde) {
-            const preforma = preformas.find(p => p.id === molde.preformaId);
+        // 2. Descontar preforma y sumar stock al molde
+        const prodUpdates = calculateProduccionSubmits(prod, moldes);
+        if (prodUpdates) {
+            batch.update(doc(db, 'moldes', prodUpdates.moldeId), { stockActual: prodUpdates.newStock });
+            
+            const preforma = preformas.find(p => p.id === prodUpdates.preformaId);
             if (preforma) {
-                const totalConsumido = prod.cantidadProducida + prod.merma;
-                const newStock = preforma.stockActual - totalConsumido;
-                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStock });
+                const totalConsumido = Number(prod.cantidadProducida) + Number(prod.merma);
+                const newStockPreforma = Number(preforma.stockActual) - totalConsumido;
+                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStockPreforma });
             }
         }
 
@@ -849,14 +861,16 @@ export const useDataStore = () => {
 
         const batch = writeBatch(db);
         
-        // 1. Revertir stock de preforma
-        const molde = moldes.find(m => m.id === prod.moldeId);
-        if (molde) {
-            const preforma = preformas.find(p => p.id === molde.preformaId);
+        // 1. Revertir stock de preforma y molde
+        const revertUpdates = calculateProduccionReversions(prod, moldes);
+        if (revertUpdates) {
+            batch.update(doc(db, 'moldes', revertUpdates.moldeId), { stockActual: revertUpdates.newStock });
+            
+            const preforma = preformas.find(p => p.id === revertUpdates.preformaId);
             if (preforma) {
-                const totalConsumido = prod.cantidadProducida + prod.merma;
-                const newStock = preforma.stockActual + totalConsumido;
-                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStock });
+                const totalConsumido = Number(prod.cantidadProducida) + Number(prod.merma);
+                const newStockPreforma = Number(preforma.stockActual) + totalConsumido;
+                batch.update(doc(db, 'preformas', preforma.id), { stockActual: newStockPreforma });
             }
         }
 
@@ -873,31 +887,25 @@ export const useDataStore = () => {
         const entregaRef = doc(collection(db, 'entregas_soplado'));
         batch.set(entregaRef, cleanUndefineds(entrega));
 
-        // 2. Integración con Planta (si está habilitada)
+        // 2. Integración con Planta (si está habilitada) y Descuento de stock en Soplado
+        // Soplado: descontamos el stock del molde porque los bidones salen del sector
+        const moldeUpdates = calculateEntregaMoldeUpdates(entrega, moldes);
+        if (moldeUpdates) {
+            batch.update(doc(db, 'moldes', moldeUpdates.moldeId), { stockActual: moldeUpdates.newStock });
+        }
+
         if (empresaSettings.sopladoConfig?.integratedWithPlant && entrega.destino === 'PLANTA') {
-            const molde = moldes.find(m => m.id === entrega.moldeId);
-            if (molde) {
-                // Buscar producto en la planta que coincida con los litros del molde
-                const producto = productos.find(p => p.litros === molde.litros && p.tipo === 'Descartable');
-                if (producto) {
-                    const newStockEnvases = (producto.stockEnvases || 0) + entrega.cantidad;
-                    batch.update(doc(db, 'productos', producto.id), { stockEnvases: newStockEnvases });
-                }
+            const plantaUpdates = calculateEntregaPlantaUpdates(entrega, productos);
+            if (plantaUpdates) {
+                batch.update(doc(db, 'productos', plantaUpdates.productoId), { stockEnvases: plantaUpdates.newStockEnvases });
             }
         }
 
         // 3. Descontar stock de insumos asociados
-        if (entrega.insumos && entrega.insumos.length > 0) {
-            entrega.insumos.forEach(insumoEntrega => {
-                const insumoDb = insumosSoplado.find(i => i.id === insumoEntrega.insumoId);
-                if (insumoDb) {
-                    const currentStock = Number(insumoDb.stockActual) || 0;
-                    const cantidadADescontar = Number(insumoEntrega.cantidad) || 0;
-                    const newStock = currentStock - cantidadADescontar;
-                    batch.update(doc(db, 'insumos_soplado', insumoDb.id), { stockActual: newStock });
-                }
-            });
-        }
+        const updates = calculateInsumoStockUpdates(entrega, insumosSoplado);
+        updates.forEach(update => {
+            batch.update(doc(db, 'insumos_soplado', update.id), { stockActual: update.newStock });
+        });
 
         await batch.commit();
     }, [empresaSettings, moldes, productos, insumosSoplado]);
@@ -908,30 +916,25 @@ export const useDataStore = () => {
 
         const batch = writeBatch(db);
         
-        // 1. Revertir integración con Planta
+        // 1. Revertir integración con Planta y Stock de Soplado
+        // Soplado: devolvemos los bidones al sector
+        const revertMoldeUpdates = calculateEntregaMoldeReversions(entrega, moldes);
+        if (revertMoldeUpdates) {
+            batch.update(doc(db, 'moldes', revertMoldeUpdates.moldeId), { stockActual: revertMoldeUpdates.newStock });
+        }
+
         if (empresaSettings.sopladoConfig?.integratedWithPlant && entrega.destino === 'PLANTA') {
-            const molde = moldes.find(m => m.id === entrega.moldeId);
-            if (molde) {
-                const producto = productos.find(p => p.litros === molde.litros && p.tipo === 'Descartable');
-                if (producto) {
-                    const newStockEnvases = (producto.stockEnvases || 0) - entrega.cantidad;
-                    batch.update(doc(db, 'productos', producto.id), { stockEnvases: newStockEnvases });
-                }
+            const revertPlantaUpdates = calculateEntregaPlantaReversions(entrega, productos);
+            if (revertPlantaUpdates) {
+                batch.update(doc(db, 'productos', revertPlantaUpdates.productoId), { stockEnvases: revertPlantaUpdates.newStockEnvases });
             }
         }
 
         // 2. Revertir stock de insumos asociados
-        if (entrega.insumos && entrega.insumos.length > 0) {
-            entrega.insumos.forEach(insumoEntrega => {
-                const insumoDb = insumosSoplado.find(i => i.id === insumoEntrega.insumoId);
-                if (insumoDb) {
-                    const currentStock = Number(insumoDb.stockActual) || 0;
-                    const cantidadAReportar = Number(insumoEntrega.cantidad) || 0;
-                    const newStock = currentStock + cantidadAReportar;
-                    batch.update(doc(db, 'insumos_soplado', insumoDb.id), { stockActual: newStock });
-                }
-            });
-        }
+        const updates = calculateInsumoStockReversions(entrega, insumosSoplado);
+        updates.forEach(update => {
+            batch.update(doc(db, 'insumos_soplado', update.id), { stockActual: update.newStock });
+        });
 
         // 3. Eliminar entrega
         batch.delete(doc(db, 'entregas_soplado', id));
