@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, Factura, Producto, MetodoPago, TipoVendedor } from '../types';
+import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, Factura, Producto, MetodoPago, TipoVendedor, Proveedor, PagoProveedor } from '../types';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -26,6 +26,8 @@ interface CajaViewProps {
   facturas: Factura[];
   ventasVendedor: VentaVendedor[];
   productos: Producto[];
+  proveedores: Proveedor[];
+  pagosProveedor: PagoProveedor[];
   addPagoManual: (pagoData: {
     fecha: string;
     clienteId?: string;
@@ -53,13 +55,13 @@ interface CombinedMovement {
   concepto: string;
   pagos: any[];
   total: number;
-  original: Gasto | RegistroPago[] | VentaVendedor | Remito;
+  original: Gasto | RegistroPago[] | VentaVendedor | Remito | PagoProveedor;
   ventaId?: string;
   isCtaCtePura?: boolean;
 }
 
 const CajaView: React.FC<CajaViewProps> = ({
-    registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos,
+    registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos, proveedores, pagosProveedor,
     addPagoManual, addGasto, addVentaVendedor, addRemito, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor,
     currentUser
 }) => {
@@ -146,21 +148,24 @@ const CajaView: React.FC<CajaViewProps> = ({
   const dailyBalances = useMemo(() => {
       const dailyPagos = registrosPago.filter(p => p.fecha === todayStr);
       const dailyGastos = gastos.filter(g => g.fecha === todayStr);
+      const dailyPagosProveedor = pagosProveedor.filter(p => p.fecha === todayStr);
       const balancesPorMetodo = (Object.values(MetodoPago) as MetodoPago[]).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
       dailyPagos.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
       dailyGastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
+      dailyPagosProveedor.forEach(p => balancesPorMetodo[p.metodo] -= p.monto);
       const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
       return { ...balancesPorMetodo, total };
-  }, [registrosPago, gastos, todayStr]);
+  }, [registrosPago, gastos, pagosProveedor, todayStr]);
 
   // Balance Total Histórico
   const totalBalances = useMemo(() => {
       const balancesPorMetodo = (Object.values(MetodoPago) as MetodoPago[]).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
       registrosPago.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
       gastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
+      pagosProveedor.forEach(p => balancesPorMetodo[p.metodo] -= p.monto);
       const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
       return { ...balancesPorMetodo, total };
-  }, [registrosPago, gastos]);
+  }, [registrosPago, gastos, pagosProveedor]);
 
   // --- FILTRO Y PROCESAMIENTO DE MOVIMIENTOS ---
   const combinedMovements = useMemo(() => {
@@ -276,10 +281,27 @@ const CajaView: React.FC<CajaViewProps> = ({
         }
     });
 
+    // Procesar Pagos Proveedor
+    pagosProveedor.forEach(p => {
+        const d = new Date(p.fecha + 'T00:00:00').getTime();
+        if (d >= filterFrom && d <= filterTo) {
+            const proveedorStr = proveedores.find(pr => pr.id === p.proveedorId)?.nombre || 'Proveedor';
+            allMovements.push({ 
+                id: p.id, 
+                fecha: p.fecha, 
+                type: 'gasto', 
+                concepto: `${proveedorStr} - Pago a Proveedor${p.observaciones ? ': ' + p.observaciones : ''}`, 
+                pagos: [{ metodo: p.metodo, monto: p.monto }], 
+                total: p.monto, 
+                original: p 
+            });
+        }
+    });
+
     return allMovements
         .filter(m => !hideCtaCte || !m.isCtaCtePura)
         .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime() || b.id.localeCompare(a.id));
-  }, [gastos, registrosPago, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal, hideCtaCte]);
+  }, [gastos, registrosPago, pagosProveedor, proveedores, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal, hideCtaCte]);
 
   const displayedMovements = useMemo(() => combinedMovements.slice(0, itemsLimit), [combinedMovements, itemsLimit]);
 
@@ -518,17 +540,30 @@ const CajaView: React.FC<CajaViewProps> = ({
             <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600"><TrashIcon className="w-8 h-8"/></div>
                 <h2 className="text-2xl font-black text-gray-800 dark:text-white pr-12">¿Borrar de Caja?</h2>
-                <p className="text-gray-500">Esta acción es irreversible.</p>
-                <div className="flex justify-center gap-3">
-                    <AppButton variant="secondary" onClick={() => setMovimientoParaBorrar(null)}>Cancelar</AppButton>
-                    <AppButton variant="danger" onClick={() => { 
-                        if(movimientoParaBorrar.type==='gasto') deleteGasto(movimientoParaBorrar.id);
-                        else if(movimientoParaBorrar.isCtaCtePura) deleteGasto(movimientoParaBorrar.id); 
-                        else (movimientoParaBorrar.original as RegistroPago[]).forEach(p=>deleteRegistroPago(p.id)); 
-                        
-                        setMovimientoParaBorrar(null); showNotification('Registro borrado.', 'success'); 
-                    }}>Sí, Eliminar</AppButton>
-                </div>
+                {(!Array.isArray(movimientoParaBorrar.original) && "proveedorId" in movimientoParaBorrar.original) ? (
+                    <>
+                        <p className="text-gray-500">
+                            Esto es un pago a proveedor. Para eliminarlo, dirígete a la sección de Proveedores.
+                        </p>
+                        <div className="flex justify-center gap-3">
+                            <AppButton variant="secondary" onClick={() => setMovimientoParaBorrar(null)}>Entendido</AppButton>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p className="text-gray-500">Esta acción es irreversible.</p>
+                        <div className="flex justify-center gap-3">
+                            <AppButton variant="secondary" onClick={() => setMovimientoParaBorrar(null)}>Cancelar</AppButton>
+                            <AppButton variant="danger" onClick={() => { 
+                                if(movimientoParaBorrar.type==='gasto') deleteGasto(movimientoParaBorrar.id);
+                                else if(movimientoParaBorrar.isCtaCtePura) deleteGasto(movimientoParaBorrar.id); 
+                                else (movimientoParaBorrar.original as RegistroPago[]).forEach(p=>deleteRegistroPago(p.id)); 
+                                
+                                setMovimientoParaBorrar(null); showNotification('Registro borrado.', 'success'); 
+                            }}>Sí, Eliminar</AppButton>
+                        </div>
+                    </>
+                )}
             </div>
         </Modal>
       )}
