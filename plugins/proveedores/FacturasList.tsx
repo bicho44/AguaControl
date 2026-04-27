@@ -1,0 +1,181 @@
+import React, { useState, useMemo } from 'react';
+import { useDataStore } from '../../hooks/useDataStore';
+import Card from '../../components/Card';
+import AppButton from '../../components/ui/AppButton';
+import AppInput from '../../components/ui/AppInput';
+import AppSelect from '../../components/ui/AppSelect';
+import SearchableSelect from '../../components/SearchableSelect';
+import Modal from '../../components/Modal';
+import { FacturaProveedor, EstadoFacturaProveedor, Proveedor, ItemFacturaProveedor } from '../../types';
+import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { db } from '../../firebase/config';
+import { useNotification } from '../../context/NotificationContext';
+import { getLocalDateString } from '../../utils/dateUtils';
+
+export const FacturasList: React.FC = () => {
+    const { facturasProveedor, proveedores } = useDataStore();
+    const { showNotification } = useNotification();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<FacturaProveedor | null>(null);
+    const [formData, setFormData] = useState<Partial<FacturaProveedor>>({
+        proveedorId: '',
+        numero: '',
+        fechaEmision: getLocalDateString(new Date()),
+        fechaVencimiento: getLocalDateString(new Date()),
+        total: 0,
+        estado: EstadoFacturaProveedor.PENDIENTE,
+        items: []
+    });
+
+    const proveedoresOptions = useMemo(() => [
+        { value: '', label: 'Seleccionar...' },
+        ...proveedores.map(p => ({ value: p.id, label: p.nombre }))
+    ], [proveedores]);
+
+    const handleSave = async () => {
+        if (!formData.proveedorId || !formData.numero || !formData.total) {
+            showNotification('Proveedor, número y total son obligatorios', 'error');
+            return;
+        }
+
+        const dataToSave = {
+            ...formData,
+            saldoPagar: editingItem ? formData.saldoPagar : formData.total // Initial balance is total
+        };
+
+        try {
+            if (editingItem) {
+                await updateDoc(doc(db, 'facturas_proveedor', editingItem.id), dataToSave);
+                showNotification('Factura actualizada', 'success');
+            } else {
+                await addDoc(collection(db, 'facturas_proveedor'), dataToSave);
+                showNotification('Factura registrada', 'success');
+            }
+            setIsModalOpen(false);
+        } catch (e) {
+            console.error(e);
+            showNotification('Error al guardar factura', 'error');
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm('¿Seguro que desea eliminar esta factura? Los pagos asociados podrían quedar huérfanos.')) {
+            try {
+                await deleteDoc(doc(db, 'facturas_proveedor', id));
+                showNotification('Factura eliminada', 'success');
+            } catch (e) {
+                console.error(e);
+                showNotification('Error al eliminar', 'error');
+            }
+        }
+    };
+
+    const openEdit = (fac: FacturaProveedor) => {
+        setEditingItem(fac);
+        setFormData(fac);
+        setIsModalOpen(true);
+    };
+
+    const openNew = () => {
+        setEditingItem(null);
+        setFormData({ 
+            proveedorId: '', 
+            numero: '', 
+            fechaEmision: getLocalDateString(new Date()), 
+            fechaVencimiento: getLocalDateString(new Date()), 
+            total: 0, 
+            estado: EstadoFacturaProveedor.PENDIENTE,
+            items: []
+        });
+        setIsModalOpen(true);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Facturas Recibidas</h3>
+                <AppButton onClick={openNew}>+ Ingresar Factura</AppButton>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 uppercase text-xs font-bold">
+                            <tr>
+                                <th className="px-4 py-3">Emisión</th>
+                                <th className="px-4 py-3">Venc.</th>
+                                <th className="px-4 py-3">Proveedor</th>
+                                <th className="px-4 py-3">Número</th>
+                                <th className="px-4 py-3">Importe</th>
+                                <th className="px-4 py-3">Saldo</th>
+                                <th className="px-4 py-3">Estado</th>
+                                <th className="px-4 py-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {facturasProveedor.sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision)).map(f => {
+                                const prov = proveedores.find(p => p.id === f.proveedorId);
+                                return (
+                                    <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                        <td className="px-4 py-3">{f.fechaEmision}</td>
+                                        <td className="px-4 py-3">{f.fechaVencimiento}</td>
+                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{prov?.nombre || 'Desconocido'}</td>
+                                        <td className="px-4 py-3">{f.numero}</td>
+                                        <td className="px-4 py-3">${f.total.toFixed(2)}</td>
+                                        <td className="px-4 py-3 font-bold text-red-500">${(f.saldoPagar || 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                f.estado === EstadoFacturaProveedor.PENDIENTE ? 'bg-orange-100 text-orange-700' :
+                                                f.estado === EstadoFacturaProveedor.PAGADO ? 'bg-green-100 text-green-700' :
+                                                f.estado === EstadoFacturaProveedor.PAGADO_PARCIAL ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-gray-100 text-gray-700'
+                                            }`}>
+                                                {f.estado}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right space-x-2">
+                                            <button onClick={() => openEdit(f)} className="text-primary-600 hover:text-primary-800 font-bold text-xs uppercase">Editar</button>
+                                            <button onClick={() => handleDelete(f.id)} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                            {facturasProveedor.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                        No hay facturas cargadas.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Editar Factura' : 'Ingresar Factura'}>
+                <div className="space-y-4">
+                    <SearchableSelect label="Proveedor *" options={proveedoresOptions} value={formData.proveedorId || ''} onChange={(v) => setFormData({...formData, proveedorId: v})} />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <AppInput label="Nro de Factura *" value={formData.numero || ''} onChange={e => setFormData({...formData, numero: e.target.value})} autoFocus />
+                        <AppInput label="Total ($) *" type="number" value={formData.total || ''} onChange={e => setFormData({...formData, total: parseFloat(e.target.value) || 0})} className="bg-white" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <AppInput label="Fecha Emisión" type="date" value={formData.fechaEmision || ''} onChange={e => setFormData({...formData, fechaEmision: e.target.value})} />
+                        <AppInput label="Fecha Vencimiento" type="date" value={formData.fechaVencimiento || ''} onChange={e => setFormData({...formData, fechaVencimiento: e.target.value})} />
+                    </div>
+
+                    <AppInput label="Observaciones" value={formData.observaciones || ''} onChange={e => setFormData({...formData, observaciones: e.target.value})} />
+                    
+                    <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
+                        <AppButton variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</AppButton>
+                        <AppButton onClick={handleSave}>Guardar</AppButton>
+                    </div>
+                </div>
+            </Modal>
+        </div>
+    );
+};
+
+export default FacturasList;

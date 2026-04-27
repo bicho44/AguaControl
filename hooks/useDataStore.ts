@@ -44,7 +44,11 @@ import {
   CausaRecambio,
   Recambio,
   MovimientoStockPlanta,
-  CierrePlanta
+  CierrePlanta,
+  Proveedor,
+  FacturaProveedor,
+  PagoProveedor,
+  EstadoFacturaProveedor
 } from '../types';
 import { 
   Preforma, 
@@ -104,6 +108,9 @@ export const useDataStore = () => {
     const [produccionSoplado, setProduccionSoplado] = useState<ProduccionSoplado[]>([]);
     const [entregasSoplado, setEntregasSoplado] = useState<EntregaSoplado[]>([]);
     const [insumosSoplado, setInsumosSoplado] = useState<InsumoSoplado[]>([]);
+    const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+    const [facturasProveedor, setFacturasProveedor] = useState<FacturaProveedor[]>([]);
+    const [pagosProveedor, setPagosProveedor] = useState<PagoProveedor[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
         nombre: 'Distribuidora Aguas Puras',
         nombreFantasia: 'Aguas Puras'
@@ -149,6 +156,9 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'produccion_soplado'), (s) => setProduccionSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as ProduccionSoplado)))),
             onSnapshot(collection(db, 'entregas_soplado'), (s) => setEntregasSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as EntregaSoplado)))),
             onSnapshot(collection(db, 'insumos_soplado'), (s) => setInsumosSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as InsumoSoplado)))),
+            onSnapshot(collection(db, 'proveedores'), (s) => setProveedores(s.docs.map(d => ({ id: d.id, ...d.data() } as Proveedor)))),
+            onSnapshot(collection(db, 'facturas_proveedor'), (s) => setFacturasProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as FacturaProveedor)))),
+            onSnapshot(collection(db, 'pagos_proveedor'), (s) => setPagosProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as PagoProveedor)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {
                     setEmpresaSettings(s.data() as EmpresaSettings);
@@ -1070,6 +1080,7 @@ export const useDataStore = () => {
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, movimientosStockPlanta, empresaSettings, logs, causasRecambio,
         preformas, moldes, produccionSoplado, entregasSoplado, insumosSoplado,
+        proveedores, facturasProveedor, pagosProveedor,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,

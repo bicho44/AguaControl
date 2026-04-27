@@ -71,6 +71,13 @@ export enum EstadoFactura {
     ANULADO = 'Anulado'
 }
 
+export enum EstadoFacturaProveedor {
+    PENDIENTE = 'Pendiente',
+    PAGADO = 'Pagado',
+    PAGADO_PARCIAL = 'Pagado Parcial',
+    ANULADO = 'Anulado'
+}
+
 export enum EstadoContrato {
     ACTIVO = 'Activo',
     INACTIVO = 'Inactivo',
@@ -361,6 +368,47 @@ export interface EmailTemplate {
     cuerpo: string;
 }
 
+export interface Proveedor {
+    id: string;
+    nombre: string;
+    cuit?: string;
+    razonSocial?: string;
+    telefono?: string;
+    email?: string;
+    direccion?: string;
+    activo: boolean;
+}
+
+export interface ItemFacturaProveedor {
+    descripcion: string;
+    cantidad: number;
+    precioUnitario: number;
+}
+
+export interface FacturaProveedor {
+    id: string;
+    proveedorId: string;
+    numero: string;
+    fechaEmision: string;
+    fechaVencimiento: string;
+    total: number;
+    saldoPagar: number;
+    estado: EstadoFacturaProveedor;
+    items?: ItemFacturaProveedor[];
+    archivoUrl?: string; // Optional URL for uploaded PDF/image
+    observaciones?: string;
+}
+
+export interface PagoProveedor {
+    id: string;
+    facturaProveedorId?: string; // Optional, might be generic advance payment
+    proveedorId: string;
+    monto: number;
+    fecha: string;
+    metodo: MetodoPago;
+    observaciones?: string;
+}
+
 export interface EmpresaSettings {
     nombre: string;
     nombreFantasia?: string;
@@ -390,5 +438,8 @@ export interface EmpresaSettings {
         enabled: boolean;
         integratedWithPlant: boolean;
         dashboardCards?: string[];
+    };
+    proveedoresConfig?: {
+        enabled: boolean;
     };
 }
