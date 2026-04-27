@@ -18,4 +18,6 @@ export interface AppPlugin {
   }>;
   // Opcional: Determina si el plugin está globalmente habilitado
   isEnabled?: (settings: any) => boolean;
+  // Opcional: Inyecta movimientos a la caja general
+  getCajaMovements?: (dataStore: any) => import('../types').CombinedMovement[];
 }

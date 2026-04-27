@@ -234,6 +234,18 @@ export interface RegistroPago {
     concepto?: string;
 }
 
+export interface CombinedMovement {
+  id: string;
+  fecha: string;
+  type: 'ingreso' | 'gasto';
+  concepto: string;
+  pagos: any[];
+  total: number;
+  original: any;
+  ventaId?: string;
+  isCtaCtePura?: boolean;
+}
+
 export interface Gasto {
     id: string;
     fecha: string;
@@ -427,6 +439,7 @@ export interface EmpresaSettings {
     banco?: string;
     observacionesFactura?: string;
     emailTemplate?: EmailTemplate;
+    [key: string]: any; // Allow plugin configurations to be stored here
     afipConfig?: {
         enabled: boolean;
         apiUrl?: string;

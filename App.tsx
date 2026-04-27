@@ -167,8 +167,7 @@ function AppContent() {
                   facturas={dataStore.facturas}
                   ventasVendedor={dataStore.ventasVendedor}
                   productos={dataStore.productos}
-                  proveedores={dataStore.proveedores}
-                  pagosProveedor={dataStore.pagosProveedor}
+                  dataStore={dataStore}
                   addPagoManual={dataStore.addPagoManual}
                   addGasto={dataStore.addGasto}
                   addVentaVendedor={dataStore.addVentaVendedor}

@@ -7,7 +7,7 @@ export const ProveedoresSettings: React.FC<{ settings: any, updateSettings: (set
         updateSettings({
             ...settings,
             proveedoresConfig: {
-                ...settings.proveedoresConfig,
+                ...(settings?.proveedoresConfig || {}),
                 enabled: !isEnabled
             }
         });

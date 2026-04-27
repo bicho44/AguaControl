@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, Factura, Producto, MetodoPago, TipoVendedor, Proveedor, PagoProveedor } from '../types';
+import { RegistroPago, Gasto, Cliente, Usuario, Remito, VentaVendedor, Factura, Producto, MetodoPago, TipoVendedor, CombinedMovement } from '../types';
+import plugins from '../plugins';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { PencilIcon } from '../components/icons/PencilIcon';
@@ -26,8 +27,7 @@ interface CajaViewProps {
   facturas: Factura[];
   ventasVendedor: VentaVendedor[];
   productos: Producto[];
-  proveedores: Proveedor[];
-  pagosProveedor: PagoProveedor[];
+  dataStore?: any;  // Exponer el store para los plugins
   addPagoManual: (pagoData: {
     fecha: string;
     clienteId?: string;
@@ -48,20 +48,8 @@ interface CajaViewProps {
   currentUser: Usuario | null;
 }
 
-interface CombinedMovement {
-  id: string;
-  fecha: string;
-  type: 'ingreso' | 'gasto';
-  concepto: string;
-  pagos: any[];
-  total: number;
-  original: Gasto | RegistroPago[] | VentaVendedor | Remito | PagoProveedor;
-  ventaId?: string;
-  isCtaCtePura?: boolean;
-}
-
 const CajaView: React.FC<CajaViewProps> = ({
-    registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos, proveedores, pagosProveedor,
+    registrosPago, gastos, clientes, vendedores, remitos, facturas, ventasVendedor, productos, dataStore,
     addPagoManual, addGasto, addVentaVendedor, addRemito, addCliente, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateRemito, updateVentaVendedor,
     currentUser
 }) => {
@@ -143,29 +131,51 @@ const CajaView: React.FC<CajaViewProps> = ({
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, [isActionModalOpen, isRemitoModalOpen, openActionModal]);
 
+  // --- OBTENCIÓN DE MOVIMIENTOS EXTRA DE PLUGINS ---
+  const extraMovementsFromPlugins = useMemo(() => {
+     let extra: CombinedMovement[] = [];
+     plugins.filter(p => !p.isEnabled || p.isEnabled(dataStore?.empresaSettings)).forEach(plugin => {
+        if (plugin.getCajaMovements) {
+            extra = [...extra, ...plugin.getCajaMovements(dataStore)];
+        }
+     });
+     return extra;
+  }, [dataStore, plugins]);
+
   // Balance Diario
   const todayStr = useMemo(() => getLocalDateString(), []);
   const dailyBalances = useMemo(() => {
       const dailyPagos = registrosPago.filter(p => p.fecha === todayStr);
       const dailyGastos = gastos.filter(g => g.fecha === todayStr);
-      const dailyPagosProveedor = pagosProveedor.filter(p => p.fecha === todayStr);
+      const dailyExtra = extraMovementsFromPlugins.filter(m => m.fecha === todayStr);
+
       const balancesPorMetodo = (Object.values(MetodoPago) as MetodoPago[]).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
       dailyPagos.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
       dailyGastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
-      dailyPagosProveedor.forEach(p => balancesPorMetodo[p.metodo] -= p.monto);
+      dailyExtra.forEach(m => {
+          m.pagos.forEach(p => {
+              if (m.type === 'ingreso') balancesPorMetodo[p.metodo] += p.monto;
+              else balancesPorMetodo[p.metodo] -= p.monto;
+          });
+      });
       const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
       return { ...balancesPorMetodo, total };
-  }, [registrosPago, gastos, pagosProveedor, todayStr]);
+  }, [registrosPago, gastos, extraMovementsFromPlugins, todayStr]);
 
   // Balance Total Histórico
   const totalBalances = useMemo(() => {
       const balancesPorMetodo = (Object.values(MetodoPago) as MetodoPago[]).reduce((acc, metodo) => { acc[metodo] = 0; return acc; }, {} as Record<MetodoPago, number>);
       registrosPago.forEach(p => balancesPorMetodo[p.metodo] += p.monto);
       gastos.forEach(g => g.pagos.forEach(p => balancesPorMetodo[p.metodo] -= p.monto));
-      pagosProveedor.forEach(p => balancesPorMetodo[p.metodo] -= p.monto);
+      extraMovementsFromPlugins.forEach(m => {
+          m.pagos.forEach(p => {
+              if (m.type === 'ingreso') balancesPorMetodo[p.metodo] += p.monto;
+              else balancesPorMetodo[p.metodo] -= p.monto;
+          });
+      });
       const total = Object.values(balancesPorMetodo).reduce((sum, monto) => sum + monto, 0);
       return { ...balancesPorMetodo, total };
-  }, [registrosPago, gastos, pagosProveedor]);
+  }, [registrosPago, gastos, extraMovementsFromPlugins]);
 
   // --- FILTRO Y PROCESAMIENTO DE MOVIMIENTOS ---
   const combinedMovements = useMemo(() => {
@@ -281,27 +291,18 @@ const CajaView: React.FC<CajaViewProps> = ({
         }
     });
 
-    // Procesar Pagos Proveedor
-    pagosProveedor.forEach(p => {
-        const d = new Date(p.fecha + 'T00:00:00').getTime();
+    // Procesar Movimientos Extra de Plugins
+    extraMovementsFromPlugins.forEach(m => {
+        const d = new Date(m.fecha + 'T00:00:00').getTime();
         if (d >= filterFrom && d <= filterTo) {
-            const proveedorStr = proveedores.find(pr => pr.id === p.proveedorId)?.nombre || 'Proveedor';
-            allMovements.push({ 
-                id: p.id, 
-                fecha: p.fecha, 
-                type: 'gasto', 
-                concepto: `${proveedorStr} - Pago a Proveedor${p.observaciones ? ': ' + p.observaciones : ''}`, 
-                pagos: [{ metodo: p.metodo, monto: p.monto }], 
-                total: p.monto, 
-                original: p 
-            });
+            allMovements.push(m);
         }
     });
 
     return allMovements
         .filter(m => !hideCtaCte || !m.isCtaCtePura)
         .sort((a, b) => new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime() || b.id.localeCompare(a.id));
-  }, [gastos, registrosPago, pagosProveedor, proveedores, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal, hideCtaCte]);
+  }, [gastos, registrosPago, extraMovementsFromPlugins, remitos, remitosMap, ventasVendedorMap, clientesMap, vendedoresMap, facturasMap, dateFilter, productosMap, getRemitoTotal, hideCtaCte]);
 
   const displayedMovements = useMemo(() => combinedMovements.slice(0, itemsLimit), [combinedMovements, itemsLimit]);
 

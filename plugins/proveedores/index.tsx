@@ -16,7 +16,22 @@ const proveedoresPlugin: AppPlugin = {
   roles: [Rol.ADMINISTRADOR],
   component: ProveedoresPlugin,
   isEnabled: (settings: any) => settings?.proveedoresConfig?.enabled === true,
-  settingsComponent: ProveedoresSettings
+  settingsComponent: ProveedoresSettings,
+  getCajaMovements: (dataStore: any) => {
+    if (!dataStore || !dataStore.pagosProveedor) return [];
+    return dataStore.pagosProveedor.map((p: any) => {
+      const proveedorStr = dataStore.proveedores?.find((pr: any) => pr.id === p.proveedorId)?.nombre || 'Proveedor';
+      return {
+        id: p.id,
+        fecha: p.fecha,
+        type: 'gasto',
+        concepto: `${proveedorStr} - Pago a Proveedor${p.observaciones ? ': ' + p.observaciones : ''}`,
+        pagos: [{ metodo: p.metodo, monto: p.monto }],
+        total: p.monto,
+        original: p,
+      };
+    });
+  }
 };
 
 export default proveedoresPlugin;
