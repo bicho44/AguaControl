@@ -1,9 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY filter not found. Please set VITE_GEMINI_API_KEY or GEMINI_API_KEY.");
+    }
+    aiInstance = new GoogleGenAI(apiKey);
+  }
+  return aiInstance;
+}
 
 export async function extractFacturaData(fileBase64: string, mimeType: string): Promise<any> {
-  const imagePart = {
+    const ai = getAI();
+    const imagePart = {
     inlineData: {
       mimeType,
       data: fileBase64,

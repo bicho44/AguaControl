@@ -21,6 +21,7 @@ import SetupView from './views/SetupView';
 import plugins from './plugins';
 import { useDataStore } from './hooks/useDataStore';
 import { View, Rol, LogLevel } from './types';
+import PluginErrorBoundary from './components/PluginErrorBoundary';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import Notification from './components/Notification';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -149,7 +150,23 @@ function AppContent() {
       const plugin = plugins.find(p => p.id === pluginId);
       if (plugin && plugin.roles.includes(user.rol)) {
         const PluginComponent = plugin.component;
-        return <PluginComponent />;
+        return (
+          <PluginErrorBoundary 
+            pluginName={plugin.name}
+            onCatch={(error, info) => {
+              dataStore.addLog({
+                level: LogLevel.ERROR,
+                message: `Error en Plugin: ${plugin.name}`,
+                details: `${error.message}\n${info.componentStack}`,
+                userEmail: user?.email,
+                userId: user?.id,
+                route: currentView
+              });
+            }}
+          >
+            <PluginComponent />
+          </PluginErrorBoundary>
+        );
       }
     }
     // ----------------------------
