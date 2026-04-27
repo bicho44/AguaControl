@@ -166,9 +166,12 @@ export const PagosList: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <AppInput label="Monto ($) *" type="number" value={formData.monto || ''} onChange={e => setFormData({...formData, monto: parseFloat(e.target.value) || 0})} className="bg-white" />
-                        <AppSelect label="Método de Pago" value={formData.metodo} onChange={e => setFormData({...formData, metodo: e.target.value as MetodoPago})}>
-                            {Object.values(MetodoPago).map(m => <option key={m} value={m}>{m}</option>)}
-                        </AppSelect>
+                        <AppSelect 
+                            label="Método de Pago" 
+                            value={formData.metodo as string} 
+                            onChange={e => setFormData({...formData, metodo: e.target.value as MetodoPago})}
+                            options={Object.values(MetodoPago).map(m => ({ value: m, label: m }))}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

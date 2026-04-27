@@ -16,4 +16,6 @@ export interface AppPlugin {
     settings: any;
     updateSettings: (newSettings: any) => void;
   }>;
+  // Opcional: Determina si el plugin está globalmente habilitado
+  isEnabled?: (settings: any) => boolean;
 }

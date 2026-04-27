@@ -2,6 +2,7 @@ import React from 'react';
 import { AppPlugin } from '../types';
 import { Rol } from '../../types';
 import ProveedoresPlugin from './ProveedoresPlugin';
+import { ProveedoresSettings } from './ProveedoresSettings';
 
 const proveedoresPlugin: AppPlugin = {
   id: 'proveedores',
@@ -13,7 +14,9 @@ const proveedoresPlugin: AppPlugin = {
     </svg>
   ),
   roles: [Rol.ADMINISTRADOR],
-  component: ProveedoresPlugin
+  component: ProveedoresPlugin,
+  isEnabled: (settings: any) => settings?.proveedoresConfig?.enabled === true,
+  settingsComponent: ProveedoresSettings
 };
 
 export default proveedoresPlugin;
