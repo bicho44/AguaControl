@@ -26,10 +26,9 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
     - proveedorCuit: CUIT del emisor de la factura (solo números, o con guiones).
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: { parts: [imagePart, { text: PROMPT }] },
-    config: {
+  const model = ai.getGenerativeModel({ 
+    model: "gemini-2.0-flash",
+    generationConfig: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -50,9 +49,13 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
     },
   });
 
-  if (!response.text) {
+  const result = await model.generateContent([imagePart, { text: PROMPT }]);
+  const response = result.response;
+  const text = response.text();
+
+  if (!text) {
     throw new Error("No se pudo extraer la información.");
   }
 
-  return JSON.parse(response.text.trim());
+  return JSON.parse(text.trim());
 }

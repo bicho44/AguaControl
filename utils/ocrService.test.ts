@@ -1,13 +1,14 @@
+import { describe, it, expect, vi } from 'vitest';
 import { extractFacturaData } from './ocrService';
 
 // Mocking @google/genai GoogleGenAI class
-jest.mock('@google/genai', () => {
-    return {
-        GoogleGenAI: jest.fn().mockImplementation(() => {
-            return {
-                models: {
-                    generateContent: jest.fn().mockResolvedValue({
-                        text: JSON.stringify({
+vi.mock('@google/genai', () => {
+    const GoogleGenAI = vi.fn().mockImplementation(() => {
+        return {
+            getGenerativeModel: vi.fn().mockReturnValue({
+                generateContent: vi.fn().mockResolvedValue({
+                    response: {
+                        text: () => JSON.stringify({
                             tipoComprobante: 'A',
                             numero: '0001-00000123',
                             fechaEmision: '2026-04-20',
@@ -20,16 +21,19 @@ jest.mock('@google/genai', () => {
                             proveedorNombre: 'PRUEBA SA',
                             proveedorCuit: '30-12345678-9'
                         })
-                    })
-                }
-            }
-        }),
+                    }
+                })
+            })
+        };
+    });
+    return {
+        GoogleGenAI,
         Type: {
             OBJECT: 'OBJECT',
             STRING: 'STRING',
             NUMBER: 'NUMBER'
         }
-    }
+    };
 });
 
 describe('ocrService', () => {
