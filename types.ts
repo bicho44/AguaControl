@@ -401,8 +401,13 @@ export interface FacturaProveedor {
     id: string;
     proveedorId: string;
     numero: string;
+    tipoComprobante?: 'A' | 'B' | 'C' | 'M' | 'X' | 'Ticket';
     fechaEmision: string;
     fechaVencimiento: string;
+    subtotalNeto?: number;
+    importeIva?: number;
+    alicuotaIva?: number; // Ej: 21, 10.5, 27
+    percepciones?: number;
     total: number;
     saldoPagar: number;
     estado: EstadoFacturaProveedor;

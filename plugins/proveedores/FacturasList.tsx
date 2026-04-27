@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useDataStore } from '../../hooks/useDataStore';
 import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
@@ -11,17 +11,25 @@ import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestor
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import { getLocalDateString } from '../../utils/dateUtils';
+import { extractFacturaData } from '../../utils/ocrService';
 
 export const FacturasList: React.FC = () => {
     const { facturasProveedor, proveedores } = useDataStore();
     const { showNotification } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isExtracting, setIsExtracting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [editingItem, setEditingItem] = useState<FacturaProveedor | null>(null);
     const [formData, setFormData] = useState<Partial<FacturaProveedor>>({
         proveedorId: '',
         numero: '',
+        tipoComprobante: 'A',
         fechaEmision: getLocalDateString(new Date()),
         fechaVencimiento: getLocalDateString(new Date()),
+        subtotalNeto: 0,
+        importeIva: 0,
+        alicuotaIva: 21,
+        percepciones: 0,
         total: 0,
         estado: EstadoFacturaProveedor.PENDIENTE,
         items: []
@@ -31,6 +39,60 @@ export const FacturasList: React.FC = () => {
         { value: '', label: 'Seleccionar...' },
         ...proveedores.map(p => ({ value: p.id, label: p.nombre }))
     ], [proveedores]);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsExtracting(true);
+        showNotification('Procesando factura con IA...', 'success');
+
+        try {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const base64String = (event.target?.result as string).split(',')[1];
+                    const extractedData = await extractFacturaData(base64String, file.type);
+                    
+                    // Match provider by CUIT or Name
+                    let foundProvId = '';
+                    if (extractedData.proveedorCuit || extractedData.proveedorNombre) {
+                        const prov = proveedores.find(p => 
+                            (extractedData.proveedorCuit && p.cuit && p.cuit.includes(extractedData.proveedorCuit)) ||
+                            (extractedData.proveedorNombre && p.nombre.toLowerCase().includes(extractedData.proveedorNombre.toLowerCase()))
+                        );
+                        if (prov) foundProvId = prov.id;
+                    }
+
+                    setFormData({
+                        ...formData,
+                        proveedorId: foundProvId,
+                        numero: extractedData.numero || '',
+                        tipoComprobante: extractedData.tipoComprobante || 'A',
+                        fechaEmision: extractedData.fechaEmision || getLocalDateString(new Date()),
+                        fechaVencimiento: extractedData.fechaVencimiento || getLocalDateString(new Date()),
+                        subtotalNeto: extractedData.subtotalNeto || 0,
+                        importeIva: extractedData.importeIva || 0,
+                        alicuotaIva: extractedData.alicuotaIva || 21,
+                        percepciones: extractedData.percepciones || 0,
+                        total: extractedData.total || 0,
+                    });
+
+                    showNotification('Datos extraídos correctamente ✨', 'success');
+                } catch (error: any) {
+                    console.error(error);
+                    showNotification('Error extrayendo datos: ' + error.message, 'error');
+                } finally {
+                    setIsExtracting(false);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            setIsExtracting(false);
+            showNotification('Error leyendo archivo', 'error');
+        }
+    };
 
     const handleSave = async () => {
         if (!formData.proveedorId || !formData.numero || !formData.total) {
@@ -81,8 +143,13 @@ export const FacturasList: React.FC = () => {
         setFormData({ 
             proveedorId: '', 
             numero: '', 
+            tipoComprobante: 'A',
             fechaEmision: getLocalDateString(new Date()), 
             fechaVencimiento: getLocalDateString(new Date()), 
+            subtotalNeto: 0,
+            importeIva: 0,
+            alicuotaIva: 21,
+            percepciones: 0,
             total: 0, 
             estado: EstadoFacturaProveedor.PENDIENTE,
             items: []
@@ -94,7 +161,17 @@ export const FacturasList: React.FC = () => {
         <div className="space-y-4">
             <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">Facturas Recibidas</h3>
-                <AppButton onClick={openNew}>+ Ingresar Factura</AppButton>
+                <div className="flex items-center gap-4">
+                    <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                    <AppButton variant="secondary" onClick={() => {
+                         openNew();
+                         // The click will be triggered from the modal, but if they click here it opens modal and triggers click
+                         fileInputRef.current?.click();
+                    }} disabled={isExtracting}>
+                        {isExtracting ? 'Procesando...' : '✨ OCR Mágico'}
+                    </AppButton>
+                    <AppButton onClick={openNew}>+ Ingresar Factura</AppButton>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -154,16 +231,36 @@ export const FacturasList: React.FC = () => {
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Editar Factura' : 'Ingresar Factura'}>
                 <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <AppButton variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isExtracting} className="w-full text-center">
+                            {isExtracting ? 'Analizando con IA...' : '✨ Autocompletar con Factura (Subir Imagen)'}
+                        </AppButton>
+                    </div>
                     <SearchableSelect label="Proveedor *" options={proveedoresOptions} value={formData.proveedorId || ''} onChange={(v) => setFormData({...formData, proveedorId: v})} />
                     
-                    <div className="grid grid-cols-2 gap-4">
-                        <AppInput label="Nro de Factura *" value={formData.numero || ''} onChange={e => setFormData({...formData, numero: e.target.value})} autoFocus />
-                        <AppInput label="Total ($) *" type="number" value={formData.total || ''} onChange={e => setFormData({...formData, total: parseFloat(e.target.value) || 0})} className="bg-white" />
+                    <div className="grid grid-cols-3 gap-4">
+                        <AppSelect label="Tipo" value={formData.tipoComprobante || 'A'} onChange={e => setFormData({...formData, tipoComprobante: e.target.value as any})} options={[{label:'Factura A', value:'A'}, {label:'Factura B', value:'B'}, {label:'Factura C', value:'C'}, {label:'Factura M', value:'M'}, {label:'Factura X', value:'X'}, {label:'Ticket', value:'Ticket'}]} />
+                        <AppInput label="Nro de Factura *" value={formData.numero || ''} onChange={e => setFormData({...formData, numero: e.target.value})} className="col-span-2" autoFocus />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <AppInput label="Fecha Emisión" type="date" value={formData.fechaEmision || ''} onChange={e => setFormData({...formData, fechaEmision: e.target.value})} />
                         <AppInput label="Fecha Vencimiento" type="date" value={formData.fechaVencimiento || ''} onChange={e => setFormData({...formData, fechaVencimiento: e.target.value})} />
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Detalle de Importes</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <AppInput label="Subtotal Neto ($)" type="number" value={formData.subtotalNeto || ''} onChange={e => setFormData({...formData, subtotalNeto: parseFloat(e.target.value) || 0})} className="bg-white" />
+                            <div className="grid grid-cols-2 gap-2">
+                                <AppSelect label="Alícuota" value={String(formData.alicuotaIva || 21)} onChange={e => setFormData({...formData, alicuotaIva: parseFloat(e.target.value) || 0})} options={[{label:'21%', value:'21'}, {label:'10.5%', value:'10.5'}, {label:'27%', value:'27'}, {label:'Exento', value:'0'}]} />
+                                <AppInput label="Importe IVA ($)" type="number" value={formData.importeIva || ''} onChange={e => setFormData({...formData, importeIva: parseFloat(e.target.value) || 0})} className="bg-white" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <AppInput label="Percepciones/Imp. ($)" type="number" value={formData.percepciones || ''} onChange={e => setFormData({...formData, percepciones: parseFloat(e.target.value) || 0})} className="bg-white" />
+                            <AppInput label="Total ($) *" type="number" value={formData.total || ''} onChange={e => setFormData({...formData, total: parseFloat(e.target.value) || 0})} className="bg-white font-bold text-primary-600" />
+                        </div>
                     </div>
 
                     <AppInput label="Observaciones" value={formData.observaciones || ''} onChange={e => setFormData({...formData, observaciones: e.target.value})} />

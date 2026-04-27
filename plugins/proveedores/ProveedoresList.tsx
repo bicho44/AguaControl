@@ -4,15 +4,18 @@ import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
 import AppInput from '../../components/ui/AppInput';
 import Modal from '../../components/Modal';
+import SearchableSelect from '../../components/SearchableSelect';
 import { Proveedor } from '../../types';
 import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 
 export const ProveedoresList: React.FC = () => {
-    const { proveedores } = useDataStore();
+    const { proveedores, clientes } = useDataStore();
     const { showNotification } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [clienteToImportId, setClienteToImportId] = useState('');
     const [editingItem, setEditingItem] = useState<Proveedor | null>(null);
     const [formData, setFormData] = useState<Partial<Proveedor>>({
         nombre: '',
@@ -22,6 +25,11 @@ export const ProveedoresList: React.FC = () => {
         direccion: '',
         activo: true
     });
+
+    const clienteOptions = clientes.map(c => ({
+        value: c.id,
+        label: `${c.nombre} ${c.cuit ? `(${c.cuit})` : ''}`
+    }));
 
     const handleSave = async () => {
         if (!formData.nombre) {
@@ -41,6 +49,39 @@ export const ProveedoresList: React.FC = () => {
         } catch (e) {
             console.error(e);
             showNotification('Error al guardar proveedor', 'error');
+        }
+    };
+
+    const handleImportCliente = async () => {
+        if (!clienteToImportId) {
+            showNotification('Debe seleccionar un cliente', 'error');
+            return;
+        }
+        
+        const cliente = clientes.find(c => c.id === clienteToImportId);
+        if (!cliente) return;
+        
+        const exists = proveedores.find(p => p.nombre.toLowerCase().trim() === cliente.nombre.toLowerCase().trim() || (p.cuit && p.cuit === cliente.cuit));
+        if (exists) {
+            showNotification('Ya existe un proveedor con ese nombre o CUIT', 'error');
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, 'proveedores'), {
+                nombre: cliente.nombre,
+                cuit: cliente.cuit || '',
+                telefono: cliente.telefono || '',
+                email: cliente.email || '',
+                direccion: cliente.direccion || '',
+                activo: true
+            });
+            showNotification('Cliente importado como Proveedor', 'success');
+            setIsImportModalOpen(false);
+            setClienteToImportId('');
+        } catch (e) {
+            console.error(e);
+            showNotification('Error al importar cliente', 'error');
         }
     };
 
@@ -70,9 +111,12 @@ export const ProveedoresList: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 gap-3">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">Directorio de Proveedores</h3>
-                <AppButton onClick={openNew}>+ Nuevo Proveedor</AppButton>
+                <div className="flex flex-wrap gap-2">
+                    <AppButton variant="secondary" onClick={() => setIsImportModalOpen(true)}>Importar Cliente</AppButton>
+                    <AppButton onClick={openNew}>+ Nuevo Proveedor</AppButton>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -97,6 +141,7 @@ export const ProveedoresList: React.FC = () => {
                 )}
             </div>
 
+            {/* Modal para Crear / Editar Proveedor */}
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Editar Proveedor' : 'Nuevo Proveedor'}>
                 <div className="space-y-4">
                     <AppInput label="Nombre o Razón Social *" value={formData.nombre || ''} onChange={e => setFormData({...formData, nombre: e.target.value})} autoFocus />
@@ -109,6 +154,26 @@ export const ProveedoresList: React.FC = () => {
                     <div className="flex justify-end gap-3 pt-4">
                         <AppButton variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</AppButton>
                         <AppButton onClick={handleSave}>Guardar</AppButton>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal para Importar desde Clientes */}
+            <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Importar Cliente como Proveedor">
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-500">
+                        Seleccione un cliente existente para que sea agregado a la lista de proveedores. Se copiarán sus datos de contacto y CUIT.
+                    </p>
+                    <SearchableSelect 
+                        label="Seleccionar Cliente" 
+                        options={clienteOptions} 
+                        value={clienteToImportId} 
+                        onChange={setClienteToImportId} 
+                        autoFocus 
+                    />
+                    <div className="flex justify-end gap-3 pt-4">
+                        <AppButton variant="secondary" onClick={() => setIsImportModalOpen(false)}>Cancelar</AppButton>
+                        <AppButton onClick={handleImportCliente}>Importar como Proveedor</AppButton>
                     </div>
                 </div>
             </Modal>
