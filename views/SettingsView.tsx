@@ -358,7 +358,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                   </div>
                   <SettingsComp 
                     settings={formData} 
-                    updateSettings={(newSettings) => setFormData(newSettings)} 
+                    updateSettings={(newSettings) => {
+                      setFormData(newSettings);
+                      updateSettings(newSettings);
+                      showNotification('Configuración de plugin actualizada.', 'success');
+                    }} 
                   />
                 </div>
               );
