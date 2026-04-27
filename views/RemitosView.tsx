@@ -215,7 +215,11 @@ const RemitosView: React.FC<RemitosViewProps> = ({ remitos, clientes, vendedores
   }, [clientes, currentUser]);
 
   const filterClienteOptions = useMemo(() => {
-    return [{value: "", label: "Todos"}, ...visibleClientes.map(c=>({value:c.id, label:c.nombre}))];
+    return [{value: "", label: "Todos"}, ...visibleClientes.map(c=>({
+      value:c.id, 
+      label:c.nombre,
+      searchTerms: [c.direccionFiscal, ...(c.sucursales || []).map(s => s.direccion), ...(c.telefonos || []).map(t => t.numero)].filter(Boolean).join(' ')
+    }))];
   }, [visibleClientes]);
   
   const pagosMap = useMemo(() => {

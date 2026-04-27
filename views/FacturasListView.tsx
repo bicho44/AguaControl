@@ -126,7 +126,11 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
 
 
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
-  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
+  const clienteOptions = useMemo(() => clientes.map(c => ({ 
+      value: c.id, 
+      label: c.nombre,
+      searchTerms: [c.direccionFiscal, ...(c.sucursales || []).map(s => s.direccion), ...(c.telefonos || []).map(t => t.numero)].filter(Boolean).join(' ')
+  })), [clientes]);
   const remitosMap = useMemo(() => new Map(remitos.map(r => [r.id, r])), [remitos]);
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
 

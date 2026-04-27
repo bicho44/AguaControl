@@ -62,7 +62,13 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   const subjectOptions = useMemo(() => {
     const clients = clientes
         .filter(c => c.estado === EstadoCliente.ACTIVO || c.id === formData.clienteId)
-        .map(c => ({ value: `client_${c.id}`, label: `👤 CLIENTE: ${c.nombre}`, originalId: c.id, type: 'client' }));
+        .map(c => ({ 
+            value: `client_${c.id}`, 
+            label: `👤 CLIENTE: ${c.nombre}`, 
+            originalId: c.id, 
+            type: 'client',
+            searchTerms: [c.direccionFiscal, ...(c.sucursales || []).map(s => s.direccion), ...(c.telefonos || []).map(t => t.numero)].filter(Boolean).join(' ')
+        }));
     
     const externals = vendedores
         .filter(v => v.tipo === TipoVendedor.EXTERNO)

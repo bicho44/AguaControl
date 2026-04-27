@@ -91,7 +91,11 @@ const ContratoForm: React.FC<ContratoFormProps> = ({
     onSave(formData as Contrato);
   };
 
-  const clienteOptions = useMemo(() => clientes.map(c => ({ value: c.id, label: c.nombre })), [clientes]);
+  const clienteOptions = useMemo(() => clientes.map(c => ({ 
+      value: c.id, 
+      label: c.nombre,
+      searchTerms: [c.direccionFiscal, ...(c.sucursales || []).map(s => s.direccion), ...(c.telefonos || []).map(t => t.numero)].filter(Boolean).join(' ')
+  })), [clientes]);
   const servicioOptions = useMemo(() => {
     const serviciosActivos = servicios.filter(s => s.estado === EstadoServicio.ACTIVO || s.id === formData.servicioId);
     return serviciosActivos.map(s => ({ value: s.id, label: s.nombre }));

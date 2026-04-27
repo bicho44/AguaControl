@@ -7,7 +7,7 @@ import { SearchIcon } from './icons/SearchIcon';
 // Force sync
 
 interface SearchableSelectProps {
-  options: { value: string; label: string; }[];
+  options: { value: string; label: string; searchTerms?: string }[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -74,7 +74,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const filteredOptions = useMemo(() => {
     const query = isTyping ? searchTerm.toLowerCase() : '';
     return processedOptions.filter(option =>
-      option.label.toLowerCase().includes(query)
+      option.label.toLowerCase().includes(query) ||
+      (option.searchTerms && option.searchTerms.toLowerCase().includes(query))
     );
   }, [processedOptions, searchTerm, isTyping]);
 

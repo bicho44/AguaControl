@@ -702,7 +702,11 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
     }
 
     return list.filter(c => {
-        const matchesName = (c.nombre || '').toLowerCase().includes(filter.toLowerCase());
+        const query = filter.toLowerCase();
+        const matchesName = (c.nombre || '').toLowerCase().includes(query) ||
+                            (c.direccionFiscal || '').toLowerCase().includes(query) ||
+                            (c.sucursales || []).some(s => (s.direccion || '').toLowerCase().includes(query));
+        
         const matchesStatus = statusFilter === 'todos' || c.estado === statusFilter;
         const matchesPayment = paymentFilter === 'todos' || 
             (paymentFilter === 'cta_cte' && c.tieneCuentaCorriente) || 
@@ -833,7 +837,7 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
 
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
             <div className="relative w-full md:w-1/3">
-                <AppInput placeholder="Buscar por nombre..." value={filter} onChange={(e) => setFilter(e.target.value)} className="pl-10" />
+                <AppInput placeholder="Buscar por nombre o dirección..." value={filter} onChange={(e) => setFilter(e.target.value)} className="pl-10" />
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                     <SearchIcon className="h-5 w-5 text-gray-400" />
                 </div>
