@@ -1,0 +1,72 @@
+import { GoogleGenAI, Type } from "@google/genai";
+
+/**
+ * Nota: En AI Studio Build, GEMINI_API_KEY se inyecta automáticamente.
+ * Para despliegues externos (Vercel), DEBES configurar VITE_GEMINI_API_KEY.
+ */
+const getApiKey = () => {
+  // En Vite, se usa import.meta.env
+  // @ts-ignore
+  return (import.meta.env?.VITE_GEMINI_API_KEY) || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
+};
+
+export async function extractFacturaData(fileBase64: string, mimeType: string): Promise<any> {
+    const apiKey = getApiKey();
+    
+    if (!apiKey || apiKey === '') {
+        throw new Error(
+            "API Key de Gemini no encontrada. Por favor, configura VITE_GEMINI_API_KEY en las variables de entorno."
+        );
+    }
+
+    // Inicializamos el SDK dentro de la función para evitar errores en el import
+    // y permitir que el failsafe del plugin maneje el error si falta la clave.
+    const genAI = new GoogleGenAI(apiKey);
+    
+    const imagePart = {
+        inlineData: {
+            mimeType,
+            data: fileBase64,
+        },
+    };
+
+    const PROMPT = `
+        Analiza esta factura de proveedor de Argentina. Extrae los datos en formato JSON.
+        - tipoComprobante: (A, B, C, M, X o Ticket)
+        - numero: número de comprobante completo (ej: 0001-00000123)
+        - fechaEmision: YYYY-MM-DD
+        - subtotalNeto: valor numérico
+        - importeIva: valor numérico
+        - alicuotaIva: porcentaje (ej: 21)
+        - percepciones: suma de otros impuestos/percepciones
+        - total: valor total final
+        - proveedorNombre: razón social del emisor
+        - proveedorCuit: CUIT del emisor
+    `;
+
+    try {
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            generationConfig: {
+                responseMimeType: "application/json",
+            }
+        });
+
+        const result = await model.generateContent([imagePart, { text: PROMPT }]);
+        const response = result.response;
+        const text = response.text();
+
+        if (!text) {
+            throw new Error("La IA no pudo procesar la imagen de la factura o no devolvió texto.");
+        }
+
+        return JSON.parse(text.trim());
+    } catch (error: any) {
+        console.error("Error en OCR Service:", error);
+        // Personalizamos el error para que sea informativo pero no mate la app
+        if (error.message?.includes("API key")) {
+            throw new Error("Error de Configuración: La API Key de Gemini no es válida o no tiene permisos.");
+        }
+        throw new Error("Error de Procesamiento: " + (error.message || "No se pudo analizar la factura."));
+    }
+}

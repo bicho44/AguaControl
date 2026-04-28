@@ -11,7 +11,7 @@ import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestor
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import { getLocalDateString } from '../../utils/dateUtils';
-import { extractFacturaData } from '../../utils/ocrService';
+import { extractFacturaData } from './ocrService';
 
 export const FacturasList: React.FC = () => {
     const { facturasProveedor, proveedores } = useDataStore();
