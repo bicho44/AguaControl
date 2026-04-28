@@ -61,7 +61,17 @@ export const FacturasList: React.FC = () => {
                             (extractedData.proveedorCuit && p.cuit && p.cuit.includes(extractedData.proveedorCuit)) ||
                             (extractedData.proveedorNombre && p.nombre.toLowerCase().includes(extractedData.proveedorNombre.toLowerCase()))
                         );
-                        if (prov) foundProvId = prov.id;
+                        if (prov) {
+                            foundProvId = prov.id;
+                        } else if (extractedData.proveedorNombre) {
+                            const newProvRef = await addDoc(collection(db, 'proveedores'), {
+                                nombre: extractedData.proveedorNombre,
+                                cuit: extractedData.proveedorCuit || '',
+                                activo: true
+                            });
+                            foundProvId = newProvRef.id;
+                            showNotification(`Proveedor "${extractedData.proveedorNombre}" creado automáticamente`, 'success');
+                        }
                     }
 
                     setFormData({
