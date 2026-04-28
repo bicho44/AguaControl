@@ -67,6 +67,10 @@ export const FacturasList: React.FC = () => {
                             const newProvRef = await addDoc(collection(db, 'proveedores'), {
                                 nombre: extractedData.proveedorNombre,
                                 cuit: extractedData.proveedorCuit || '',
+                                email: extractedData.proveedorEmail || '',
+                                telefono: extractedData.proveedorTelefono || '',
+                                direccion: extractedData.proveedorDireccion || '',
+                                ingresosBrutos: extractedData.proveedorIIBB || '',
                                 activo: true
                             });
                             foundProvId = newProvRef.id;
@@ -167,15 +171,58 @@ export const FacturasList: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const handleExportCSV = () => {
+        if (facturasProveedor.length === 0) {
+            showNotification('No hay facturas para exportar', 'error');
+            return;
+        }
+
+        const headers = [
+            'Fecha Emision', 'Fecha Vto', 'Comprobante', 'Numero', 'Proveedor', 'CUIT', 'Neto', 'IVA', 'Alicuota', 'Percepciones', 'Total', 'Estado'
+        ].join(',');
+
+        const rows = facturasProveedor.map(f => {
+            const prop = proveedores.find(p => p.id === f.proveedorId);
+            return [
+                f.fechaEmision,
+                f.fechaVencimiento || '',
+                f.tipoComprobante || 'A',
+                f.numero,
+                prop?.nombre || 'Desconocido',
+                prop?.cuit || '',
+                f.subtotalNeto || 0,
+                f.importeIva || 0,
+                f.alicuotaIva || 21,
+                f.percepciones || 0,
+                f.total || 0,
+                f.estado || ''
+            ].map(val => `"${val}"`).join(',');
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `informe_contador_facturas_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 gap-3">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">Facturas Recibidas</h3>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-2">
                     <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                    <AppButton variant="secondary" onClick={handleExportCSV}>
+                        <svg className="w-4 h-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Exportar Contador
+                    </AppButton>
                     <AppButton variant="secondary" onClick={() => {
                          openNew();
-                         // The click will be triggered from the modal, but if they click here it opens modal and triggers click
                          fileInputRef.current?.click();
                     }} disabled={isExtracting}>
                         {isExtracting ? 'Procesando...' : '✨ OCR Mágico'}

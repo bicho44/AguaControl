@@ -34,6 +34,10 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
         - total: valor total final
         - proveedorNombre: razón social del emisor
         - proveedorCuit: CUIT del emisor
+        - proveedorEmail: email del emisor (si existe)
+        - proveedorTelefono: teléfono del emisor (si existe)
+        - proveedorDireccion: dirección del emisor (si existe)
+        - proveedorIIBB: número de Ingresos Brutos del emisor (si existe)
     `;
 
     try {
