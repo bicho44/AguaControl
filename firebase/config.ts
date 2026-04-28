@@ -1,4 +1,3 @@
-
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
@@ -15,6 +14,7 @@ export const initFirebase = (config: any) => {
         app = initializeApp(config);
         db = getFirestore(app);
         auth = getAuth(app);
+        
         console.log("Firebase inicializado correctamente.");
         return true;
     } catch (error) {
