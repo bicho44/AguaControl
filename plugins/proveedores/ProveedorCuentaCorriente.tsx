@@ -11,6 +11,8 @@ import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import AppInput from '../../components/ui/AppInput';
 import AppSelect from '../../components/ui/AppSelect';
+import { getLocalDateString } from '../../utils/dateUtils';
+import { PagoProveedorModal } from './PagoProveedorModal';
 
 export const ProveedorCuentaCorriente: React.FC<{ 
     proveedor: Proveedor,
@@ -21,6 +23,8 @@ export const ProveedorCuentaCorriente: React.FC<{
     
     // Upload invoice state
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+    const [selectedFacturaForPago, setSelectedFacturaForPago] = useState<FacturaProveedor | null>(null);
     const [isExtracting, setIsExtracting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formData, setFormData] = useState<Partial<FacturaProveedor>>({
@@ -227,10 +231,10 @@ export const ProveedorCuentaCorriente: React.FC<{
                                     <td className="px-4 py-3 text-right font-black text-gray-800 dark:text-white">${m.saldo.toFixed(2)}</td>
                                     <td className="px-4 py-3 text-center">
                                         {m.tipo === 'FACTURA' && m.estado === EstadoFacturaProveedor.PENDIENTE && (
-                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800">Pendiente</span>
+                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800 cursor-pointer" onClick={() => { setSelectedFacturaForPago(m.data); setIsPagoModalOpen(true); }}>Pendiente (Pagar)</span>
                                         )}
                                         {m.tipo === 'FACTURA' && m.estado === EstadoFacturaProveedor.PAGADO_PARCIAL && (
-                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-yellow-100 text-yellow-800">Parcial</span>
+                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-yellow-100 text-yellow-800 cursor-pointer" onClick={() => { setSelectedFacturaForPago(m.data); setIsPagoModalOpen(true); }}>Parcial (Pagar)</span>
                                         )}
                                         {m.tipo === 'FACTURA' && m.estado === EstadoFacturaProveedor.PAGADO && (
                                             <span className="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800">Pagado</span>
@@ -250,6 +254,16 @@ export const ProveedorCuentaCorriente: React.FC<{
                     </table>
                 </div>
             </Card>
+
+            <PagoProveedorModal 
+                isOpen={isPagoModalOpen} 
+                onClose={() => {
+                    setIsPagoModalOpen(false);
+                    setSelectedFacturaForPago(null);
+                }} 
+                initialFacturaId={selectedFacturaForPago?.id} 
+                initialProveedorId={proveedor.id} 
+            />
 
             <Modal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} title="Cargar Factura de Proveedor" className="max-w-2xl">
                 <div className="space-y-4">

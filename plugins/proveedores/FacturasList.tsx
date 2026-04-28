@@ -13,10 +13,14 @@ import { useNotification } from '../../context/NotificationContext';
 import { getLocalDateString } from '../../utils/dateUtils';
 import { extractFacturaData } from './ocrService';
 
+import { PagoProveedorModal } from './PagoProveedorModal';
+
 export const FacturasList: React.FC = () => {
     const { facturasProveedor, proveedores } = useDataStore();
     const { showNotification } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+    const [selectedFacturaForPago, setSelectedFacturaForPago] = useState<FacturaProveedor | null>(null);
     const [isExtracting, setIsExtracting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [editingItem, setEditingItem] = useState<FacturaProveedor | null>(null);
@@ -268,6 +272,12 @@ export const FacturasList: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right space-x-2">
+                                            {f.estado !== EstadoFacturaProveedor.PAGADO && (
+                                                <button onClick={() => {
+                                                    setSelectedFacturaForPago(f);
+                                                    setIsPagoModalOpen(true);
+                                                }} className="text-green-600 hover:text-green-800 font-bold text-xs uppercase">Pagar</button>
+                                            )}
                                             <button onClick={() => openEdit(f)} className="text-primary-600 hover:text-primary-800 font-bold text-xs uppercase">Editar</button>
                                             <button onClick={() => handleDelete(f.id)} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase">Eliminar</button>
                                         </td>
@@ -285,6 +295,16 @@ export const FacturasList: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            <PagoProveedorModal 
+                isOpen={isPagoModalOpen} 
+                onClose={() => {
+                    setIsPagoModalOpen(false);
+                    setSelectedFacturaForPago(null);
+                }} 
+                initialFacturaId={selectedFacturaForPago?.id} 
+                initialProveedorId={selectedFacturaForPago?.proveedorId} 
+            />
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Editar Factura' : 'Ingresar Factura'}>
                 <div className="space-y-4">

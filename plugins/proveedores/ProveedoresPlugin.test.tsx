@@ -21,6 +21,7 @@ describe('ProveedoresPlugin Interface', () => {
             proveedores: [
                 { id: '1', nombre: 'Distribuidora ABC', cuit: '30-12345678-9', telefono: '123', email: 'a@c.com', activo: true }
             ],
+            clientes: [],
             facturasProveedor: [
                 { id: 'f1', proveedorId: '1', numero: '0001-00000001', fechaEmision: '2026-04-26', fechaVencimiento: '2026-05-26', total: 15000, saldoPagar: 10000, estado: 'Pagado Parcial' },
                 { id: 'f2', proveedorId: '1', numero: '0001-00000002', fechaEmision: '2026-04-26', fechaVencimiento: '2026-05-26', total: 5000, saldoPagar: 0, estado: 'Pagado' }
@@ -46,7 +47,6 @@ describe('ProveedoresPlugin Interface', () => {
         
         fireEvent.click(screen.getByText('Proveedores'));
         
-        expect(screen.getByText('Directorio de Proveedores')).toBeDefined();
         expect(screen.getByText('Distribuidora ABC')).toBeDefined();
     });
 

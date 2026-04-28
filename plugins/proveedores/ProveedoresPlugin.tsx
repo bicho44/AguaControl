@@ -20,6 +20,7 @@ import {
 import ProveedoresList from './ProveedoresList';
 import FacturasList from './FacturasList';
 import PagosList from './PagosList';
+import { OjoMagicoArea } from './OjoMagicoArea';
 
 export const ProveedoresPlugin: React.FC = () => {
     const { 
@@ -54,6 +55,8 @@ export const ProveedoresPlugin: React.FC = () => {
         
         return (
             <div className="space-y-6">
+                <OjoMagicoArea />
+
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Dashboard Proveedores</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
