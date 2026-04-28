@@ -4,25 +4,23 @@ import { extractFacturaData } from './ocrService';
 // Mocking @google/genai GoogleGenAI class
 vi.mock('@google/genai', () => {
     class MockGoogleGenAI {
-        getGenerativeModel = vi.fn().mockReturnValue({
+        models = {
             generateContent: vi.fn().mockResolvedValue({
-                response: {
-                    text: () => JSON.stringify({
-                        tipoComprobante: 'A',
-                        numero: '0001-00000123',
-                        fechaEmision: '2026-04-20',
-                        fechaVencimiento: '2026-05-20',
-                        subtotalNeto: 1000,
-                        importeIva: 210,
-                        alicuotaIva: 21,
-                        percepciones: 0,
-                        total: 1210,
-                        proveedorNombre: 'PRUEBA SA',
-                        proveedorCuit: '30-12345678-9'
-                    })
-                }
+                text: JSON.stringify({
+                    tipoComprobante: 'A',
+                    numero: '0001-00000123',
+                    fechaEmision: '2026-04-20',
+                    fechaVencimiento: '2026-05-20',
+                    subtotalNeto: 1000,
+                    importeIva: 210,
+                    alicuotaIva: 21,
+                    percepciones: 0,
+                    total: 1210,
+                    proveedorNombre: 'PRUEBA SA',
+                    proveedorCuit: '30-12345678-9'
+                })
             })
-        });
+        };
     }
 
     return {

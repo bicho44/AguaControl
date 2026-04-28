@@ -144,211 +144,241 @@ function AppContent() {
       return <DashboardView {...dashboardProps} />;
     }
 
+    const renderViewWithFailsafe = (viewName: string, component: React.ReactNode) => {
+      return (
+        <PluginErrorBoundary 
+          pluginName={viewName}
+          onCatch={(error, info) => {
+            dataStore.addLog({
+              level: LogLevel.ERROR,
+              message: `Error en Vista: ${viewName}`,
+              details: `${error.message}\n${info.componentStack}`,
+              userEmail: user?.email,
+              userId: user?.id,
+              route: currentView
+            });
+          }}
+        >
+          {component}
+        </PluginErrorBoundary>
+      );
+    };
+
     // --- Soporte para Plugins ---
     if (currentView.startsWith('plugin_')) {
       const pluginId = currentView.replace('plugin_', '');
       const plugin = plugins.find(p => p.id === pluginId);
       if (plugin && plugin.roles.includes(user.rol)) {
         const PluginComponent = plugin.component;
-        return (
-          <PluginErrorBoundary 
-            pluginName={plugin.name}
-            onCatch={(error, info) => {
-              dataStore.addLog({
-                level: LogLevel.ERROR,
-                message: `Error en Plugin: ${plugin.name}`,
-                details: `${error.message}\n${info.componentStack}`,
-                userEmail: user?.email,
-                userId: user?.id,
-                route: currentView
-              });
-            }}
-          >
-            <PluginComponent />
-          </PluginErrorBoundary>
-        );
+        return renderViewWithFailsafe(plugin.name, <PluginComponent />);
       }
     }
     // ----------------------------
 
     switch (currentView) {
       case 'dashboard':
-        return <DashboardView {...dashboardProps} />;
+        return renderViewWithFailsafe('Dashboard', <DashboardView {...dashboardProps} />);
       case 'caja':
-        return <CajaView
-                  registrosPago={dataStore.registrosPago}
-                  gastos={dataStore.gastos}
-                  clientes={dataStore.clientes}
-                  vendedores={dataStore.usuarios}
-                  remitos={dataStore.remitos}
-                  facturas={dataStore.facturas}
-                  ventasVendedor={dataStore.ventasVendedor}
-                  productos={dataStore.productos}
-                  dataStore={dataStore}
-                  addPagoManual={dataStore.addPagoManual}
-                  addGasto={dataStore.addGasto}
-                  addVentaVendedor={dataStore.addVentaVendedor}
-                  addRemito={dataStore.addRemito}
-                  addCliente={dataStore.addCliente}
-                  updateRegistroPago={dataStore.updateRegistroPago}
-                  updateGasto={dataStore.updateGasto}
-                  deleteRegistroPago={dataStore.deleteRegistroPago}
-                  deleteGasto={dataStore.deleteGasto}
-                  updateRemito={dataStore.updateRemito}
-                  updateVentaVendedor={dataStore.updateVentaVendedor}
-                  currentUser={user}
-                />;
+        return renderViewWithFailsafe('Caja', 
+          <CajaView
+            registrosPago={dataStore.registrosPago}
+            gastos={dataStore.gastos}
+            clientes={dataStore.clientes}
+            vendedores={dataStore.usuarios}
+            remitos={dataStore.remitos}
+            facturas={dataStore.facturas}
+            ventasVendedor={dataStore.ventasVendedor}
+            productos={dataStore.productos}
+            dataStore={dataStore}
+            addPagoManual={dataStore.addPagoManual}
+            addGasto={dataStore.addGasto}
+            addVentaVendedor={dataStore.addVentaVendedor}
+            addRemito={dataStore.addRemito}
+            addCliente={dataStore.addCliente}
+            updateRegistroPago={dataStore.updateRegistroPago}
+            updateGasto={dataStore.updateGasto}
+            deleteRegistroPago={dataStore.deleteRegistroPago}
+            deleteGasto={dataStore.deleteGasto}
+            updateRemito={dataStore.updateRemito}
+            updateVentaVendedor={dataStore.updateVentaVendedor}
+            currentUser={user}
+          />
+        );
       case 'cuentacorriente':
-        return <FacturacionView
-                  clientes={dataStore.clientes}
-                  remitos={dataStore.remitos}
-                  facturas={dataStore.facturas}
-                  registrosPago={dataStore.registrosPago}
-                  productos={dataStore.productos}
-                  contratos={dataStore.contratos}
-                  servicios={dataStore.servicios}
-                  addFactura={dataStore.addFactura}
-                  addPagoToFactura={dataStore.addPagoToFactura}
-                />;
+        return renderViewWithFailsafe('Cuenta Corriente',
+          <FacturacionView
+            clientes={dataStore.clientes}
+            remitos={dataStore.remitos}
+            facturas={dataStore.facturas}
+            registrosPago={dataStore.registrosPago}
+            productos={dataStore.productos}
+            contratos={dataStore.contratos}
+            servicios={dataStore.servicios}
+            addFactura={dataStore.addFactura}
+            addPagoToFactura={dataStore.addPagoToFactura}
+          />
+        );
       case 'facturas':
-        return <FacturasListView
-                  facturas={dataStore.facturas}
-                  clientes={dataStore.clientes}
-                  remitos={dataStore.remitos}
-                  productos={dataStore.productos}
-                  registrosPago={dataStore.registrosPago}
-                  addPagoToFactura={dataStore.addPagoToFactura}
-                  empresaSettings={dataStore.empresaSettings}
-                  markFacturaAsSent={dataStore.markFacturaAsSent}
-                />;
+        return renderViewWithFailsafe('Facturas',
+          <FacturasListView
+            facturas={dataStore.facturas}
+            clientes={dataStore.clientes}
+            remitos={dataStore.remitos}
+            productos={dataStore.productos}
+            registrosPago={dataStore.registrosPago}
+            addPagoToFactura={dataStore.addPagoToFactura}
+            empresaSettings={dataStore.empresaSettings}
+            markFacturaAsSent={dataStore.markFacturaAsSent}
+          />
+        );
       case 'remitos':
-        return <RemitosView 
-                  remitos={dataStore.remitos} 
-                  clientes={dataStore.clientes} 
-                  vendedores={dataStore.usuarios}
-                  productos={dataStore.productos}
-                  registrosPago={dataStore.registrosPago}
-                  addRemito={dataStore.addRemito}
-                  updateRemito={dataStore.updateRemito}
-                  deleteRemito={dataStore.deleteRemito}
-                  addCliente={dataStore.addCliente}
-                  currentUser={user}
-                  causasRecambio={dataStore.causasRecambio}
-                  empresaSettings={dataStore.empresaSettings}
-                  facturas={dataStore.facturas}
-                  addPagoToFactura={dataStore.addPagoToFactura}
-                />;
+        return renderViewWithFailsafe('Remitos',
+          <RemitosView 
+            remitos={dataStore.remitos} 
+            clientes={dataStore.clientes} 
+            vendedores={dataStore.usuarios}
+            productos={dataStore.productos}
+            registrosPago={dataStore.registrosPago}
+            addRemito={dataStore.addRemito}
+            updateRemito={dataStore.updateRemito}
+            deleteRemito={dataStore.deleteRemito}
+            addCliente={dataStore.addCliente}
+            currentUser={user}
+            causasRecambio={dataStore.causasRecambio}
+            empresaSettings={dataStore.empresaSettings}
+            facturas={dataStore.facturas}
+            addPagoToFactura={dataStore.addPagoToFactura}
+          />
+        );
       case 'clientes':
-        return <ClientesView 
-                  clientes={dataStore.clientes}
-                  remitos={dataStore.remitos}
-                  productos={dataStore.productos}
-                  contratos={dataStore.contratos}
-                  servicios={dataStore.servicios}
-                  registrosPago={dataStore.registrosPago}
-                  usuarios={dataStore.usuarios}
-                  addCliente={dataStore.addCliente}
-                  updateCliente={dataStore.updateCliente}
-                  deleteCliente={dataStore.deleteCliente}
-                  reactivarCliente={dataStore.reactivarCliente}
-                  deleteContrato={dataStore.deleteContrato}
-                  addContrato={dataStore.addContrato}
-                  updateContrato={dataStore.updateContrato}
-                />;
+        return renderViewWithFailsafe('Clientes',
+          <ClientesView 
+            clientes={dataStore.clientes}
+            remitos={dataStore.remitos}
+            productos={dataStore.productos}
+            contratos={dataStore.contratos}
+            servicios={dataStore.servicios}
+            registrosPago={dataStore.registrosPago}
+            usuarios={dataStore.usuarios}
+            addCliente={dataStore.addCliente}
+            updateCliente={dataStore.updateCliente}
+            deleteCliente={dataStore.deleteCliente}
+            reactivarCliente={dataStore.reactivarCliente}
+            deleteContrato={dataStore.deleteContrato}
+            addContrato={dataStore.addContrato}
+            updateContrato={dataStore.updateContrato}
+          />
+        );
       case 'usuarios':
-        return <UsuariosView
-                  usuarios={dataStore.usuarios}
-                  registrosPago={dataStore.registrosPago}
-                  remitos={dataStore.remitos}
-                  clientes={dataStore.clientes}
-                  productos={dataStore.productos}
-                  addUsuario={dataStore.addUsuario}
-                  updateUsuario={dataStore.updateUsuario}
-                  ventasVendedor={dataStore.ventasVendedor}
-                  gastos={dataStore.gastos}
-                  addVentaVendedor={dataStore.addVentaVendedor}
-                  addPagoManual={dataStore.addPagoManual}
-                  updateRegistroPago={dataStore.updateRegistroPago}
-                  updateVentaVendedor={dataStore.updateVentaVendedor}
-                  deleteRegistroPago={dataStore.deleteRegistroPago}
-                  deleteVentaVendedor={dataStore.deleteVentaVendedor}
-                  addRemito={dataStore.addRemito}
-                  updateRemito={dataStore.updateRemito}
-                  deleteRemito={dataStore.deleteRemito}
-                  addPagoToFactura={dataStore.addPagoToFactura}
-                  causasRecambio={dataStore.causasRecambio}
-                  facturas={dataStore.facturas}
-                />;
+        return renderViewWithFailsafe('Usuarios',
+          <UsuariosView
+            usuarios={dataStore.usuarios}
+            registrosPago={dataStore.registrosPago}
+            remitos={dataStore.remitos}
+            clientes={dataStore.clientes}
+            productos={dataStore.productos}
+            addUsuario={dataStore.addUsuario}
+            updateUsuario={dataStore.updateUsuario}
+            ventasVendedor={dataStore.ventasVendedor}
+            gastos={dataStore.gastos}
+            addVentaVendedor={dataStore.addVentaVendedor}
+            addPagoManual={dataStore.addPagoManual}
+            updateRegistroPago={dataStore.updateRegistroPago}
+            updateVentaVendedor={dataStore.updateVentaVendedor}
+            deleteRegistroPago={dataStore.deleteRegistroPago}
+            deleteVentaVendedor={dataStore.deleteVentaVendedor}
+            addRemito={dataStore.addRemito}
+            updateRemito={dataStore.updateRemito}
+            deleteRemito={dataStore.deleteRemito}
+            addPagoToFactura={dataStore.addPagoToFactura}
+            causasRecambio={dataStore.causasRecambio}
+            facturas={dataStore.facturas}
+          />
+        );
       case 'productos':
-        return <ProductosView
-                  productos={dataStore.productos}
-                  addProducto={dataStore.addProducto}
-                  updateProducto={dataStore.updateProducto}
-                  deleteProducto={dataStore.deleteProducto}
-                  reactivarProducto={dataStore.reactivarProducto}
-                />;
+        return renderViewWithFailsafe('Productos',
+          <ProductosView
+            productos={dataStore.productos}
+            addProducto={dataStore.addProducto}
+            updateProducto={dataStore.updateProducto}
+            deleteProducto={dataStore.deleteProducto}
+            reactivarProducto={dataStore.reactivarProducto}
+          />
+        );
       case 'servicios':
-        return <ServiciosView
-                  servicios={dataStore.servicios}
-                  productos={dataStore.productos}
-                  addServicio={dataStore.addServicio}
-                  updateServicio={dataStore.updateServicio}
-                  deleteServicio={dataStore.deleteServicio}
-                  reactivarServicio={dataStore.reactivarServicio}
-                />;
+        return renderViewWithFailsafe('Servicios',
+          <ServiciosView
+            servicios={dataStore.servicios}
+            productos={dataStore.productos}
+            addServicio={dataStore.addServicio}
+            updateServicio={dataStore.updateServicio}
+            deleteServicio={dataStore.deleteServicio}
+            reactivarServicio={dataStore.reactivarServicio}
+          />
+        );
       case 'contratos':
-        return <ContratosView
-                  contratos={dataStore.contratos}
-                  clientes={dataStore.clientes}
-                  productos={dataStore.productos}
-                  servicios={dataStore.servicios}
-                  addContrato={dataStore.addContrato}
-                  updateContrato={dataStore.updateContrato}
-                  deleteContrato={dataStore.deleteContrato}
-                />;
+        return renderViewWithFailsafe('Contratos',
+          <ContratosView
+            contratos={dataStore.contratos}
+            clientes={dataStore.clientes}
+            productos={dataStore.productos}
+            servicios={dataStore.servicios}
+            addContrato={dataStore.addContrato}
+            updateContrato={dataStore.updateContrato}
+            deleteContrato={dataStore.deleteContrato}
+          />
+        );
       case 'planillas': 
       case 'stock_planta':
-        return <GestionStockView
-                  planillas={dataStore.planillas}
-                  movimientosPlanta={dataStore.movimientosStockPlanta}
-                  cierresPlanta={dataStore.cierresPlanta}
-                  usuarios={dataStore.usuarios}
-                  productos={dataStore.productos}
-                  remitos={dataStore.remitos}
-                  ventasVendedor={dataStore.ventasVendedor}
-                  addPlanilla={dataStore.addPlanilla}
-                  updatePlanilla={dataStore.updatePlanilla}
-                  deletePlanilla={dataStore.deletePlanilla}
-                  addMovimientoPlanta={dataStore.addMovimientoStockPlanta}
-                  addCierrePlanta={dataStore.addCierrePlanta}
-               />;
+        return renderViewWithFailsafe('Gestión Stock',
+          <GestionStockView
+            planillas={dataStore.planillas}
+            movimientosPlanta={dataStore.movimientosStockPlanta}
+            cierresPlanta={dataStore.cierresPlanta}
+            usuarios={dataStore.usuarios}
+            productos={dataStore.productos}
+            remitos={dataStore.remitos}
+            ventasVendedor={dataStore.ventasVendedor}
+            addPlanilla={dataStore.addPlanilla}
+            updatePlanilla={dataStore.updatePlanilla}
+            deletePlanilla={dataStore.deletePlanilla}
+            addMovimientoPlanta={dataStore.addMovimientoStockPlanta}
+            addCierrePlanta={dataStore.addCierrePlanta}
+          />
+        );
       case 'rutas':
-        return <RutasView
-                  clientes={dataStore.clientes}
-                  usuarios={dataStore.usuarios}
-                  updateRutasMasivo={dataStore.updateRutasMasivo}
-                  updateCliente={dataStore.updateCliente}
-               />;
+        return renderViewWithFailsafe('Rutas',
+          <RutasView
+            clientes={dataStore.clientes}
+            usuarios={dataStore.usuarios}
+            updateRutasMasivo={dataStore.updateRutasMasivo}
+            updateCliente={dataStore.updateCliente}
+          />
+        );
       case 'importar':
-        return <ImportarView 
-                  clientes={dataStore.clientes} 
-                  remitos={dataStore.remitos}   
-                  productos={dataStore.productos}
-                  addMultipleClientes={dataStore.addMultipleClientes}
-                  deleteAllClientes={dataStore.deleteAllClientes}
-                />;
+        return renderViewWithFailsafe('Importar',
+          <ImportarView 
+            clientes={dataStore.clientes} 
+            remitos={dataStore.remitos}   
+            productos={dataStore.productos}
+            addMultipleClientes={dataStore.addMultipleClientes}
+            deleteAllClientes={dataStore.deleteAllClientes}
+          />
+        );
       case 'settings':
-          return <SettingsView
-                    settings={dataStore.empresaSettings}
-                    updateSettings={dataStore.updateEmpresaSettings}
-                    causasRecambio={dataStore.causasRecambio}
-                    addCausaRecambio={dataStore.addCausaRecambio}
-                    deleteCausaRecambio={dataStore.deleteCausaRecambio}
-                  />;
+          return renderViewWithFailsafe('Configuración',
+            <SettingsView
+              settings={dataStore.empresaSettings}
+              updateSettings={dataStore.updateEmpresaSettings}
+              causasRecambio={dataStore.causasRecambio}
+              addCausaRecambio={dataStore.addCausaRecambio}
+              deleteCausaRecambio={dataStore.deleteCausaRecambio}
+            />
+          );
       case 'logs':
-          return <SystemLogsView logs={dataStore.logs} />;
+          return renderViewWithFailsafe('Logs del Sistema', <SystemLogsView logs={dataStore.logs} />);
       default:
-        return <DashboardView {...dashboardProps} />;
+        return renderViewWithFailsafe('Dashboard', <DashboardView {...dashboardProps} />);
     }
   };
 

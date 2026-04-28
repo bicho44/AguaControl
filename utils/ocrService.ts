@@ -1,21 +1,26 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-let aiInstance: GoogleGenAI | null = null;
-
-function getAI() {
-  if (!aiInstance) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY filter not found. Please set VITE_GEMINI_API_KEY or GEMINI_API_KEY.");
-    }
-    aiInstance = new GoogleGenAI(apiKey);
-  }
-  return aiInstance;
-}
+/**
+ * Nota: En AI Studio Build, GEMINI_API_KEY se inyecta automáticamente.
+ * Para despliegues externos (Vercel), DEBES configurar VITE_GEMINI_API_KEY en el panel de control de Vercel.
+ */
+const getApiKey = () => {
+  // @ts-ignore - En entornos Vite, process.env puede no estar definido, pero import.meta.env sí
+  return import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+};
 
 export async function extractFacturaData(fileBase64: string, mimeType: string): Promise<any> {
-    const ai = getAI();
-    const imagePart = {
+  const apiKey = getApiKey();
+  
+  if (!apiKey || apiKey === '') {
+    throw new Error(
+      "API Key de Gemini no encontrada. Si estás en Vercel, asegúrate de configurar VITE_GEMINI_API_KEY en las variables de entorno del proyecto."
+    );
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const imagePart = {
     inlineData: {
       mimeType,
       data: fileBase64,
@@ -23,51 +28,56 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
   };
 
   const PROMPT = `
-    Extrae la información de esta factura de proveedor en Argentina.
-    Identifica:
-    - tipoComprobante: Puede ser "A", "B", "C", "M", "X", o "Ticket".
-    - numero: El número de la factura completo (ej: 0001-00000123).
-    - fechaEmision: En formato YYYY-MM-DD.
-    - fechaVencimiento: En formato YYYY-MM-DD (si no se encuentra, usa la de emisión).
-    - subtotalNeto: El importe neto gravado.
-    - importeIva: El importe del IVA.
-    - alicuotaIva: La alícuota del IVA principal (ej: 21, 10.5, 27). Usa 0 si no tiene.
-    - percepciones: Suma de percepciones o impuestos adicionales.
-    - total: Importe total de la factura.
-    - proveedorNombre: Razón social del emisor de la factura.
-    - proveedorCuit: CUIT del emisor de la factura (solo números, o con guiones).
+    Analiza esta factura de proveedor de Argentina. Extrae los datos en formato JSON.
+    - tipoComprobante: (A, B, C, M, X o Ticket)
+    - numero: número de comprobante completo
+    - fechaEmision: YYYY-MM-DD
+    - fechaVencimiento: YYYY-MM-DD
+    - subtotalNeto: valor numérico
+    - importeIva: valor numérico
+    - alicuotaIva: porcentaje (ej: 21)
+    - percepciones: suma de otros impuestos/percepciones
+    - total: valor total final
+    - proveedorNombre: razón social del emisor
+    - proveedorCuit: CUIT del emisor
   `;
 
-  const model = ai.getGenerativeModel({ 
-    model: "gemini-2.0-flash",
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          tipoComprobante: { type: Type.STRING },
-          numero: { type: Type.STRING },
-          fechaEmision: { type: Type.STRING },
-          fechaVencimiento: { type: Type.STRING },
-          subtotalNeto: { type: Type.NUMBER },
-          importeIva: { type: Type.NUMBER },
-          alicuotaIva: { type: Type.NUMBER },
-          percepciones: { type: Type.NUMBER },
-          total: { type: Type.NUMBER },
-          proveedorNombre: { type: Type.STRING },
-          proveedorCuit: { type: Type.STRING },
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: { parts: [imagePart, { text: PROMPT }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            tipoComprobante: { type: Type.STRING },
+            numero: { type: Type.STRING },
+            fechaEmision: { type: Type.STRING },
+            fechaVencimiento: { type: Type.STRING },
+            subtotalNeto: { type: Type.NUMBER },
+            importeIva: { type: Type.NUMBER },
+            alicuotaIva: { type: Type.NUMBER },
+            percepciones: { type: Type.NUMBER },
+            total: { type: Type.NUMBER },
+            proveedorNombre: { type: Type.STRING },
+            proveedorCuit: { type: Type.STRING },
+          },
+          required: ["tipoComprobante", "numero", "fechaEmision", "total", "proveedorNombre", "proveedorCuit"]
         },
       },
-    },
-  });
+    });
 
-  const result = await model.generateContent([imagePart, { text: PROMPT }]);
-  const response = result.response;
-  const text = response.text();
+    if (!response.text) {
+      throw new Error("La IA no pudo procesar la imagen de la factura.");
+    }
 
-  if (!text) {
-    throw new Error("No se pudo extraer la información.");
+    return JSON.parse(response.text.trim());
+  } catch (error: any) {
+    console.error("Error en OCR Service:", error);
+    if (error.message?.includes("API key")) {
+      throw new Error("Error de API Key: Verifica que la clave sea válida y tenga permisos para el modelo Gemini 2.5.");
+    }
+    throw error;
   }
-
-  return JSON.parse(text.trim());
 }
