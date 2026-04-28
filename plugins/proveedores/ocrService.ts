@@ -21,14 +21,6 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
 
     // Inicializamos el SDK dentro de la función para evitar errores en el import
     // y permitir que el failsafe del plugin maneje el error si falta la clave.
-    const genAI = new GoogleGenAI(apiKey);
-    
-    const imagePart = {
-        inlineData: {
-            mimeType,
-            data: fileBase64,
-        },
-    };
 
     const PROMPT = `
         Analiza esta factura de proveedor de Argentina. Extrae los datos en formato JSON.
@@ -45,16 +37,25 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            generationConfig: {
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+
+        const result = await ai.models.generateContent({ 
+            model: "gemini-2.5-flash",
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        { inlineData: { mimeType, data: fileBase64 } },
+                        { text: PROMPT }
+                    ]
+                }
+            ],
+            config: {
                 responseMimeType: "application/json",
             }
         });
-
-        const result = await model.generateContent([imagePart, { text: PROMPT }]);
-        const response = result.response;
-        const text = response.text();
+        
+        const text = result.text;
 
         if (!text) {
             throw new Error("La IA no pudo procesar la imagen de la factura o no devolvió texto.");

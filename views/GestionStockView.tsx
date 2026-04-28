@@ -21,9 +21,8 @@ import Card from '../components/Card';
 import Modal from '../components/Modal';
 import { useNotification } from '../context/NotificationContext';
 import { TrashIcon } from '../components/icons/TrashIcon';
-import { ChartBarIcon } from '../components/icons/ChartBarIcon';
+import { BarChart3, Truck } from 'lucide-react';
 import { ClipboardCheckIcon } from '../components/icons/ClipboardCheckIcon';
-import { TruckIcon } from '../components/icons/TruckIcon';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
@@ -662,7 +661,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                 <div key={p.id}>
                                     <Card className="border-l-8 border-l-blue-500 hover:shadow-2xl transition-all group overflow-hidden relative">
                                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                            <TruckIcon className="h-24 w-24 -rotate-12" />
+                                            <Truck className="h-24 w-24 -rotate-12" />
                                         </div>
                                         <div className="flex justify-between items-start mb-6 relative z-10">
                                             <div>
@@ -698,7 +697,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
             <section className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
                     <div className="flex items-center gap-3">
-                        <ChartBarIcon className="h-5 w-5 text-gray-400" />
+                        <BarChart3 className="h-5 w-5 text-gray-400" />
                         <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.3em]">Balance de Planta / Auditoría</h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-4">
@@ -742,7 +741,7 @@ const GestionStockView: React.FC<GestionStockViewProps> = ({
                                     const fisico = physicalStock[d.producto.id] ?? d.llenos.teorico;
                                     const diferencia = fisico - d.llenos.teorico;
                                     const entregados = d.llenos.salidasInternas + d.llenos.salidasExternas;
-                                    const recuperados = d.vacios.recuperadosInternos + d.vacios.descargasExternas;
+                                    const recuperados = d.vacios.recuperosInternos + d.vacios.recuperosExternos;
                                     
                                     if (d.llenos.inicial === 0 && d.llenos.produccionHistorica === 0 && d.llenos.produccionNueva === 0 && entregados === 0 && fisico === 0 && recuperados === 0) {
                                         return null;

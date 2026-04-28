@@ -323,7 +323,6 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                     placeholder="Observaciones de la factura..." 
                                     value={facturaObservations} 
                                     onChange={e => setFacturaObservations(e.target.value)}
-                                    size="sm"
                                 />
                                 <AppButton 
                                     onClick={handleGenerarFactura} 
@@ -340,11 +339,11 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                             <div className="flex flex-wrap items-end gap-4">
                                 <div className="flex-1 min-w-[150px]">
                                     <label className="text-[9px] font-black uppercase text-gray-400 mb-1 block">Desde</label>
-                                    <AppInput type="date" value={startDate} onChange={e => setStartDate(e.target.value)} size="sm" />
+                                    <AppInput type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
                                 </div>
                                 <div className="flex-1 min-w-[150px]">
                                     <label className="text-[9px] font-black uppercase text-gray-400 mb-1 block">Hasta</label>
-                                    <AppInput type="date" value={endDate} onChange={e => setEndDate(e.target.value)} size="sm" />
+                                    <AppInput type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
                                 </div>
                                 <AppButton variant="secondary" size="sm" onClick={() => { setStartDate(''); setEndDate(''); }} className="mb-0.5">Limpiar</AppButton>
                             </div>

@@ -86,10 +86,11 @@ const ServicioForm: React.FC<{
         value={formData.tipo || ''} 
         onChange={handleChange} 
         required
-      >
-        <option value="">Seleccionar tipo</option>
-        {Object.values(TipoServicio).map(t => <option key={t} value={t}>{t}</option>)}
-      </AppSelect>
+        options={[
+          { value: '', label: 'Seleccionar tipo' },
+          ...Object.values(TipoServicio).map(t => ({ value: t, label: t }))
+        ]}
+      />
       
       <div>
         <label htmlFor="descripcion" className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 mb-1 block">Descripción (Opcional)</label>

@@ -71,9 +71,9 @@ export const ProveedoresList: React.FC = () => {
             await addDoc(collection(db, 'proveedores'), {
                 nombre: cliente.nombre,
                 cuit: cliente.cuit || '',
-                telefono: cliente.telefono || '',
-                email: cliente.email || '',
-                direccion: cliente.direccion || '',
+                telefono: cliente.telefonos && cliente.telefonos.length > 0 ? cliente.telefonos[0] : '',
+                email: cliente.emails && cliente.emails.length > 0 ? cliente.emails[0] : '',
+                direccion: cliente.sucursales && cliente.sucursales.length > 0 ? cliente.sucursales[0].direccion : '',
                 activo: true
             });
             showNotification('Cliente importado como Proveedor', 'success');

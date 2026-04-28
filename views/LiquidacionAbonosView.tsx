@@ -74,7 +74,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
       const conceptoBusqueda = `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`;
       const abonoYaFacturado = facturas.some(f => 
         f.clienteId === cliente.id && 
-        f.concepto?.includes(conceptoBusqueda) &&
+        f.observaciones?.includes(conceptoBusqueda) &&
         f.estado !== EstadoFactura.ANULADO
       );
 

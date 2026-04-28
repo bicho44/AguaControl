@@ -17,24 +17,24 @@ const mockCurrentUser = {
   nombre: 'Vendedor 1',
   rol: Rol.REPARTIDOR,
   email: 'v1@test.com'
-};
+} as any;
 
 const mockClientes = [
   { id: 'c1', nombre: 'Cliente 1', estado: EstadoCliente.ACTIVO, sucursales: [] },
   { id: 'c2', nombre: 'Cliente 2', estado: EstadoCliente.ACTIVO, sucursales: [
-    { id: 's1', nombre: 'Sucursal 1' },
-    { id: 's2', nombre: 'Sucursal 2' }
+    { id: 's1', nombre: 'Sucursal 1', direccion: '' },
+    { id: 's2', nombre: 'Sucursal 2', direccion: '' }
   ]}
-];
+] as any[];
 
 const mockVendedores = [
   { id: 'user1', nombre: 'Vendedor 1', tipo: TipoVendedor.INTERNO },
   { id: 'v2', nombre: 'Vendedor 2', tipo: TipoVendedor.EXTERNO }
-];
+] as any[];
 
 const mockProductos = [
   { id: 'p1', nombre: 'Bidon 20L', estado: EstadoProducto.ACTIVO, precio: 1000 }
-];
+] as any[];
 
 describe('RemitoForm', () => {
   const defaultProps = {

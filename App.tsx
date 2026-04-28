@@ -283,6 +283,7 @@ function AppContent() {
             gastos={dataStore.gastos}
             addVentaVendedor={dataStore.addVentaVendedor}
             addPagoManual={dataStore.addPagoManual}
+            addGasto={dataStore.addGasto}
             updateRegistroPago={dataStore.updateRegistroPago}
             updateVentaVendedor={dataStore.updateVentaVendedor}
             deleteRegistroPago={dataStore.deleteRegistroPago}

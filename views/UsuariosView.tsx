@@ -39,6 +39,8 @@ interface UsuariosViewProps {
   deleteRegistroPago: (id: string) => Promise<void>;
   deleteVentaVendedor: (id: string) => Promise<void>;
   deleteRemito: (id: string) => Promise<void>;
+  causasRecambio: any[];
+  facturas: any[];
 }
 
 const UsuarioForm: React.FC<{
@@ -155,7 +157,7 @@ const VendorAccountModal: React.FC<{
     productos: Producto[];
     productosMap: Map<string, Producto>;
     onClose: () => void;
-    onSaveMovement: (data: any, isVenta: boolean) => Promise<void>;
+    onSaveMovement: (data: any, type: 'REMITO' | 'PAGO' | 'GASTO') => Promise<void>;
     onSaveRemito: (remito: Remito) => Promise<void>;
     onDeletePayment: (id: string) => Promise<void>;
     onDeleteSale: (id: string) => Promise<void>;
@@ -408,7 +410,7 @@ const VendorAccountModal: React.FC<{
                 {isFormOpen && (
                     <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} className="max-w-4xl">
                         <CajaUnifiedForm 
-                            initialType="COBRO"
+                            initialType="VENTA"
                             productos={productos}
                             clientes={clientes}
                             vendedores={vendedores}
@@ -438,8 +440,9 @@ const VendorAccountModal: React.FC<{
                             vendedores={vendedores}
                             productos={productos}
                             currentUser={user}
+                            onAddCliente={async () => ""}
                             onSave={async (r) => {
-                                await onSaveRemito(r);
+                                await onSaveRemito(r as Remito);
                                 setIsRemitoOpen(false);
                             }}
                             onClose={() => setIsRemitoOpen(false)}

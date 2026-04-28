@@ -1264,7 +1264,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         {isPagoModalOpen && (
             <Modal isOpen={isPagoModalOpen} onClose={() => setIsPagoModalOpen(false)} className="max-w-4xl">
                 <CajaUnifiedForm 
-                    initialType="COBRO"
+                    initialType="VENTA"
                     productos={productos}
                     clientes={visibleClientes}
                     vendedores={usuarios}

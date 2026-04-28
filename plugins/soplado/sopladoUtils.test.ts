@@ -8,7 +8,7 @@ import {
     calculateEntregaPlantaReversions
 } from './sopladoUtils';
 import { EntregaSoplado, InsumoSoplado, ProduccionSoplado, Molde } from './types';
-import { Producto, EstadoProducto } from '../../types';
+import { Producto, EstadoProducto, TipoProducto } from '../../types';
 
 describe('Soplado Logic: Insumos Stock', () => {
     test('calculateInsumoStockUpdates deducciones correctas con strings y numbers', () => {
@@ -119,7 +119,7 @@ describe('Soplado Logic: Produccion y Logistica', () => {
         };
 
         const productos: Producto[] = [
-            { id: 'prod-desc-12', nombre: 'Bidón Descartable 12L', tipo: 'Descartable', litros: 12, precio: 0, estado: EstadoProducto.ACTIVO, stockEnvases: 1000 }
+            { id: 'prod-desc-12', nombre: 'Bidón Descartable 12L', tipo: TipoProducto.DESCARTABLE, litros: 12, precio: 0, estado: EstadoProducto.ACTIVO, stockEnvases: 1000 }
         ];
 
         const result = calculateEntregaPlantaUpdates(entrega, productos);
@@ -144,7 +144,7 @@ describe('Soplado Logic: Update Reversions & Commits', () => {
         };
 
         const productos: Producto[] = [
-            { id: 'prod-desc-12', nombre: 'Bidón Descartable 12L', tipo: 'Descartable', litros: 12, precio: 0, estado: EstadoProducto.ACTIVO, stockEnvases: 1050 } // Está en 1050 (los 1000 + 50 viejo)
+            { id: 'prod-desc-12', nombre: 'Bidón Descartable 12L', tipo: TipoProducto.DESCARTABLE, litros: 12, precio: 0, estado: EstadoProducto.ACTIVO, stockEnvases: 1050 } // Está en 1050 (los 1000 + 50 viejo)
         ];
 
         // 1. Reverso el viejo (Quito 50 de la planta)
