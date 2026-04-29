@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDataStore } from '../../hooks/useDataStore';
 import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
@@ -11,11 +11,13 @@ import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestor
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import { getLocalDateString } from '../../utils/dateUtils';
-import { extractFacturaData } from './ocrService';
+import { Eye, Edit, Trash2, CheckCircle2, FileDown, Search, Filter } from 'lucide-react';
 
 import { PagoProveedorModal } from './PagoProveedorModal';
-
 import { FacturaPreviewModal } from './FacturaPreviewModal';
+// @ts-ignore
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly = false }) => {
     const { facturasProveedor, proveedores } = useDataStore();
@@ -25,8 +27,6 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [selectedFacturaForPago, setSelectedFacturaForPago] = useState<FacturaProveedor | null>(null);
     const [selectedFacturaForPreview, setSelectedFacturaForPreview] = useState<FacturaProveedor | null>(null);
-    const [isExtracting, setIsExtracting] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const [editingItem, setEditingItem] = useState<FacturaProveedor | null>(null);
     const [formData, setFormData] = useState<Partial<FacturaProveedor>>({
         proveedorId: '',
@@ -43,78 +43,32 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         items: []
     });
 
+    const [filtroProveedorId, setFiltroProveedorId] = useState<string>('');
+    const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>('');
+    const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('');
+
     const proveedoresOptions = useMemo(() => [
-        { value: '', label: 'Seleccionar...' },
+        { value: '', label: 'Todos los Proveedores' },
         ...proveedores.map(p => ({ value: p.id, label: p.nombre }))
     ], [proveedores]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsExtracting(true);
-        showNotification('Procesando factura con IA...', 'success');
-
-        try {
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const base64String = (event.target?.result as string).split(',')[1];
-                    const extractedData = await extractFacturaData(base64String, file.type);
-                    
-                    // Match provider by CUIT or Name
-                    let foundProvId = '';
-                    if (extractedData.proveedorCuit || extractedData.proveedorNombre) {
-                        const prov = proveedores.find(p => 
-                            (extractedData.proveedorCuit && p.cuit && p.cuit.includes(extractedData.proveedorCuit)) ||
-                            (extractedData.proveedorNombre && p.nombre.toLowerCase().includes(extractedData.proveedorNombre.toLowerCase()))
-                        );
-                        if (prov) {
-                            foundProvId = prov.id;
-                        } else if (extractedData.proveedorNombre) {
-                            const newProvRef = await addDoc(collection(db, 'proveedores'), {
-                                nombre: extractedData.proveedorNombre,
-                                cuit: extractedData.proveedorCuit || '',
-                                email: extractedData.proveedorEmail || '',
-                                telefono: extractedData.proveedorTelefono || '',
-                                direccion: extractedData.proveedorDireccion || '',
-                                ingresosBrutos: extractedData.proveedorIIBB || '',
-                                activo: true
-                            });
-                            foundProvId = newProvRef.id;
-                            showNotification(`Proveedor "${extractedData.proveedorNombre}" creado automáticamente`, 'success');
-                        }
-                    }
-
-                    setFormData({
-                        ...formData,
-                        proveedorId: foundProvId,
-                        numero: extractedData.numero || '',
-                        tipoComprobante: extractedData.tipoComprobante || 'A',
-                        fechaEmision: extractedData.fechaEmision || getLocalDateString(new Date()),
-                        fechaVencimiento: extractedData.fechaVencimiento || getLocalDateString(new Date()),
-                        subtotalNeto: extractedData.subtotalNeto || 0,
-                        importeIva: extractedData.importeIva || 0,
-                        alicuotaIva: extractedData.alicuotaIva || 21,
-                        percepciones: extractedData.percepciones || 0,
-                        total: extractedData.total || 0,
-                    });
-
-                    showNotification('Datos extraídos correctamente ✨', 'success');
-                } catch (error: any) {
-                    console.error(error);
-                    showNotification('Error extrayendo datos: ' + error.message, 'error');
-                } finally {
-                    setIsExtracting(false);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                }
-            };
-            reader.readAsDataURL(file);
-        } catch (error) {
-            setIsExtracting(false);
-            showNotification('Error leyendo archivo', 'error');
+    const filteredFacturas = useMemo(() => {
+        let result = facturasProveedor;
+        if (pendingOnly) {
+            result = result.filter(f => f.estado === EstadoFacturaProveedor.PENDIENTE || f.estado === EstadoFacturaProveedor.PAGADO_PARCIAL);
+        } else {
+            if (filtroProveedorId) {
+                result = result.filter(f => f.proveedorId === filtroProveedorId);
+            }
+            if (filtroFechaDesde) {
+                result = result.filter(f => f.fechaEmision >= filtroFechaDesde);
+            }
+            if (filtroFechaHasta) {
+                result = result.filter(f => f.fechaEmision <= filtroFechaHasta);
+            }
         }
-    };
+        return result.sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision));
+    }, [facturasProveedor, pendingOnly, filtroProveedorId, filtroFechaDesde, filtroFechaHasta]);
 
     const handleSave = async () => {
         if (!formData.proveedorId || !formData.numero || !formData.total) {
@@ -180,7 +134,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
     };
 
     const handleExportCSV = () => {
-        if (facturasProveedor.length === 0) {
+        if (filteredFacturas.length === 0) {
             showNotification('No hay facturas para exportar', 'error');
             return;
         }
@@ -189,7 +143,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
             'Fecha Emision', 'Fecha Vto', 'Comprobante', 'Numero', 'Proveedor', 'CUIT', 'Neto', 'IVA', 'Alicuota', 'Percepciones', 'Total', 'Estado'
         ].join(',');
 
-        const rows = facturasProveedor.map(f => {
+        const rows = filteredFacturas.map(f => {
             const prop = proveedores.find(p => p.id === f.proveedorId);
             return [
                 f.fechaEmision,
@@ -217,27 +171,129 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         document.body.removeChild(link);
     };
 
+    const handleExportPDF = () => {
+        if (filteredFacturas.length === 0) {
+            showNotification('No hay facturas para exportar', 'error');
+            return;
+        }
+
+        const doc = new jsPDF();
+        
+        let totalNeto = 0;
+        let totalIva = 0;
+        let totalPerc = 0;
+        let totalGral = 0;
+
+        const tableData = filteredFacturas.map(f => {
+            const prop = proveedores.find(p => p.id === f.proveedorId);
+            totalNeto += Number(f.subtotalNeto || 0);
+            totalIva += Number(f.importeIva || 0);
+            totalPerc += Number(f.percepciones || 0);
+            totalGral += Number(f.total || 0);
+
+            return [
+                f.fechaEmision,
+                prop?.nombre || 'Desconocido',
+                prop?.cuit || '',
+                `${f.tipoComprobante} ${f.numero}`,
+                `$${Number(f.subtotalNeto || 0).toFixed(2)}`,
+                `$${Number(f.importeIva || 0).toFixed(2)}`,
+                `$${Number(f.percepciones || 0).toFixed(2)}`,
+                `$${Number(f.total || 0).toFixed(2)}`
+            ];
+        });
+
+        // Add summary row
+        tableData.push([
+            'TOTALES',
+            '', '', '',
+            `$${totalNeto.toFixed(2)}`,
+            `$${totalIva.toFixed(2)}`,
+            `$${totalPerc.toFixed(2)}`,
+            `$${totalGral.toFixed(2)}`
+        ]);
+
+        doc.setFontSize(18);
+        doc.text('Informe de Facturas de Proveedores', 14, 22);
+        
+        doc.setFontSize(10);
+        doc.text(`Fecha de emisión del reporte: ${new Date().toLocaleDateString()}`, 14, 30);
+        if (filtroFechaDesde || filtroFechaHasta) {
+             doc.text(`Período: ${filtroFechaDesde || 'Inicio'} al ${filtroFechaHasta || 'Fin'}`, 14, 35);
+        }
+
+        (doc as any).autoTable({
+            startY: 45,
+            head: [['Fecha', 'Proveedor', 'CUIT', 'Comprobante', 'Neto', 'IVA', 'Perc.', 'Total']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185] },
+            didParseCell: (data: any) => {
+                const isLastRow = data.row.index === tableData.length - 1;
+                if (isLastRow) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = [240, 240, 240];
+                }
+            }
+        });
+
+        doc.save(`informe_facturas_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
     return (
         <div className="space-y-4">
             {!pendingOnly && (
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 gap-3">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-white">Facturas Recibidas</h3>
                     <div className="flex flex-wrap items-center gap-2">
-                        <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
                         <AppButton variant="secondary" onClick={handleExportCSV}>
-                            <svg className="w-4 h-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
+                            <FileDown className="w-4 h-4 mr-2 inline-block" />
                             Exportar Contador
                         </AppButton>
-                        <AppButton variant="secondary" onClick={() => {
-                             openNew();
-                             fileInputRef.current?.click();
-                        }} disabled={isExtracting}>
-                            {isExtracting ? 'Procesando...' : '✨ OCR Mágico'}
+                        <AppButton variant="secondary" onClick={handleExportPDF}>
+                            <FileDown className="w-4 h-4 mr-2 inline-block" />
+                            Exportar Resumen (PDF)
                         </AppButton>
                         <AppButton onClick={openNew}>+ Ingresar Factura</AppButton>
                     </div>
+                </div>
+            )}
+
+            {!pendingOnly && (
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                        <SearchableSelect 
+                            options={proveedoresOptions} 
+                            value={filtroProveedorId} 
+                            onChange={v => setFiltroProveedorId(v)}
+                            label=""
+                            placeholder="Buscar proveedor..."
+                        />
+                    </div>
+                    <div className="flex-none sm:w-40">
+                        <AppInput 
+                            type="date"
+                            value={filtroFechaDesde}
+                            onChange={e => setFiltroFechaDesde(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-none sm:w-40">
+                        <AppInput 
+                            type="date"
+                            value={filtroFechaHasta}
+                            onChange={e => setFiltroFechaHasta(e.target.value)}
+                        />
+                    </div>
+                    {(filtroProveedorId || filtroFechaDesde || filtroFechaHasta) && (
+                        <div className="flex-none flex items-center">
+                            <button 
+                                onClick={() => { setFiltroProveedorId(''); setFiltroFechaDesde(''); setFiltroFechaHasta(''); }}
+                                className="text-sm font-bold text-gray-500 hover:text-red-500 underline"
+                            >
+                                Limpiar Filtros
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -261,10 +317,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {facturasProveedor
-                                .filter(f => pendingOnly ? (f.estado === EstadoFacturaProveedor.PENDIENTE || f.estado === EstadoFacturaProveedor.PAGADO_PARCIAL) : true)
-                                .sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision))
-                                .map(f => {
+                            {filteredFacturas.map(f => {
                                 const prov = proveedores.find(p => p.id === f.proveedorId);
                                 return (
                                     <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -284,27 +337,37 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                                                 {f.estado}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-right space-x-2">
-                                            <button onClick={() => {
-                                                setSelectedFacturaForPreview(f);
-                                                setIsPreviewModalOpen(true);
-                                            }} className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white font-bold text-xs uppercase">Ver</button>
-                                            {f.estado !== EstadoFacturaProveedor.PAGADO && (
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
                                                 <button onClick={() => {
-                                                    setSelectedFacturaForPago(f);
-                                                    setIsPagoModalOpen(true);
-                                                }} className="text-green-600 hover:text-green-800 font-bold text-xs uppercase">Pagar</button>
-                                            )}
-                                            <button onClick={() => openEdit(f)} className="text-primary-600 hover:text-primary-800 font-bold text-xs uppercase">Editar</button>
-                                            <button onClick={() => handleDelete(f.id)} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase">Eliminar</button>
+                                                    setSelectedFacturaForPreview(f);
+                                                    setIsPreviewModalOpen(true);
+                                                }} className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600 shadow-sm hover:shadow" title="Ver">
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                {f.estado !== EstadoFacturaProveedor.PAGADO && (
+                                                    <button onClick={() => {
+                                                        setSelectedFacturaForPago(f);
+                                                        setIsPagoModalOpen(true);
+                                                    }} className="p-1.5 text-green-500 hover:text-white hover:bg-green-600 rounded-lg transition-colors border border-transparent hover:border-green-500 shadow-sm hover:shadow" title="Pagar">
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <button onClick={() => openEdit(f)} className="p-1.5 text-primary-500 hover:text-white hover:bg-primary-600 rounded-lg transition-colors border border-transparent hover:border-primary-500 shadow-sm hover:shadow" title="Editar">
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(f.id)} className="p-1.5 text-red-500 hover:text-white hover:bg-red-600 rounded-lg transition-colors border border-transparent hover:border-red-500 shadow-sm hover:shadow" title="Eliminar">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )
                             })}
-                            {facturasProveedor.length === 0 && (
+                            {filteredFacturas.length === 0 && (
                                 <tr>
                                     <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                                        No hay facturas cargadas.
+                                        No hay facturas cargadas en este período/filtro.
                                     </td>
                                 </tr>
                             )}
@@ -335,11 +398,6 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Editar Factura' : 'Ingresar Factura'}>
                 <div className="space-y-4">
-                    <div className="flex justify-end">
-                        <AppButton variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isExtracting} className="w-full text-center">
-                            {isExtracting ? 'Analizando con IA...' : '✨ Autocompletar con Factura (Subir Imagen)'}
-                        </AppButton>
-                    </div>
                     <SearchableSelect label="Proveedor *" options={proveedoresOptions} value={formData.proveedorId || ''} onChange={(v) => setFormData({...formData, proveedorId: v})} />
                     
                     <div className="grid grid-cols-3 gap-4">
@@ -367,7 +425,24 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                         </div>
                     </div>
 
-                    <AppInput label="Observaciones" value={formData.observaciones || ''} onChange={e => setFormData({...formData, observaciones: e.target.value})} />
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">Conceptos / Detalle (Markdown)</label>
+                        <textarea 
+                            value={formData.observacionesMarkdown || ''} 
+                            onChange={e => setFormData({...formData, observacionesMarkdown: e.target.value})}
+                            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm w-full h-32 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="Detalle de items adquiridos (soporta Markdown)..."
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">Notas Internas</label>
+                        <textarea 
+                            value={formData.observaciones || ''} 
+                            onChange={e => setFormData({...formData, observaciones: e.target.value})}
+                            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm w-full h-16 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="Notas o referencias internas..."
+                        />
+                    </div>
                     
                     <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                         <AppButton variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</AppButton>

@@ -198,11 +198,13 @@ export const ProveedorCuentaCorriente: React.FC<{
                     </div>
                     <p className="text-2xl font-black text-gray-800 dark:text-white">${saldoTotal.toFixed(2)}</p>
                 </Card>
-                <Card className="p-4 flex items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => setIsUploadModalOpen(true)}>
-                    <div className="text-center">
-                        <UploadCloud className="w-8 h-8 mx-auto text-purple-500 mb-2" />
-                        <p className="font-bold text-gray-700 dark:text-gray-300">Cargar Factura</p>
-                    </div>
+                <Card className="p-0 overflow-hidden">
+                    <button className="w-full h-full p-4 flex items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" onClick={() => setIsUploadModalOpen(true)}>
+                        <div className="text-center">
+                            <UploadCloud className="w-8 h-8 mx-auto text-purple-500 mb-2" />
+                            <p className="font-bold text-gray-700 dark:text-gray-300">Ingresar Factura</p>
+                        </div>
+                    </button>
                 </Card>
             </div>
 

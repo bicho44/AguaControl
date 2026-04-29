@@ -30,10 +30,26 @@ export const OjoMagicoArea: React.FC = () => {
                     let foundProvId = '';
                     
                     if (extractedData.proveedorCuit || extractedData.proveedorNombre) {
-                        const prov = proveedores.find(p => 
-                            (extractedData.proveedorCuit && p.cuit && p.cuit.includes(extractedData.proveedorCuit)) ||
-                            (extractedData.proveedorNombre && p.nombre.toLowerCase().includes(extractedData.proveedorNombre.toLowerCase()))
-                        );
+                        const sanitizeCuit = (c: string) => c ? c.replace(/\D/g, '') : '';
+                        const extCuit = sanitizeCuit(extractedData.proveedorCuit || '');
+                        const extNombre = (extractedData.proveedorNombre || '').toLowerCase().trim();
+
+                        const matchEntity = (list: any[]) => {
+                            if (extCuit) {
+                                const byCuit = list.find(p => sanitizeCuit(p.cuit) === extCuit);
+                                if (byCuit) return byCuit;
+                            }
+                            if (extNombre) {
+                                const exact = list.find(p => p.nombre.toLowerCase().trim() === extNombre);
+                                if (exact) return exact;
+                                if (extNombre.length > 4) {
+                                    return list.find(p => p.nombre.toLowerCase().includes(extNombre) || extNombre.includes(p.nombre.toLowerCase()));
+                                }
+                            }
+                            return null;
+                        };
+
+                        const prov = matchEntity(proveedores) as Proveedor | null;
                         
                         if (prov) {
                             foundProvId = prov.id;
@@ -51,13 +67,10 @@ export const OjoMagicoArea: React.FC = () => {
                             }
                         } else {
                             // Revisar si existe en clientes (por nombre o CUIT)
-                            const clienteMatches = clientes.filter(c => 
-                                (extractedData.proveedorCuit && c.cuit && c.cuit.includes(extractedData.proveedorCuit)) ||
-                                (extractedData.proveedorNombre && c.nombre.toLowerCase().includes(extractedData.proveedorNombre.toLowerCase()))
-                            );
+                            const cli = matchEntity(clientes);
 
                             let baseData = {
-                                nombre: extractedData.proveedorNombre || (clienteMatches.length > 0 ? clienteMatches[0].nombre : 'Desconocido'),
+                                nombre: extractedData.proveedorNombre || (cli ? cli.nombre : 'Desconocido'),
                                 cuit: extractedData.proveedorCuit || '',
                                 email: extractedData.proveedorEmail || '',
                                 telefono: extractedData.proveedorTelefono || '',
@@ -66,8 +79,7 @@ export const OjoMagicoArea: React.FC = () => {
                                 activo: true
                             };
 
-                            if (clienteMatches.length > 0) {
-                                const cli = clienteMatches[0];
+                            if (cli) {
                                 baseData.email = baseData.email || cli.email || '';
                                 baseData.telefono = baseData.telefono || cli.telefono || '';
                                 baseData.direccion = baseData.direccion || cli.direccion || '';
