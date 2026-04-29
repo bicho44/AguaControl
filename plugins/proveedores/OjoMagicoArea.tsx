@@ -145,7 +145,11 @@ export const OjoMagicoArea: React.FC = () => {
 
                 } catch (error: any) {
                     console.error(error);
-                    showNotification('Error extrayendo datos: ' + error.message, 'error');
+                    if (error.message === "503_OVERLOADED") {
+                        showNotification('El servicio de IA de Gemini está experimentando alta demanda (Error 503). Por favor, intenta de nuevo en unos minutos o utiliza el botón "+ Ingresar Factura" para cargarla manualmente.', 'error');
+                    } else {
+                        showNotification('Error extrayendo datos: ' + error.message, 'error');
+                    }
                 } finally {
                     setIsExtracting(false);
                     if (fileInputRef.current) fileInputRef.current.value = '';

@@ -10,7 +10,7 @@ const getApiKey = () => {
   return (import.meta.env?.VITE_GEMINI_API_KEY) || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
 };
 
-export async function extractFacturaData(fileBase64: string, mimeType: string): Promise<any> {
+export async function extractFacturaData(fileBase64: string, mimeType: string, retries = 3): Promise<any> {
     const apiKey = getApiKey();
     
     if (!apiKey || apiKey === '') {
@@ -70,6 +70,18 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
         return JSON.parse(text.trim());
     } catch (error: any) {
         console.error("Error en OCR Service:", error);
+        
+        // Handle 503 Service Unavailable / Overloaded
+        if (error.message?.includes("503") || error.message?.toLowerCase().includes("overloaded")) {
+            if (retries > 0) {
+                console.warn(`Servicio de IA saturado (503). Reintentando en 3 segundos... (${retries} intentos restantes)`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                return extractFacturaData(fileBase64, mimeType, retries - 1);
+            } else {
+                throw new Error("503_OVERLOADED");
+            }
+        }
+
         // Personalizamos el error para que sea informativo pero no mate la app
         if (error.message?.includes("API key")) {
             throw new Error("Error de Configuración: La API Key de Gemini no es válida o no tiene permisos.");
