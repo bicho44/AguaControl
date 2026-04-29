@@ -15,12 +15,16 @@ import { extractFacturaData } from './ocrService';
 
 import { PagoProveedorModal } from './PagoProveedorModal';
 
-export const FacturasList: React.FC = () => {
+import { FacturaPreviewModal } from './FacturaPreviewModal';
+
+export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly = false }) => {
     const { facturasProveedor, proveedores } = useDataStore();
     const { showNotification } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [selectedFacturaForPago, setSelectedFacturaForPago] = useState<FacturaProveedor | null>(null);
+    const [selectedFacturaForPreview, setSelectedFacturaForPreview] = useState<FacturaProveedor | null>(null);
     const [isExtracting, setIsExtracting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [editingItem, setEditingItem] = useState<FacturaProveedor | null>(null);
@@ -215,25 +219,31 @@ export const FacturasList: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 gap-3">
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Facturas Recibidas</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                    <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-                    <AppButton variant="secondary" onClick={handleExportCSV}>
-                        <svg className="w-4 h-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Exportar Contador
-                    </AppButton>
-                    <AppButton variant="secondary" onClick={() => {
-                         openNew();
-                         fileInputRef.current?.click();
-                    }} disabled={isExtracting}>
-                        {isExtracting ? 'Procesando...' : '✨ OCR Mágico'}
-                    </AppButton>
-                    <AppButton onClick={openNew}>+ Ingresar Factura</AppButton>
+            {!pendingOnly && (
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 gap-3">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white">Facturas Recibidas</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <input type="file" accept="image/*,.pdf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                        <AppButton variant="secondary" onClick={handleExportCSV}>
+                            <svg className="w-4 h-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Exportar Contador
+                        </AppButton>
+                        <AppButton variant="secondary" onClick={() => {
+                             openNew();
+                             fileInputRef.current?.click();
+                        }} disabled={isExtracting}>
+                            {isExtracting ? 'Procesando...' : '✨ OCR Mágico'}
+                        </AppButton>
+                        <AppButton onClick={openNew}>+ Ingresar Factura</AppButton>
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {pendingOnly && (
+                <h3 className="text-lg font-bold dark:text-white">Próximos Vencimientos (Facturas Impagas)</h3>
+            )}
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
                 <div className="overflow-x-auto">
@@ -251,7 +261,10 @@ export const FacturasList: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {facturasProveedor.sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision)).map(f => {
+                            {facturasProveedor
+                                .filter(f => pendingOnly ? (f.estado === EstadoFacturaProveedor.PENDIENTE || f.estado === EstadoFacturaProveedor.PAGADO_PARCIAL) : true)
+                                .sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision))
+                                .map(f => {
                                 const prov = proveedores.find(p => p.id === f.proveedorId);
                                 return (
                                     <tr key={f.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -272,6 +285,10 @@ export const FacturasList: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right space-x-2">
+                                            <button onClick={() => {
+                                                setSelectedFacturaForPreview(f);
+                                                setIsPreviewModalOpen(true);
+                                            }} className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white font-bold text-xs uppercase">Ver</button>
                                             {f.estado !== EstadoFacturaProveedor.PAGADO && (
                                                 <button onClick={() => {
                                                     setSelectedFacturaForPago(f);
@@ -295,6 +312,16 @@ export const FacturasList: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            <FacturaPreviewModal
+                isOpen={isPreviewModalOpen}
+                onClose={() => {
+                    setIsPreviewModalOpen(false);
+                    setSelectedFacturaForPreview(null);
+                }}
+                factura={selectedFacturaForPreview}
+                proveedor={proveedores.find(p => p.id === selectedFacturaForPreview?.proveedorId)}
+            />
 
             <PagoProveedorModal 
                 isOpen={isPagoModalOpen} 

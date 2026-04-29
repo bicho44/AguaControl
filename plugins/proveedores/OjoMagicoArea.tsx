@@ -113,12 +113,14 @@ export const OjoMagicoArea: React.FC = () => {
                         fechaVencimiento: extractedData.fechaVencimiento || getLocalDateString(new Date()),
                         subtotalNeto: extractedData.subtotalNeto || 0,
                         importeIva: extractedData.importeIva || 0,
-                        alicuotaIva: extractedData.alicuotaIva || 21,
+                        alicuotasIva: extractedData.alicuotasIva || [],
+                        otrosImpuestos: extractedData.otrosImpuestos || [],
                         percepciones: extractedData.percepciones || 0,
                         total: extractedData.total || 0,
                         saldoPagar: extractedData.total || 0,
                         estado: EstadoFacturaProveedor.PENDIENTE,
-                        observaciones: 'Ingresada por Ojo Mágico'
+                        observaciones: 'Ingresada por Ojo Mágico',
+                        observacionesMarkdown: extractedData.observacionesMarkdown || ''
                     };
 
                     if (!dataToSave.proveedorId || !dataToSave.total) {
@@ -178,7 +180,7 @@ export const OjoMagicoArea: React.FC = () => {
             onClick={() => {
                 if (!isExtracting) fileInputRef.current?.click();
             }}
-            className={`cursor-pointer transition-all border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center ${
+            className={`cursor-pointer transition-all border-2 border-dashed rounded-xl p-3 flex flex-row items-center justify-center text-left gap-3 h-full ${
                 isDragOver ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 
                 isExtracting ? 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 opacity-70 cursor-not-allowed' :
                 'border-purple-300 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/10 dark:to-gray-800 dark:border-purple-800 hover:border-purple-500 hover:shadow-lg'
@@ -195,21 +197,25 @@ export const OjoMagicoArea: React.FC = () => {
 
             {isExtracting ? (
                 <>
-                    <div className="w-16 h-16 mb-4 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"></div>
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">✨ Ojo Mágico Trabajando...</h3>
-                    <p className="text-gray-500 max-w-md">Analizando la factura e insertándola automáticamente.</p>
+                    <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin shrink-0"></div>
+                    <div>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-white">✨ Ojo Mágico Trabajando...</h3>
+                        <p className="text-xs text-gray-500">Analizando factura...</p>
+                    </div>
                 </>
             ) : (
                 <>
-                    <div className="bg-white dark:bg-gray-700 p-4 rounded-full shadow-md mb-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                        <UploadCloud className="w-10 h-10" />
+                    <div className="bg-white dark:bg-gray-700 p-2 rounded-full shadow-sm text-purple-600 dark:text-purple-400 shrink-0">
+                        <UploadCloud className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">✨ Ojo Mágico (Drag & Drop)</h3>
-                    <p className="text-gray-500 max-w-md mb-4">
-                        Arrastrá una imagen o PDF de tu factura aquí, o hacé clic para seleccionar. La IA hará el resto, verificando duplicados y cargando la data instantáneamente.
-                    </p>
-                    <div className="flex gap-2 text-xs font-bold text-purple-500 bg-white dark:bg-gray-800/50 px-3 py-1 rounded-full shadow-sm">
-                        <FileText className="w-4 h-4" /> AUTO-CARGA
+                    <div>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-white">✨ Ojo Mágico (Drag & Drop)</h3>
+                        <p className="text-xs text-gray-500 hidden md:block">
+                            Arrastrá factura o hacé clic
+                        </p>
+                    </div>
+                    <div className="hidden md:flex gap-1 text-[10px] font-bold text-purple-500 bg-white dark:bg-gray-800/50 px-2 py-1 rounded-full shadow-sm">
+                        <FileText className="w-3 h-3" /> AUTO
                     </div>
                 </>
             )}

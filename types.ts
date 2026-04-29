@@ -407,14 +407,17 @@ export interface FacturaProveedor {
     fechaVencimiento: string;
     subtotalNeto?: number;
     importeIva?: number;
+    alicuotasIva?: { alicuota: number, importe: number }[];
     alicuotaIva?: number; // Ej: 21, 10.5, 27
     percepciones?: number;
+    otrosImpuestos?: { nombre: string, monto: number }[];
     total: number;
     saldoPagar: number;
     estado: EstadoFacturaProveedor;
     items?: ItemFacturaProveedor[];
     archivoUrl?: string; // Optional URL for uploaded PDF/image
     observaciones?: string;
+    observacionesMarkdown?: string;
 }
 
 export interface PagoProveedor {

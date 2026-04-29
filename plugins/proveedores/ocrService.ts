@@ -29,8 +29,9 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
         - fechaEmision: YYYY-MM-DD
         - subtotalNeto: valor numérico
         - importeIva: valor numérico
-        - alicuotaIva: porcentaje (ej: 21)
-        - percepciones: suma de otros impuestos/percepciones
+        - alicuotasIva: arreglo de objetos con "alicuota" y "importe" para desglosar múltiples IVAs si los hay (ej: [{"alicuota": 21, "importe": 100}])
+        - otrosImpuestos: arreglo de objetos con "nombre" (ej: Combustibles, IIBB, No Gravado) y "monto" (ej: [{"nombre": "ITC", "monto": 50}])
+        - percepciones: suma de otros impuestos/percepciones no desglosados
         - total: valor total final
         - proveedorNombre: razón social del emisor
         - proveedorCuit: CUIT del emisor
@@ -38,6 +39,7 @@ export async function extractFacturaData(fileBase64: string, mimeType: string): 
         - proveedorTelefono: teléfono del emisor (si existe)
         - proveedorDireccion: dirección del emisor (si existe)
         - proveedorIIBB: número de Ingresos Brutos del emisor (si existe)
+        - observacionesMarkdown: Una descripción clara, concisa y en formato Markdown (ej: con viñetas) de los ÍTEMS, productos o servicios principales adquiridos según detalla la factura.
     `;
 
     try {

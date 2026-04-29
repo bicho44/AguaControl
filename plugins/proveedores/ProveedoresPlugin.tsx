@@ -55,8 +55,6 @@ export const ProveedoresPlugin: React.FC = () => {
         
         return (
             <div className="space-y-6">
-                <OjoMagicoArea />
-
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Dashboard Proveedores</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -67,28 +65,7 @@ export const ProveedoresPlugin: React.FC = () => {
                 </div>
 
                 <div className="space-y-4">
-                    <h3 className="text-lg font-bold dark:text-white">Próximos Vencimientos (Facturas Impagas)</h3>
-                    <div className="space-y-3">
-                        {facturasPendientes.map(f => {
-                            const prov = proveedores.find(p => p.id === f.proveedorId);
-                            return (
-                                <Card key={f.id} className="p-4">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <p className="font-bold text-gray-800 dark:text-white">{prov?.nombre || 'Desconocido'}</p>
-                                            <p className="text-xs text-gray-500">Factura: {f.numero} - Vencimiento: {f.fechaVencimiento}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xl font-black text-red-500">${(f.saldoPagar || 0).toFixed(2)}</p>
-                                        </div>
-                                    </div>
-                                </Card>
-                            )
-                        })}
-                        {facturasPendientes.length === 0 && (
-                            <p className="text-sm text-gray-500">No hay vencimientos pendientes.</p>
-                        )}
-                    </div>
+                    <FacturasList pendingOnly={true} />
                 </div>
             </div>
         );
@@ -96,18 +73,24 @@ export const ProveedoresPlugin: React.FC = () => {
 
     return (
         <div className="p-4 pb-24">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-purple-600 rounded-2xl shadow-lg shadow-purple-500/30">
-                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                    </svg>
-                </div>
-                <div>
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Proveedores & Compras</h1>
-                        <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800">v1.0.0</span>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-purple-600 rounded-2xl shadow-lg shadow-purple-500/30">
+                        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                        </svg>
                     </div>
-                    <p className="text-sm text-gray-500">Gestión de facturas y cuentas corrientes</p>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-black text-gray-800 dark:text-white">Proveedores & Compras</h1>
+                            <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800">v1.0.0</span>
+                        </div>
+                        <p className="text-sm text-gray-500">Gestión de facturas y cuentas corrientes</p>
+                    </div>
+                </div>
+                
+                <div className="w-full md:w-[350px]">
+                    <OjoMagicoArea />
                 </div>
             </div>
 
