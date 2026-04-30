@@ -37,7 +37,9 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         subtotalNeto: 0,
         importeIva: 0,
         alicuotaIva: 21,
+        alicuotasIva: [],
         percepciones: 0,
+        otrosImpuestos: [],
         total: 0,
         estado: EstadoFacturaProveedor.PENDIENTE,
         items: []
@@ -70,6 +72,72 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         return result.sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision));
     }, [facturasProveedor, pendingOnly, filtroProveedorId, filtroFechaDesde, filtroFechaHasta]);
 
+    const calculateTotal = (data: Partial<FacturaProveedor>) => {
+        const neto = parseFloat(String(data.subtotalNeto || 0));
+        let totalIva = 0;
+        
+        if (data.alicuotasIva && data.alicuotasIva.length > 0) {
+            totalIva = data.alicuotasIva.reduce((acc, curr) => acc + parseFloat(String(curr.importe || 0)), 0);
+        } else {
+            totalIva = parseFloat(String(data.importeIva || 0));
+        }
+
+        let totalOtros = 0;
+        if (data.otrosImpuestos && data.otrosImpuestos.length > 0) {
+            totalOtros = data.otrosImpuestos.reduce((acc, curr) => acc + parseFloat(String(curr.monto || 0)), 0);
+        } else {
+            totalOtros = parseFloat(String(data.percepciones || 0));
+        }
+
+        return Number((neto + totalIva + totalOtros).toFixed(2));
+    };
+
+    const addIva = () => {
+        const currentIvas = Array.isArray(formData.alicuotasIva) ? formData.alicuotasIva : [];
+        const updated = [...currentIvas, { alicuota: 21, importe: 0 }];
+        const nextData = { ...formData, alicuotasIva: updated };
+        setFormData({ ...nextData, total: calculateTotal(nextData) });
+    };
+
+    const removeIva = (index: number) => {
+        const currentIvas = Array.isArray(formData.alicuotasIva) ? formData.alicuotasIva : [];
+        const updated = currentIvas.filter((_, i) => i !== index);
+        // If we remove the last one and there was an original importeIva, maybe we want to keep it?
+        // No, if user is using the list, they should use the list.
+        const nextData = { ...formData, alicuotasIva: updated };
+        setFormData({ ...nextData, total: calculateTotal(nextData) });
+    };
+
+    const updateIva = (index: number, field: string, value: number) => {
+        const currentIvas = Array.isArray(formData.alicuotasIva) ? formData.alicuotasIva : [];
+        const updated = [...currentIvas];
+        updated[index] = { ...updated[index], [field]: value };
+        const nextData = { ...formData, alicuotasIva: updated };
+        setFormData({ ...nextData, total: calculateTotal(nextData) });
+    };
+
+    const addTax = () => {
+        const currentTaxes = Array.isArray(formData.otrosImpuestos) ? formData.otrosImpuestos : [];
+        const updated = [...currentTaxes, { nombre: '', monto: 0 }];
+        const nextData = { ...formData, otrosImpuestos: updated };
+        setFormData({ ...nextData, total: calculateTotal(nextData) });
+    };
+
+    const removeTax = (index: number) => {
+        const currentTaxes = Array.isArray(formData.otrosImpuestos) ? formData.otrosImpuestos : [];
+        const updated = currentTaxes.filter((_, i) => i !== index);
+        const nextData = { ...formData, otrosImpuestos: updated };
+        setFormData({ ...nextData, total: calculateTotal(nextData) });
+    };
+
+    const updateTax = (index: number, field: string, value: any) => {
+        const currentTaxes = Array.isArray(formData.otrosImpuestos) ? formData.otrosImpuestos : [];
+        const updated = [...currentTaxes];
+        updated[index] = { ...updated[index], [field]: value };
+        const nextData = { ...formData, otrosImpuestos: updated };
+        setFormData({ ...nextData, total: calculateTotal(nextData) });
+    };
+
     const handleSave = async () => {
         if (!formData.proveedorId || !formData.numero || !formData.total) {
             showNotification('Proveedor, número y total son obligatorios', 'error');
@@ -78,7 +146,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
         const dataToSave = {
             ...formData,
-            saldoPagar: editingItem ? formData.saldoPagar : formData.total // Initial balance is total
+            saldoPagar: editingItem ? (formData.total! - (editingItem.total - editingItem.saldoPagar)) : formData.total // Initial balance is total
         };
 
         try {
@@ -110,7 +178,11 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
     const openEdit = (fac: FacturaProveedor) => {
         setEditingItem(fac);
-        setFormData(fac);
+        setFormData({
+            ...fac,
+            alicuotasIva: fac.alicuotasIva || [],
+            otrosImpuestos: fac.otrosImpuestos || []
+        });
         setIsModalOpen(true);
     };
 
@@ -125,7 +197,9 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
             subtotalNeto: 0,
             importeIva: 0,
             alicuotaIva: 21,
+            alicuotasIva: [],
             percepciones: 0,
+            otrosImpuestos: [],
             total: 0, 
             estado: EstadoFacturaProveedor.PENDIENTE,
             items: []
@@ -411,17 +485,113 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                     </div>
 
                     <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Detalle de Importes</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <AppInput label="Subtotal Neto ($)" type="number" value={formData.subtotalNeto || ''} onChange={e => setFormData({...formData, subtotalNeto: parseFloat(e.target.value) || 0})} className="bg-white" />
-                            <div className="grid grid-cols-2 gap-2">
-                                <AppSelect label="Alícuota" value={String(formData.alicuotaIva || 21)} onChange={e => setFormData({...formData, alicuotaIva: parseFloat(e.target.value) || 0})} options={[{label:'21%', value:'21'}, {label:'10.5%', value:'10.5'}, {label:'27%', value:'27'}, {label:'Exento', value:'0'}]} />
-                                <AppInput label="Importe IVA ($)" type="number" value={formData.importeIva || ''} onChange={e => setFormData({...formData, importeIva: parseFloat(e.target.value) || 0})} className="bg-white" />
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex justify-between items-center">
+                            Desglose de Importes
+                            <div className="flex gap-2 text-[10px]">
+                                <button onClick={addIva} className="text-primary-600 hover:bg-primary-50 px-2 py-0.5 rounded border border-primary-200 font-bold transition-colors">+ Agregar IVA</button>
+                                <button onClick={addTax} className="text-amber-600 hover:bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-bold transition-colors">+ Agregar Imp/Perc</button>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <AppInput label="Percepciones/Imp. ($)" type="number" value={formData.percepciones || ''} onChange={e => setFormData({...formData, percepciones: parseFloat(e.target.value) || 0})} className="bg-white" />
-                            <AppInput label="Total ($) *" type="number" value={formData.total || ''} onChange={e => setFormData({...formData, total: parseFloat(e.target.value) || 0})} className="bg-white font-bold text-primary-600" />
+                        </h4>
+                        <div className="grid grid-cols-1 gap-4">
+                            <AppInput 
+                                label="Subtotal Neto ($)" 
+                                type="number" 
+                                value={formData.subtotalNeto || ''} 
+                                onChange={e => {
+                                    const nextData = {...formData, subtotalNeto: parseFloat(e.target.value) || 0};
+                                    setFormData({...nextData, total: calculateTotal(nextData)});
+                                }} 
+                                className="bg-white" 
+                            />
+                            
+                            {/* Alícuotas IVA */}
+                            <div className="space-y-2">
+                                {(formData.alicuotasIva?.length || 0) > 0 ? (
+                                    <>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Detalle de IVA</p>
+                                        {formData.alicuotasIva?.map((iva, idx) => (
+                                            <div key={idx} className="flex gap-2 items-end">
+                                                <div className="flex-1">
+                                                    <AppSelect 
+                                                        label="Alicuota" 
+                                                        value={String(iva.alicuota)} 
+                                                        onChange={e => updateIva(idx, 'alicuota', parseFloat(e.target.value))} 
+                                                        options={[{label:'21%', value:'21'}, {label:'10.5%', value:'10.5'}, {label:'27%', value:'27'}, {label:'0%', value:'0'}]} 
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <AppInput 
+                                                        label="Importe ($)" 
+                                                        type="number" 
+                                                        value={iva.importe || ''} 
+                                                        onChange={e => updateIva(idx, 'importe', parseFloat(e.target.value) || 0)} 
+                                                        className="bg-white" 
+                                                    />
+                                                </div>
+                                                <button onClick={() => removeIva(idx)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar IVA">×</button>
+                                            </div>
+                                        ))}
+                                    </>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <AppSelect label="Alícuota" value={String(formData.alicuotaIva || 21)} onChange={e => setFormData({...formData, alicuotaIva: parseFloat(e.target.value) || 0})} options={[{label:'21%', value:'21'}, {label:'10.5%', value:'10.5'}, {label:'27%', value:'27'}, {label:'Exento', value:'0'}]} />
+                                        <AppInput label="Importe IVA ($)" type="number" value={formData.importeIva || ''} onChange={e => {
+                                            const nextData = {...formData, importeIva: parseFloat(e.target.value) || 0};
+                                            setFormData({...nextData, total: calculateTotal(nextData)});
+                                        }} className="bg-white" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Otros Impuestos / Percepciones */}
+                            <div className="space-y-2">
+                                {(formData.otrosImpuestos?.length || 0) > 0 ? (
+                                    <>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Otros Impuestos / Percepciones</p>
+                                        {formData.otrosImpuestos?.map((imp, idx) => (
+                                            <div key={idx} className="flex gap-2 items-end">
+                                                <div className="flex-1">
+                                                    <AppInput 
+                                                        label="Concepto" 
+                                                        value={imp.nombre} 
+                                                        onChange={e => updateTax(idx, 'nombre', e.target.value)} 
+                                                        placeholder="Ej: IIBB"
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <AppInput 
+                                                        label="Monto ($)" 
+                                                        type="number" 
+                                                        value={imp.monto || ''} 
+                                                        onChange={e => updateTax(idx, 'monto', parseFloat(e.target.value) || 0)} 
+                                                        className="bg-white" 
+                                                    />
+                                                </div>
+                                                <button onClick={() => removeTax(idx)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar Impuesto">×</button>
+                                            </div>
+                                        ))}
+                                    </>
+                                ) : (
+                                    <AppInput 
+                                        label="Percepciones/Imp. ($)" 
+                                        type="number" 
+                                        value={formData.percepciones || ''} 
+                                        onChange={e => {
+                                            const nextData = {...formData, percepciones: parseFloat(e.target.value) || 0};
+                                            setFormData({...nextData, total: calculateTotal(nextData)});
+                                        }} 
+                                        className="bg-white" 
+                                    />
+                                )}
+                            </div>
+                            
+                            <AppInput 
+                                label="Total ($) *" 
+                                type="number" 
+                                value={formData.total || ''} 
+                                onChange={e => setFormData({...formData, total: parseFloat(e.target.value) || 0})} 
+                                className="bg-white font-bold text-primary-600" 
+                            />
                         </div>
                     </div>
 
