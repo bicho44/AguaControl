@@ -32,7 +32,8 @@ describe('OjoMagicoArea Component', () => {
 
     it('renders correctly', () => {
         render(<OjoMagicoArea />);
-        expect(screen.getByText(/Ojo Mágico \(Drag \& Drop\)/i)).toBeDefined();
+        expect(screen.getByText(/Ojo Mágico/i)).toBeDefined();
+        expect(screen.getByTitle(/Tomar Foto/i)).toBeDefined();
     });
 
     it('shows loading state and triggers parsing on drop', async () => {
