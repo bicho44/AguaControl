@@ -252,41 +252,6 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         }
 
         const doc = new jsPDF();
-        
-        let totalNeto = 0;
-        let totalIva = 0;
-        let totalPerc = 0;
-        let totalGral = 0;
-
-        const tableData = filteredFacturas.map(f => {
-            const prop = proveedores.find(p => p.id === f.proveedorId);
-            totalNeto += Number(f.subtotalNeto || 0);
-            totalIva += Number(f.importeIva || 0);
-            totalPerc += Number(f.percepciones || 0);
-            totalGral += Number(f.total || 0);
-
-            return [
-                f.fechaEmision,
-                prop?.nombre || 'Desconocido',
-                prop?.cuit || '',
-                `${f.tipoComprobante} ${f.numero}`,
-                `$${Number(f.subtotalNeto || 0).toFixed(2)}`,
-                `$${Number(f.importeIva || 0).toFixed(2)}`,
-                `$${Number(f.percepciones || 0).toFixed(2)}`,
-                `$${Number(f.total || 0).toFixed(2)}`
-            ];
-        });
-
-        // Add summary row
-        tableData.push([
-            'TOTALES',
-            '', '', '',
-            `$${totalNeto.toFixed(2)}`,
-            `$${totalIva.toFixed(2)}`,
-            `$${totalPerc.toFixed(2)}`,
-            `$${totalGral.toFixed(2)}`
-        ]);
-
         doc.setFontSize(18);
         doc.text('Informe de Facturas de Proveedores', 14, 22);
         
@@ -296,22 +261,96 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
              doc.text(`Período: ${filtroFechaDesde || 'Inicio'} al ${filtroFechaHasta || 'Fin'}`, 14, 35);
         }
 
-        (doc as any).autoTable({
-            startY: 45,
-            head: [['Fecha', 'Proveedor', 'CUIT', 'Comprobante', 'Neto', 'IVA', 'Perc.', 'Total']],
-            body: tableData,
-            theme: 'grid',
-            headStyles: { fillColor: [41, 128, 185] },
-            didParseCell: (data: any) => {
-                const isLastRow = data.row.index === tableData.length - 1;
-                if (isLastRow) {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.fillColor = [240, 240, 240];
-                }
-            }
+        // Agrupar facturas por proveedor
+        const groupedFacturas: Record<string, FacturaProveedor[]> = {};
+        filteredFacturas.forEach(f => {
+            if (!groupedFacturas[f.proveedorId]) groupedFacturas[f.proveedorId] = [];
+            groupedFacturas[f.proveedorId].push(f);
         });
 
-        doc.save(`informe_facturas_${new Date().toISOString().split('T')[0]}.pdf`);
+        let currentY = 45;
+        let grandTotalNeto = 0;
+        let grandTotalIva = 0;
+        let grandTotalPerc = 0;
+        let grandTotalTotal = 0;
+
+        Object.entries(groupedFacturas).forEach(([provId, facturas]) => {
+            const prop = proveedores.find(p => p.id === provId);
+            const provName = prop?.nombre || 'Proveedor Desconocido';
+            
+            // Verificar espacio en página
+            if (currentY > 240) {
+                doc.addPage();
+                currentY = 20;
+            }
+
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${provName}`, 14, currentY);
+            currentY += 5;
+
+            let subTotalNeto = 0;
+            let subTotalIva = 0;
+            let subTotalPerc = 0;
+            let subTotalTotal = 0;
+
+            const tableRows = facturas.map(f => {
+                const n = Number(f.subtotalNeto || 0);
+                const i = Number(f.importeIva || 0);
+                const p = Number(f.percepciones || 0);
+                const t = Number(f.total || 0);
+
+                subTotalNeto += n;
+                subTotalIva += i;
+                subTotalPerc += p;
+                subTotalTotal += t;
+
+                return [
+                    f.fechaEmision,
+                    `${f.tipoComprobante} ${f.numero}`,
+                    `$${n.toFixed(2)}`,
+                    `$${i.toFixed(2)}`,
+                    `$${p.toFixed(2)}`,
+                    `$${t.toFixed(2)}`
+                ];
+            });
+
+            grandTotalNeto += subTotalNeto;
+            grandTotalIva += subTotalIva;
+            grandTotalPerc += subTotalPerc;
+            grandTotalTotal += subTotalTotal;
+
+            (doc as any).autoTable({
+                startY: currentY,
+                head: [['Fecha', 'Comprobante', 'Neto', 'IVA', 'Perc.', 'Total']],
+                body: tableRows,
+                theme: 'grid',
+                headStyles: { fillColor: [75, 85, 99], fontSize: 9 },
+                styles: { fontSize: 8 },
+                margin: { left: 14 }
+            });
+
+            currentY = (doc as any).lastAutoTable.finalY + 6;
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Total ${provName}: $${subTotalTotal.toFixed(2)}`, 14, currentY);
+            currentY += 12;
+        });
+
+        // Total general si hay más de un proveedor
+        if (Object.keys(groupedFacturas).length > 1) {
+            if (currentY > 260) {
+                doc.addPage();
+                currentY = 20;
+            }
+            doc.setDrawColor(200);
+            doc.line(14, currentY - 5, 196, currentY - 5);
+            doc.setFontSize(12);
+            doc.text(`TOTAL GENERAL: $${grandTotalTotal.toFixed(2)}`, 14, currentY);
+        }
+
+        doc.save(`informe_facturas_agrupado_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     return (
