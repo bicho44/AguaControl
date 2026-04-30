@@ -22,6 +22,12 @@ export const OjoMagicoArea: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
 
+    useEffect(() => {
+        if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [isCameraModalOpen, stream, capturedImage]);
+
     const startCamera = async () => {
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({ 
@@ -29,9 +35,6 @@ export const OjoMagicoArea: React.FC = () => {
                 audio: false 
             });
             setStream(mediaStream);
-            if (videoRef.current) {
-                videoRef.current.srcObject = mediaStream;
-            }
             setIsCameraModalOpen(true);
         } catch (err) {
             console.error("Error accessing camera:", err);
@@ -326,6 +329,7 @@ export const OjoMagicoArea: React.FC = () => {
                                     ref={videoRef} 
                                     autoPlay 
                                     playsInline 
+                                    muted
                                     className="w-full h-full object-cover"
                                 />
                                 <div className="absolute inset-x-6 inset-y-12 border-2 border-white/30 rounded-lg pointer-events-none">
