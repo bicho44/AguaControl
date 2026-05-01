@@ -20,7 +20,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly = false }) => {
-    const { facturasProveedor, proveedores } = useDataStore();
+    const { facturasProveedor, proveedores, empresaSettings } = useDataStore();
     const { showNotification } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
@@ -252,13 +252,43 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         }
 
         const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.text('Informe de Facturas de Proveedores', 14, 22);
+        
+        // Add Company Logo and Name
+        if (empresaSettings.logo) {
+            try {
+                const imgProps = doc.getImageProperties(empresaSettings.logo);
+                const maxWidth = 40;
+                const maxHeight = 25;
+                const ratio = imgProps.width / imgProps.height;
+                
+                let imgWidth = maxWidth;
+                let imgHeight = maxWidth / ratio;
+                
+                if (imgHeight > maxHeight) {
+                    imgHeight = maxHeight;
+                    imgWidth = maxHeight * ratio;
+                }
+                
+                doc.addImage(empresaSettings.logo, 'PNG', 196 - imgWidth, 10, imgWidth, imgHeight);
+            } catch (e) {
+                console.error("Error adding logo to PDF", e);
+            }
+        }
+
+        doc.setFontSize(22);
+        doc.setTextColor(0, 102, 204);
+        doc.setFont('helvetica', 'bold');
+        doc.text(empresaSettings.nombre || 'Distribuidora', 14, 20);
+
+        doc.setFontSize(14);
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Informe de Facturas de Proveedores', 14, 30);
         
         doc.setFontSize(10);
-        doc.text(`Fecha de emisión del reporte: ${new Date().toLocaleDateString()}`, 14, 30);
+        doc.text(`Fecha de emisión del reporte: ${new Date().toLocaleDateString()}`, 14, 38);
         if (filtroFechaDesde || filtroFechaHasta) {
-             doc.text(`Período: ${filtroFechaDesde || 'Inicio'} al ${filtroFechaHasta || 'Fin'}`, 14, 35);
+             doc.text(`Período: ${filtroFechaDesde || 'Inicio'} al ${filtroFechaHasta || 'Fin'}`, 14, 43);
         }
 
         // Agrupar facturas por proveedor
@@ -268,7 +298,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
             groupedFacturas[f.proveedorId].push(f);
         });
 
-        let currentY = 45;
+        let currentY = 55;
         let grandTotalNeto = 0;
         let grandTotalIva = 0;
         let grandTotalPerc = 0;
