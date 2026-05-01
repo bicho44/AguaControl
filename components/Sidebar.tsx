@@ -158,20 +158,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
                 </>
             )}
 
-            {group3.length > 0 && (
-                <>
-                    <hr className="border-gray-200 dark:border-gray-700" />
-                    {renderNavList(group3)}
-                </>
-            )}
-            
-            {group4.length > 0 && (
-                <>
-                    <hr className="border-gray-200 dark:border-gray-700" />
-                    {renderNavList(group4)}
-                </>
-            )}
-
             {pluginItems.length > 0 && (
                 <>
                     <hr className="border-gray-200 dark:border-gray-700" />
@@ -197,6 +183,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
                             ))}
                         </ul>
                     </div>
+                </>
+            )}
+
+            {group3.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group3)}
+                </>
+            )}
+            
+            {group4.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group4)}
                 </>
             )}
         </div>
