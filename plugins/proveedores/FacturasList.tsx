@@ -291,6 +291,55 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
              doc.text(`Período: ${filtroFechaDesde || 'Inicio'} al ${filtroFechaHasta || 'Fin'}`, 14, 43);
         }
 
+        // Totales Generales para la cabecera del informe
+        let grandTotalNeto = 0;
+        let grandTotalIva = 0;
+        let grandTotalPerc = 0;
+        let grandTotalTotal = 0;
+
+        filteredFacturas.forEach(f => {
+            grandTotalNeto += Number(f.subtotalNeto || 0);
+            
+            // Calculo de IVA consolidado
+            if (f.alicuotasIva && f.alicuotasIva.length > 0) {
+                grandTotalIva += f.alicuotasIva.reduce((acc, curr) => acc + Number(curr.importe || 0), 0);
+            } else {
+                grandTotalIva += Number(f.importeIva || 0);
+            }
+
+            // Calculo de Percepciones/Otros consolidado
+            if (f.otrosImpuestos && f.otrosImpuestos.length > 0) {
+                grandTotalPerc += f.otrosImpuestos.reduce((acc, curr) => acc + Number(curr.monto || 0), 0);
+            } else {
+                grandTotalPerc += Number(f.percepciones || 0);
+            }
+
+            grandTotalTotal += Number(f.total || 0);
+        });
+
+        // Sección de Resumen General en la cabecera
+        doc.setFillColor(245, 247, 250);
+        doc.roundedRect(14, 48, 182, 18, 2, 2, 'F');
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text('TOTAL NETO', 20, 55);
+        doc.text('TOTAL IVA', 65, 55);
+        doc.text('PERCEPCIONES', 110, 55);
+        doc.text('TOTAL GENERAL', 155, 55);
+
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`$${grandTotalNeto.toFixed(2)}`, 20, 61);
+        doc.text(`$${grandTotalIva.toFixed(2)}`, 65, 61);
+        doc.text(`$${grandTotalPerc.toFixed(2)}`, 110, 61);
+        doc.setFontSize(12);
+        doc.setTextColor(0, 102, 204);
+        doc.text(`$${grandTotalTotal.toFixed(2)}`, 155, 61);
+
+        // Reset color para el resto del documento
+        doc.setTextColor(0, 0, 0);
+
         // Agrupar facturas por proveedor
         const groupedFacturas: Record<string, FacturaProveedor[]> = {};
         filteredFacturas.forEach(f => {
@@ -298,11 +347,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
             groupedFacturas[f.proveedorId].push(f);
         });
 
-        let currentY = 55;
-        let grandTotalNeto = 0;
-        let grandTotalIva = 0;
-        let grandTotalPerc = 0;
-        let grandTotalTotal = 0;
+        let currentY = 75;
 
         Object.entries(groupedFacturas).forEach(([provId, facturas]) => {
             const prop = proveedores.find(p => p.id === provId);
@@ -326,8 +371,21 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
             const tableRows = facturas.map(f => {
                 const n = Number(f.subtotalNeto || 0);
-                const i = Number(f.importeIva || 0);
-                const p = Number(f.percepciones || 0);
+                
+                let i = 0;
+                if (f.alicuotasIva && f.alicuotasIva.length > 0) {
+                    i = f.alicuotasIva.reduce((acc, curr) => acc + Number(curr.importe || 0), 0);
+                } else {
+                    i = Number(f.importeIva || 0);
+                }
+
+                let p = 0;
+                if (f.otrosImpuestos && f.otrosImpuestos.length > 0) {
+                    p = f.otrosImpuestos.reduce((acc, curr) => acc + Number(curr.monto || 0), 0);
+                } else {
+                    p = Number(f.percepciones || 0);
+                }
+
                 const t = Number(f.total || 0);
 
                 subTotalNeto += n;
@@ -345,11 +403,6 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                 ];
             });
 
-            grandTotalNeto += subTotalNeto;
-            grandTotalIva += subTotalIva;
-            grandTotalPerc += subTotalPerc;
-            grandTotalTotal += subTotalTotal;
-
             (doc as any).autoTable({
                 startY: currentY,
                 head: [['Fecha', 'Comprobante', 'Neto', 'IVA', 'Perc.', 'Total']],
@@ -362,8 +415,16 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
             currentY = (doc as any).lastAutoTable.finalY + 6;
 
+            const totalImpuestosSub = subTotalIva + subTotalPerc;
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Subtotal Neto: $${subTotalNeto.toFixed(2)}  |  Total IVA: $${subTotalIva.toFixed(2)}  |  Percepciones/Otros: $${subTotalPerc.toFixed(2)}  |  Total Impuestos: $${totalImpuestosSub.toFixed(2)}`, 14, currentY);
+            currentY += 5;
+
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
             doc.text(`Total ${provName}: $${subTotalTotal.toFixed(2)}`, 14, currentY);
             currentY += 12;
         });
