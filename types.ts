@@ -1,5 +1,5 @@
 
-export type View = 'dashboard' | 'remitos' | 'clientes' | 'usuarios' | 'productos' | 'servicios' | 'cuentacorriente' | 'facturas' | 'importar' | 'caja' | 'settings' | 'contratos' | 'planillas' | 'rutas' | 'logs' | 'login' | 'setup' | 'stock_planta' | string;
+export type View = 'dashboard' | 'remitos' | 'clientes' | 'usuarios' | 'productos' | 'servicios' | 'cuentacorriente' | 'facturas' | 'importar' | 'caja' | 'settings' | 'contratos' | 'planillas' | 'rutas' | 'logs' | 'login' | 'setup' | 'stock_planta' | 'my_profile' | 'my_account' | string;
 
 export enum Rol {
     ADMINISTRADOR = 'Administrador',

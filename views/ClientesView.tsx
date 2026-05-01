@@ -978,22 +978,25 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                                     })}
                                 </div>
                             </div>
-                            {currentUser?.rol === Rol.ADMINISTRADOR && (
-                                <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-end">
-                                    {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO) && (
+                            {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO) && (
+                                <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-center sm:justify-end gap-3">
                                     <AppButton 
                                         variant="secondary" 
-                                        size="sm" 
+                                        size="md" 
                                         onClick={(e) => { e.stopPropagation(); setViewAccountClienteId(cliente.id); }}
-                                        className="bg-primary-50 text-primary-600 border-primary-100 hover:bg-primary-100 uppercase text-[10px] font-black px-4"
+                                        className="bg-primary-600 text-white border-primary-700 hover:bg-primary-700 uppercase text-[11px] font-black px-6 shadow-lg transform active:scale-95 transition-all"
                                     >
-                                        <div className="w-3 h-3 mr-1"><BookOpenIcon /></div> Ver Cuenta Corriente
+                                        <div className="w-4 h-4 mr-2"><BookOpenIcon /></div> Ver Estado de Cuenta
                                     </AppButton>
-                                )}
-                                {cliente.estado === 'Activo' ? (
-                                        <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }}>Dar de Baja</AppButton>
-                                    ) : (
-                                        <AppButton variant="success" size="sm" onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); }}>Reactivar</AppButton>
+                                    
+                                    {currentUser?.rol === Rol.ADMINISTRADOR && (
+                                        <>
+                                            {cliente.estado === 'Activo' ? (
+                                                <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }}>Dar de Baja</AppButton>
+                                            ) : (
+                                                <AppButton variant="success" size="sm" onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); }}>Reactivar</AppButton>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}
