@@ -1,10 +1,23 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { Calendar, AlertTriangle, Settings2, X, Plus } from 'lucide-react';
+import { 
+  Calendar, 
+  AlertTriangle, 
+  Settings2, 
+  X, 
+  Plus, 
+  ChevronDown, 
+  ChevronUp, 
+  Receipt, 
+  FileText, 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle 
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { ReactSortable } from 'react-sortablejs';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -361,6 +374,146 @@ const InternalVendorDashboard: React.FC<{
 // ----------------------------------------------------------------------
 // DASHBOARD PARA VENDEDOR EXTERNO (REVENDEDOR)
 // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// SUB-COMPONENTES PARA CUENTA CORRIENTE EXTERNA (VENDEDOR)
+// ----------------------------------------------------------------------
+
+const ExternalMovementRow: React.FC<{ 
+    item: any; 
+    productosMap: Map<string, Producto>;
+}> = ({ item, productosMap }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    
+    const isCompra = item.type === 'compra';
+    const hasSubItems = item.subItems && item.subItems.length > 0;
+    
+    // Calcular saldo para compras
+    const totalPagado = (item.subItems || []).reduce((sum: number, sub: any) => sum + sub.monto, 0);
+    const montoCompra = Math.abs(item.monto);
+    const saldo = montoCompra - totalPagado;
+    
+    const isPaid = isCompra && saldo <= 0.01;
+    const isPartial = isCompra && totalPagado > 0 && saldo > 0.01;
+
+    return (
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden mb-3 transition-all hover:shadow-md bg-white dark:bg-gray-800">
+            <div 
+                onClick={() => hasSubItems || isCompra ? setIsOpen(!isOpen) : null}
+                className={`p-4 flex items-center justify-between gap-4 ${hasSubItems || isCompra ? 'cursor-pointer' : ''}`}
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className={`p-2 rounded-xl shrink-0 ${
+                        item.type === 'compra' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20' : 
+                        item.type === 'pago' ? 'bg-green-50 text-green-600 dark:bg-green-900/20' : 
+                        'bg-red-50 text-red-600 dark:bg-red-900/20'
+                    }`}>
+                        {item.type === 'compra' ? <FileText className="w-5 h-5" /> : 
+                         item.type === 'pago' ? <Receipt className="w-5 h-5" /> : 
+                         <AlertTriangle className="w-5 h-5" />}
+                    </div>
+                    <div className="min-w-0">
+                        <h4 className="font-bold text-gray-900 dark:text-white truncate text-sm">
+                            {item.concepto}
+                        </h4>
+                        <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest leading-none mt-1">
+                            {new Date(item.fecha + 'T00:00:00').toLocaleDateString()} • {item.detalle}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right">
+                        <p className={`font-black text-sm ${item.monto < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                            {item.monto < 0 ? '-' : '+'}${Math.abs(item.monto).toLocaleString()}
+                        </p>
+                        {isCompra && (
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                                {isPaid ? (
+                                    <span className="text-[9px] font-bold text-green-500 flex items-center gap-0.5 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded-full"><CheckCircle2 className="w-2.5 h-2.5" /> PAGADO</span>
+                                ) : isPartial ? (
+                                    <span className="text-[9px] font-bold text-orange-500 flex items-center gap-0.5 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded-full"><Clock className="w-3 h-3" /> PARCIAL (-${saldo.toLocaleString()})</span>
+                                ) : (
+                                    <span className="text-[9px] font-bold text-red-500 flex items-center gap-0.5 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded-full"><AlertCircle className="w-2.5 h-2.5" /> PENDIENTE</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    {(hasSubItems || isCompra) && (
+                        <div className="text-gray-400">
+                            {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700"
+                    >
+                        <div className="p-4 space-y-4">
+                            {/* Detalle de Movimientos de la Compra */}
+                            {isCompra && item.originalMovs && item.originalMovs.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Productos Retirados</p>
+                                    <div className="grid grid-cols-1 gap-1">
+                                        {item.originalMovs.map((m: any, idx: number) => {
+                                            const prod = productosMap.get(m.productoId);
+                                            const cant = m.cantidad || m.entregados || 0;
+                                            return (
+                                                <div key={idx} className="flex justify-between items-center text-xs text-gray-600 dark:text-gray-400 px-2">
+                                                    <span>{prod?.nombre || 'Producto'}</span>
+                                                    <span className="font-bold">x{cant}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Pagos Imputados */}
+                            <div className="space-y-2">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Pagos Realizados</p>
+                                {hasSubItems ? (
+                                    item.subItems.map((sub: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                <p className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                                                    {new Date(sub.fecha + 'T00:00:00').toLocaleDateString()} - {sub.detalle}
+                                                </p>
+                                            </div>
+                                            <p className="text-[11px] font-black text-green-600 dark:text-green-400">+ ${sub.monto.toLocaleString()}</p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-[11px] text-gray-400 italic px-2">Sin pagos registrados para este movimiento.</p>
+                                )}
+                            </div>
+
+                            {isCompra && (
+                                <div className="pt-2 flex justify-between border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-[10px] font-bold text-gray-500">RESUMEN</p>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-black text-green-600">PAGADO: ${totalPagado.toLocaleString()}</p>
+                                        <p className={`text-[10px] font-black ${saldo > 0 ? 'text-red-600' : 'text-gray-400'}`}>SALDO: ${saldo.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+// ----------------------------------------------------------------------
+// DASHBOARD PARA VENDEDOR EXTERNO (REVENDEDOR)
+// ----------------------------------------------------------------------
 const ExternalVendorDashboard: React.FC<{ 
     user: Usuario, 
     ventas: VentaVendedor[], 
@@ -374,16 +527,10 @@ const ExternalVendorDashboard: React.FC<{
     const misVentas = useMemo(() => ventas.filter(v => v.vendedorId === user.id && !v.clienteId), [ventas, user.id]);
     const misRemitos = useMemo(() => remitos.filter(r => r.vendedorId === user.id && !r.clienteId && !r.esAjuste), [remitos, user.id]);
 
-    const shortName = (name: string) => {
-        const prod = Array.from(productosMap.values()).find((p: any) => p.nombre === name) as Producto | undefined;
-        if (prod?.abreviatura) return prod.abreviatura;
-        return name.replace('Bidón ', '').replace(' Retornable', '').replace(' Descartable', '');
-    };
-    
     const { totalComprado, totalPagado, totalGastos, saldoPendiente, historial, retiradosHoy, retiradosAyer } = useMemo(() => {
         let comprado = 0;
         let totalG = 0;
-        const historialCombinado: any[] = [];
+        const historialAgrupado: any[] = [];
         const todayStr = getLocalDateString();
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -392,7 +539,11 @@ const ExternalVendorDashboard: React.FC<{
         const hoy: Record<string, number> = {};
         const ayer: Record<string, number> = {};
 
-        // 1. Sumar Compras (VentaVendedor - Histórico)
+        // 1. Obtener Pagos del Vendedor
+        const misPagos = pagos.filter(p => p.vendedorId === user.id && !p.clienteId);
+        const allLinkedPagoIds = new Set<string>();
+
+        // 2. Procesar Compras (VentaVendedor)
         misVentas.forEach(v => {
             let totalVenta = 0;
             const vDate = v.fecha.split('T')[0];
@@ -403,8 +554,6 @@ const ExternalVendorDashboard: React.FC<{
                     const precioEsp = user.preciosEspeciales?.find(p => p.productoId === m.productoId)?.precio;
                     const precioFinal = m.precioUnitario || precioEsp || prod.precioReventa || prod.precio;
                     totalVenta += m.cantidad * precioFinal;
-
-                    // Contar envases retirados hoy/ayer (solo retornables)
                     if (prod.tipo === TipoProducto.RETORNABLE) {
                         if (vDate === todayStr) hoy[prod.nombre] = (hoy[prod.nombre] || 0) + m.cantidad;
                         if (vDate === yesterdayStr) ayer[prod.nombre] = (ayer[prod.nombre] || 0) + m.cantidad;
@@ -412,19 +561,36 @@ const ExternalVendorDashboard: React.FC<{
                 }
             });
             comprado += totalVenta;
-            historialCombinado.push({
+
+            // Buscar pagos asociados por ID o por Origen
+            const pagosDeVenta = misPagos.filter(p => 
+                (v.pagoIds || []).includes(p.id) || 
+                (p.origen?.tipo === 'VentaVendedor' && p.origen?.id === v.id)
+            );
+            pagosDeVenta.forEach(p => allLinkedPagoIds.add(p.id));
+
+            historialAgrupado.push({
+                id: v.id,
                 fecha: v.fecha,
                 concepto: 'Compra de Stock (Histórica)',
                 monto: -totalVenta,
-                detalle: `${v.movimientos.length} productos`
+                detalle: `${v.movimientos.length} productos`,
+                type: 'compra',
+                originalMovs: v.movimientos,
+                subItems: pagosDeVenta.map(p => ({
+                    id: p.id,
+                    fecha: p.fecha,
+                    monto: p.monto,
+                    detalle: `Pago (${p.metodo})`,
+                    type: 'pago'
+                }))
             });
         });
 
-        // 1.1 Sumar Compras (Remitos - Unificado)
+        // 3. Procesar Compras (Remitos)
         misRemitos.forEach(r => {
             let totalRemito = 0;
             const rDate = r.fecha.split('T')[0];
-            
             const defaultPriceType = user.tipo === TipoVendedor.EXTERNO ? 'reventa' : 'lista';
 
             r.movimientos.forEach(m => {
@@ -434,7 +600,6 @@ const ExternalVendorDashboard: React.FC<{
                     const precioSugerido = defaultPriceType === 'reventa' ? (prod.precioReventa || prod.precio) : prod.precio;
                     const precioFinal = m.precioUnitario || precioEsp || precioSugerido;
                     totalRemito += m.entregados * precioFinal;
-
                     if (prod.tipo === TipoProducto.RETORNABLE) {
                         if (rDate === todayStr) hoy[prod.nombre] = (hoy[prod.nombre] || 0) + m.entregados;
                         if (rDate === yesterdayStr) ayer[prod.nombre] = (ayer[prod.nombre] || 0) + m.entregados;
@@ -442,47 +607,74 @@ const ExternalVendorDashboard: React.FC<{
                 }
             });
             comprado += totalRemito;
-            historialCombinado.push({
+
+            const pagosDeRemito = misPagos.filter(p => 
+                (r.pagoIds || []).includes(p.id) || 
+                (p.origen?.tipo === 'Remito' && p.origen?.id === r.id)
+            );
+            pagosDeRemito.forEach(p => allLinkedPagoIds.add(p.id));
+
+            historialAgrupado.push({
+                id: r.id,
                 fecha: r.fecha,
                 concepto: `Compra de Stock (#${r.puntoVenta}-${r.numero})`,
                 monto: -totalRemito,
-                detalle: `${r.movimientos.length} productos`
+                detalle: `${r.movimientos.length} productos`,
+                type: 'compra',
+                originalMovs: r.movimientos,
+                subItems: pagosDeRemito.map(p => ({
+                    id: p.id,
+                    fecha: p.fecha,
+                    monto: p.monto,
+                    detalle: `Pago (${p.metodo})`,
+                    type: 'pago'
+                }))
             });
         });
 
-        // 1.5 Sumar Gastos asignados (Deuda)
+        // 4. Procesar Gastos asignados
         const misGastos = gastos.filter(g => g.vendedorId === user.id);
         misGastos.forEach(g => {
             const montoGasto = g.pagos.reduce((sum, p) => sum + p.monto, 0);
             totalG += montoGasto;
-            historialCombinado.push({
+            historialAgrupado.push({
+                id: g.id,
                 fecha: g.fecha,
                 concepto: `Gasto Asignado: ${g.concepto}`,
                 monto: -montoGasto,
-                detalle: g.nroRecibo ? `Recibo: ${g.nroRecibo}` : '-'
+                detalle: g.nroRecibo ? `Recibo: ${g.nroRecibo}` : '-',
+                type: 'gasto'
             });
         });
 
-        // 2. Sumar Pagos (RegistroPago vinculados a ventas de este vendedor)
-        const misPagos = pagos.filter(p => p.vendedorId === user.id && !p.clienteId);
-        
-        let pagado = 0;
+        // 5. Procesar Pagos NO vinculados (General)
+        let totalP = 0;
         misPagos.forEach(p => {
-            pagado += p.monto;
-            historialCombinado.push({
-                fecha: p.fecha,
-                concepto: `Pago (${p.metodo})`,
-                monto: p.monto, // Ingreso para la cuenta corriente (Haber)
-                detalle: p.concepto || '-'
-            });
+            totalP += p.monto;
+            if (!allLinkedPagoIds.has(p.id)) {
+                historialAgrupado.push({
+                    id: p.id,
+                    fecha: p.fecha,
+                    concepto: `Pago a Cuenta (${p.metodo})`,
+                    monto: p.monto,
+                    detalle: p.concepto || '-',
+                    type: 'pago'
+                });
+            }
         });
 
-        const deuda = (comprado + totalG) - pagado;
+        const deuda = (comprado + totalG) - totalP;
+        historialAgrupado.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-        // Ordenar historial
-        historialCombinado.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-
-        return { totalComprado: comprado, totalPagado: pagado, totalGastos: totalG, saldoPendiente: deuda, historial: historialCombinado, retiradosHoy: hoy, retiradosAyer: ayer };
+        return { 
+            totalComprado: comprado, 
+            totalPagado: totalP, 
+            totalGastos: totalG, 
+            saldoPendiente: deuda, 
+            historial: historialAgrupado, 
+            retiradosHoy: hoy, 
+            retiradosAyer: ayer 
+        };
     }, [misVentas, misRemitos, pagos, gastos, user.id, productosMap, user.preciosEspeciales, user.tipo]);
 
     return (
@@ -536,27 +728,27 @@ const ExternalVendorDashboard: React.FC<{
                 </div>
             </div>
 
-            <Card title="Historial de Movimientos">
-                <div className="overflow-x-auto max-h-96">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-[10px] font-black text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 sticky top-0">
-                            <tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Concepto</th><th className="px-4 py-3">Detalle</th><th className="px-4 py-3 text-right">Monto</th></tr>
-                        </thead>
-                        <tbody>
-                            {historial.map((h, i) => (
-                                <tr key={i} className="border-b dark:border-gray-700">
-                                    <td className="px-4 py-3 font-mono text-xs">{new Date(h.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
-                                    <td className="px-4 py-3 font-bold">{h.concepto}</td>
-                                    <td className="px-4 py-3 text-gray-500 text-xs">{h.detalle}</td>
-                                    <td className={`px-4 py-3 text-right font-bold ${h.monto < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                        {h.monto < 0 ? '-' : '+'}${Math.abs(h.monto).toLocaleString()}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between px-4">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Historial de Movimientos</h3>
                 </div>
-            </Card>
+
+                {historial.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3">
+                        {historial.map(item => (
+                            <ExternalMovementRow 
+                                key={item.id}
+                                item={item}
+                                productosMap={productosMap}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-200 dark:border-gray-700 rounded-3xl p-12 text-center text-gray-400 italic font-bold uppercase text-[10px] tracking-widest">
+                        Sin movimientos registrados
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

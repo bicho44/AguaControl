@@ -3,7 +3,8 @@ import { useDataStore } from '../../hooks/useDataStore';
 import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
 import { Proveedor, FacturaProveedor, PagoProveedor, EstadoFacturaProveedor } from '../../types';
-import { ArrowLeft, FileText, CheckCircle, AlertCircle, TrendingDown, TrendingUp, UploadCloud } from 'lucide-react';
+import { ArrowLeft, FileText, CheckCircle, AlertCircle, TrendingDown, TrendingUp, UploadCloud, ChevronDown, ChevronUp, Receipt } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import Modal from '../../components/Modal';
 import { extractFacturaData } from './ocrService';
 import { collection, addDoc } from 'firebase/firestore';
@@ -59,12 +60,15 @@ export const ProveedorCuentaCorriente: React.FC<{
             haber: number;
             estado?: string;
             data: any;
+            pagosAsociados: PagoProveedor[];
         };
 
         const movs: Movimiento[] = [];
+        const facturasMap = new Map<string, Movimiento>();
         
+        // Primero metemos las facturas
         facturas.forEach(f => {
-            movs.push({
+            const mov: Movimiento = {
                 id: f.id,
                 fecha: f.fechaEmision,
                 tipo: 'FACTURA',
@@ -72,20 +76,31 @@ export const ProveedorCuentaCorriente: React.FC<{
                 debe: f.total,
                 haber: 0,
                 estado: f.estado,
-                data: f
-            });
+                data: f,
+                pagosAsociados: []
+            };
+            facturasMap.set(f.id, mov);
+            movs.push(mov);
         });
 
+        // Luego asociamos los pagos o los ponemos como huérfanos (adelantos)
         pagos.forEach(p => {
-            movs.push({
-                id: p.id,
-                fecha: p.fecha,
-                tipo: 'PAGO',
-                descripcion: `Pago ${p.metodo || ''}`,
-                debe: 0,
-                haber: p.monto,
-                data: p
-            });
+            if (p.facturaProveedorId && facturasMap.has(p.facturaProveedorId)) {
+                const movFac = facturasMap.get(p.facturaProveedorId)!;
+                movFac.pagosAsociados.push(p);
+                movFac.haber += p.monto; // El haber de la factura se incrementa con sus pagos
+            } else {
+                movs.push({
+                    id: p.id,
+                    fecha: p.fecha,
+                    tipo: 'PAGO',
+                    descripcion: `Pago Adelanto (${p.metodo || ''})`,
+                    debe: 0,
+                    haber: p.monto,
+                    data: p,
+                    pagosAsociados: []
+                });
+            }
         });
 
         return movs.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
@@ -96,6 +111,15 @@ export const ProveedorCuentaCorriente: React.FC<{
         saldoAcumulado += (m.debe - m.haber);
         return { ...m, saldo: saldoAcumulado };
     });
+
+    const [expandedMovIds, setExpandedMovIds] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (id: string) => {
+        const next = new Set(expandedMovIds);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setExpandedMovIds(next);
+    };
 
     // Upload logic reused from FacturasList
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,63 +232,145 @@ export const ProveedorCuentaCorriente: React.FC<{
                 </Card>
             </div>
 
-            <Card className="p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                            <tr>
-                                <th className="px-4 py-3">Fecha</th>
-                                <th className="px-4 py-3">Descripción</th>
-                                <th className="px-4 py-3 text-right">Debe</th>
-                                <th className="px-4 py-3 text-right">Haber</th>
-                                <th className="px-4 py-3 text-right font-black">Saldo</th>
-                                <th className="px-4 py-3 text-center">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {movimientosConSaldo.map((m, idx) => (
-                                <tr key={`${m.tipo}-${m.id}-${idx}`} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{m.fecha}</td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-2">
-                                            {m.tipo === 'FACTURA' ? <TrendingUp className="w-4 h-4 text-red-500" /> : <TrendingDown className="w-4 h-4 text-green-500" />}
-                                            <span className="flex-1">{m.descripcion}</span>
-                                            {m.tipo === 'FACTURA' && (
-                                                <button onClick={() => {
-                                                    setSelectedFacturaForPreview(m.data);
-                                                    setIsPreviewModalOpen(true);
-                                                }} className="text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded font-bold uppercase transition">
-                                                    Ver
-                                                </button>
-                                            )}
+            <Card className="p-0 overflow-hidden border-none shadow-none bg-transparent">
+                <div className="space-y-3">
+                    {movimientosConSaldo.map((m, idx) => {
+                        const isExpanded = expandedMovIds.has(m.id);
+                        const hasPagos = m.pagosAsociados.length > 0;
+                        
+                        return (
+                            <div key={`${m.tipo}-${m.id}-${idx}`} className="group">
+                                <div 
+                                    className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 transition-all hover:shadow-lg ${isExpanded ? 'ring-2 ring-primary-500/20 border-primary-500' : ''}`}
+                                >
+                                    <div 
+                                        className="p-4 flex flex-wrap md:flex-nowrap items-center justify-between gap-4 cursor-pointer"
+                                        onClick={() => hasPagos && toggleExpand(m.id)}
+                                    >
+                                        <div className="flex items-center gap-4 min-w-0 flex-1">
+                                            <div className={`p-3 rounded-xl shrink-0 ${
+                                                m.tipo === 'FACTURA' ? 'bg-red-50 text-red-600 dark:bg-red-900/20' : 'bg-green-50 text-green-600 dark:bg-green-900/20'
+                                            }`}>
+                                                {m.tipo === 'FACTURA' ? <FileText className="w-6 h-6" /> : <Receipt className="w-6 h-6" />}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-bold text-gray-900 dark:text-white truncate uppercase tracking-tight">
+                                                        {m.descripcion}
+                                                    </h4>
+                                                    {m.tipo === 'FACTURA' && (
+                                                        <button onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedFacturaForPreview(m.data);
+                                                            setIsPreviewModalOpen(true);
+                                                        }} className="opacity-0 group-hover:opacity-100 transition-all text-[10px] bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded font-black text-gray-500 uppercase tracking-widest">
+                                                            Ver PDF
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-0.5">
+                                                    {new Date(m.fecha + 'T00:00:00').toLocaleDateString()}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 font-bold">{m.debe > 0 ? `$${m.debe.toFixed(2)}` : '-'}</td>
-                                    <td className="px-4 py-3 text-right text-green-600 dark:text-green-400 font-bold">{m.haber > 0 ? `$${m.haber.toFixed(2)}` : '-'}</td>
-                                    <td className="px-4 py-3 text-right font-black text-gray-800 dark:text-white">${m.saldo.toFixed(2)}</td>
-                                    <td className="px-4 py-3 text-center">
-                                        {m.tipo === 'FACTURA' && m.estado === EstadoFacturaProveedor.PENDIENTE && (
-                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800 cursor-pointer" onClick={() => { setSelectedFacturaForPago(m.data); setIsPagoModalOpen(true); }}>Pagar</span>
+
+                                        <div className="flex items-center gap-6 shrink-0">
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Movimiento</p>
+                                                <div className="flex flex-col">
+                                                    {m.debe > 0 && <p className="font-black text-red-500">-$ {m.debe.toLocaleString()}</p>}
+                                                    {m.haber > 0 && <p className="font-black text-green-600">+$ {m.haber.toLocaleString()}</p>}
+                                                </div>
+                                            </div>
+
+                                            <div className="text-right hidden sm:block">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Saldo</p>
+                                                <p className="font-black text-gray-900 dark:text-white">$ {m.saldo.toLocaleString()}</p>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-center min-w-[80px]">
+                                                    {m.tipo === 'FACTURA' && (
+                                                        <>
+                                                            {m.estado === EstadoFacturaProveedor.PENDIENTE && (
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); setSelectedFacturaForPago(m.data); setIsPagoModalOpen(true); }}
+                                                                    className="w-full px-3 py-1.5 text-[10px] font-black rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors uppercase tracking-widest"
+                                                                >
+                                                                    PAGAR
+                                                                </button>
+                                                            )}
+                                                            {m.estado === EstadoFacturaProveedor.PAGADO_PARCIAL && (
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); setSelectedFacturaForPago(m.data); setIsPagoModalOpen(true); }}
+                                                                    className="w-full px-3 py-1.5 text-[10px] font-black rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors uppercase tracking-widest"
+                                                                >
+                                                                    PARCIAL
+                                                                </button>
+                                                            )}
+                                                            {m.estado === EstadoFacturaProveedor.PAGADO && (
+                                                                <span className="inline-block w-full px-3 py-1.5 text-[10px] font-black rounded-lg bg-green-100 text-green-600 uppercase tracking-widest text-center">
+                                                                    PAGADO
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    {m.tipo === 'PAGO' && (
+                                                        <span className="inline-block w-full px-3 py-1.5 text-[10px] font-black rounded-lg bg-blue-100 text-blue-600 uppercase tracking-widest text-center">
+                                                            ANTICIPO
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                {hasPagos && (
+                                                    <div className="text-gray-400">
+                                                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <AnimatePresence>
+                                        {isExpanded && hasPagos && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20"
+                                            >
+                                                <div className="p-4 pl-16 space-y-3">
+                                                    <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pagos imputados a esta factura</h5>
+                                                    <div className="grid gap-2">
+                                                        {m.pagosAsociados.map((p, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                                    <div>
+                                                                        <p className="text-xs font-bold text-gray-900 dark:text-white">Pago {p.metodo}</p>
+                                                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">
+                                                                            {new Date(p.fecha + 'T00:00:00').toLocaleDateString()}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-sm font-black text-green-600">+$ {p.monto.toLocaleString()}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </motion.div>
                                         )}
-                                        {m.tipo === 'FACTURA' && m.estado === EstadoFacturaProveedor.PAGADO_PARCIAL && (
-                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-yellow-100 text-yellow-800 cursor-pointer" onClick={() => { setSelectedFacturaForPago(m.data); setIsPagoModalOpen(true); }}>Pagar</span>
-                                        )}
-                                        {m.tipo === 'FACTURA' && m.estado === EstadoFacturaProveedor.PAGADO && (
-                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800">Pagado</span>
-                                        )}
-                                        {m.tipo === 'PAGO' && (
-                                            <span className="px-2 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-800">Aplicado</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {movimientosConSaldo.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">No hay movimientos registrados.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    </AnimatePresence>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {movimientosConSaldo.length === 0 && (
+                        <div className="p-12 text-center bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
+                            <p className="text-gray-400 italic font-medium">No se encontraron movimientos financieros para este proveedor.</p>
+                        </div>
+                    )}
                 </div>
             </Card>
 
