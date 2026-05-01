@@ -46,9 +46,10 @@ interface UsuariosViewProps {
 const UsuarioForm: React.FC<{
   usuario: Partial<Usuario>;
   productos: Producto[];
+  clientes: Cliente[];
   onSave: (usuario: Omit<Usuario, 'id'> | Usuario) => void;
   onClose: () => void;
-}> = ({ usuario, productos, onSave, onClose }) => {
+}> = ({ usuario, productos, clientes, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     comisiones: [],
     preciosEspeciales: [],
@@ -104,8 +105,21 @@ const UsuarioForm: React.FC<{
               <AppSelect label="Rol" name="rol" value={formData.rol || ''} onChange={handleChange} options={Object.values(Rol).map(r => ({value: r, label: r}))} required />
               <AppSelect label="Tipo" name="tipo" value={formData.tipo || ''} onChange={handleChange} options={[{value: TipoVendedor.INTERNO, label: 'Interno (Empleado)'}, {value: TipoVendedor.EXTERNO, label: 'Externo (Revendedor)'}]} required />
           </div>
+
+          {formData.rol === Rol.CLIENTE && (
+              <fieldset className="border-t dark:border-gray-600 pt-4">
+                  <legend className="text-xs font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest px-2 mb-2">Vincular con Cliente</legend>
+                  <SearchableSelect 
+                      options={clientes.filter(c => c.estado === 'Activo').map(c => ({value: c.id, label: c.nombre}))} 
+                      value={formData.clienteId || ''} 
+                      onChange={(v) => setFormData(prev => ({ ...prev, clienteId: v }))} 
+                      placeholder="Seleccione un cliente..."
+                  />
+                  <p className="mt-1 text-[10px] text-gray-500 italic">Esto permitirá al usuario ver su estado de cuenta personal al iniciar sesión.</p>
+              </fieldset>
+          )}
           
-          {isInternal && (
+          {isInternal && formData.rol !== Rol.CLIENTE && (
               <fieldset className="border-t dark:border-gray-600 pt-4">
                   <legend className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest px-2 mb-2">Comisiones por Producto</legend>
                   <div className="space-y-2">
@@ -566,7 +580,7 @@ const UsuariosView: React.FC<UsuariosViewProps> = ({
       </div>
       {editingUsuario && (
         <Modal isOpen={!!editingUsuario} onClose={() => setEditingUsuario(null)}>
-            <UsuarioForm usuario={editingUsuario} productos={productos} onSave={handleSaveUsuario} onClose={() => setEditingUsuario(null)} />
+            <UsuarioForm usuario={editingUsuario} productos={productos} clientes={clientes} onSave={handleSaveUsuario} onClose={() => setEditingUsuario(null)} />
         </Modal>
       )}
       {viewAccountUser && (

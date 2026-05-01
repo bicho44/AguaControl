@@ -70,6 +70,11 @@ const systemNavItems: NavItem[] = [
   { view: 'logs', label: 'Logs de Sistema', icon: <div className="text-xs font-mono font-bold bg-gray-200 dark:bg-gray-600 rounded px-1">LOG</div>, roles: [Rol.ADMINISTRADOR] },
 ];
 
+// Grupo 5: Perfil de Usuario
+const userNavItems: NavItem[] = [
+    { view: 'my_account', label: 'Mi Cuenta', icon: <BookOpenIcon />, roles: [Rol.CLIENTE] },
+    { view: 'my_profile', label: 'Mi Perfil', icon: <UsersIcon />, roles: [Rol.ADMINISTRADOR, Rol.REPARTIDOR, Rol.SOPLADOR, Rol.CLIENTE] },
+];
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSidebarOpen, onClose, currentUser, empresaSettings, appVersion }) => {
   
@@ -90,6 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   const group2 = filterItems(managementNavItems);
   const group3 = filterItems(catalogNavItems);
   const group4 = filterItems(systemNavItems);
+  const group5 = filterItems(userNavItems);
   
   // Plugins filtrados por rol
   const pluginItems = plugins.filter(p => {
@@ -148,6 +154,31 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
             )}
         </div>
 
+        <div 
+            onClick={() => setCurrentView('my_profile')}
+            className={`flex items-center gap-3 px-4 py-3 mb-6 rounded-2xl border cursor-pointer transition-all ${
+                currentView === 'my_profile' 
+                ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800' 
+                : 'bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+        >
+            <div className={`w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border ${
+                currentView === 'my_profile' ? 'border-primary-400' : 'border-primary-200 dark:border-primary-800'
+            }`}>
+                {currentUser.avatarUrl ? (
+                    <img src={currentUser.avatarUrl} alt={currentUser.nombre} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold">
+                        {currentUser.nombre.charAt(0).toUpperCase()}
+                    </div>
+                )}
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{currentUser.nombre}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-tight">{currentUser.rol}</p>
+            </div>
+        </div>
+
         <div className="flex-grow space-y-4">
             {renderNavList(group1)}
             
@@ -197,6 +228,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
                 <>
                     <hr className="border-gray-200 dark:border-gray-700" />
                     {renderNavList(group4)}
+                </>
+            )}
+
+            {group5.length > 0 && (
+                <>
+                    <hr className="border-gray-200 dark:border-gray-700" />
+                    {renderNavList(group5)}
                 </>
             )}
         </div>

@@ -18,6 +18,8 @@ import GestionStockView from './views/GestionStockView';
 import SystemLogsView from './views/SystemLogsView'; // Nueva vista
 import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
+import MyProfileView from './views/MyProfileView';
+import MyCustomerAccountView from './views/MyCustomerAccountView';
 import plugins from './plugins';
 import { useDataStore } from './hooks/useDataStore';
 import { View, Rol, LogLevel } from './types';
@@ -104,8 +106,9 @@ function AppContent() {
 
   const renderView = () => {
     // Seguridad: Permitir 'dashboard' también a los repartidores y sopladores
-    const allowedViewsForRepartidor: View[] = ['dashboard', 'remitos', 'clientes'];
-    const allowedViewsForSoplador: View[] = ['dashboard'];
+    const allowedViewsForRepartidor: View[] = ['dashboard', 'remitos', 'clientes', 'my_profile'];
+    const allowedViewsForSoplador: View[] = ['dashboard', 'my_profile'];
+    const allowedViewsForCliente: View[] = ['dashboard', 'my_account', 'my_profile'];
     
     // Props comunes para Dashboard (ahora incluye funciones de acción)
     const dashboardProps = {
@@ -141,6 +144,10 @@ function AppContent() {
     }
 
     if (user.rol === Rol.SOPLADOR && !allowedViewsForSoplador.includes(currentView) && !currentView.startsWith('plugin_')) {
+      return <DashboardView {...dashboardProps} />;
+    }
+
+    if (user.rol === Rol.CLIENTE && !allowedViewsForCliente.includes(currentView)) {
       return <DashboardView {...dashboardProps} />;
     }
 
@@ -378,6 +385,10 @@ function AppContent() {
           );
       case 'logs':
           return renderViewWithFailsafe('Logs del Sistema', <SystemLogsView logs={dataStore.logs} />);
+      case 'my_profile':
+          return renderViewWithFailsafe('Mi Perfil', <MyProfileView />);
+      case 'my_account':
+          return renderViewWithFailsafe('Mi Cuenta', <MyCustomerAccountView />);
       default:
         return renderViewWithFailsafe('Dashboard', <DashboardView {...dashboardProps} />);
     }

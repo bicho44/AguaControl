@@ -4,7 +4,8 @@ export type View = 'dashboard' | 'remitos' | 'clientes' | 'usuarios' | 'producto
 export enum Rol {
     ADMINISTRADOR = 'Administrador',
     REPARTIDOR = 'Repartidor',
-    SOPLADOR = 'Soplador'
+    SOPLADOR = 'Soplador',
+    CLIENTE = 'Cliente'
 }
 
 export enum LogLevel {
@@ -166,6 +167,8 @@ export interface Usuario {
     tipo: TipoVendedor;
     comisiones?: ComisionProducto[];
     preciosEspeciales?: PrecioEspecial[];
+    avatarUrl?: string;
+    clienteId?: string; // Para vincular el usuario con un cliente específico
 }
 
 export interface Producto {
