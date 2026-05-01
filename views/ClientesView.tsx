@@ -13,6 +13,8 @@ import { MapIcon } from '../components/icons/MapIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
 import { CubeIcon } from '../components/icons/CubeIcon';
 import { ClipboardListIcon } from '../components/icons/ClipboardListIcon';
+import { BookOpenIcon } from '../components/icons/BookOpenIcon';
+import { AccountStatement } from '../components/AccountStatement';
 import MapPickerModal from '../components/MapPickerModal';
 import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/ui/AppButton';
@@ -690,8 +692,15 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
   const [statusFilter, setStatusFilter] = useState<EstadoCliente | 'todos'>(EstadoCliente.ACTIVO);
   const [paymentFilter, setPaymentFilter] = useState<'todos' | 'cta_cte' | 'contado'>('todos');
   const [expandedClienteId, setExpandedClienteId] = useState<string | null>(null);
+  const [viewAccountClienteId, setViewAccountClienteId] = useState<string | null>(null);
   const { showNotification } = useNotification();
   const { user: currentUser } = useAuth();
+  const { facturas } = useDataStore();
+
+  const selectedClienteParaCuenta = useMemo(() => {
+      if (!viewAccountClienteId) return null;
+      return clientes.find(c => c.id === viewAccountClienteId);
+  }, [viewAccountClienteId, clientes]);
   
   // REQUISITO 1: Filtrar listado para externos usando el nuevo campo creadoPor
   const filteredClientes = useMemo(() => {
@@ -971,7 +980,17 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                             </div>
                             {currentUser?.rol === Rol.ADMINISTRADOR && (
                                 <div className="mt-6 pt-4 border-t dark:border-gray-700 flex justify-end">
-                                    {cliente.estado === 'Activo' ? (
+                                    {(currentUser?.rol === Rol.ADMINISTRADOR || currentUser?.tipo === TipoVendedor.INTERNO) && (
+                                    <AppButton 
+                                        variant="secondary" 
+                                        size="sm" 
+                                        onClick={(e) => { e.stopPropagation(); setViewAccountClienteId(cliente.id); }}
+                                        className="bg-primary-50 text-primary-600 border-primary-100 hover:bg-primary-100 uppercase text-[10px] font-black px-4"
+                                    >
+                                        <div className="w-3 h-3 mr-1"><BookOpenIcon /></div> Ver Cuenta Corriente
+                                    </AppButton>
+                                )}
+                                {cliente.estado === 'Activo' ? (
                                         <AppButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setClienteParaBaja(cliente); }}>Dar de Baja</AppButton>
                                     ) : (
                                         <AppButton variant="success" size="sm" onClick={(e) => { e.stopPropagation(); reactivarCliente(cliente.id); }}>Reactivar</AppButton>
@@ -996,6 +1015,19 @@ const ClientesView: React.FC<ClientesViewProps> = ({ clientes, remitos, producto
                 </div>
             </div>
         </Modal>
+      )}
+      {viewAccountClienteId && selectedClienteParaCuenta && (
+          <Modal isOpen={!!viewAccountClienteId} onClose={() => setViewAccountClienteId(null)}>
+              <div className="p-6">
+                  <AccountStatement 
+                      cliente={selectedClienteParaCuenta}
+                      facturas={facturas}
+                      remitos={remitos}
+                      productos={productos}
+                      registrosPago={registrosPago}
+                  />
+              </div>
+          </Modal>
       )}
     </div>
   )
