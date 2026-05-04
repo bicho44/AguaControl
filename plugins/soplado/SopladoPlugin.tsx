@@ -6,6 +6,7 @@ import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
 import AppInput from '../../components/ui/AppInput';
 import AppSelect from '../../components/ui/AppSelect';
+import SearchableSelect from '../../components/SearchableSelect';
 import Modal from '../../components/Modal';
 import { Preforma, Molde, ProduccionSoplado, EntregaSoplado, InsumoSoplado } from './types';
 import { Rol } from '../../types';
@@ -452,13 +453,13 @@ const SopladoPlugin: React.FC = () => {
                         <>
                             <AppInput label="Nombre del Molde" value={moldeForm.nombre} onChange={e => setMoldeForm({...moldeForm, nombre: e.target.value})} placeholder="Ej: Bidón 5L Reforzado" />
                             <AppInput label="Capacidad (Litros)" type="number" value={moldeForm.litros} onChange={e => setMoldeForm({...moldeForm, litros: Number(e.target.value)})} />
-                            <AppSelect 
+                            <SearchableSelect 
                                 label="Preforma que utiliza" 
                                 value={moldeForm.preformaId} 
-                                onChange={e => setMoldeForm({...moldeForm, preformaId: e.target.value})}
+                                onChange={v => setMoldeForm({...moldeForm, preformaId: v})}
                                 options={[
                                     { value: '', label: 'Seleccionar preforma' },
-                                    ...preformas.map(p => ({ value: p.id, label: `${p.color} - ${p.peso}g` }))
+                                    ...preformas.map(p => ({ value: p.id, label: `${p.color} - ${p.peso}g`, searchTerms: `${p.color} ${p.peso}g` }))
                                 ]}
                             />
                         </>
@@ -477,13 +478,13 @@ const SopladoPlugin: React.FC = () => {
                     {modalType === 'produccion' && (
                         <>
                             <AppInput label="Fecha" type="date" value={produccionForm.fecha} onChange={e => setProduccionForm({...produccionForm, fecha: e.target.value})} />
-                            <AppSelect 
+                            <SearchableSelect 
                                 label="Molde / Producto" 
                                 value={produccionForm.moldeId} 
-                                onChange={e => setProduccionForm({...produccionForm, moldeId: e.target.value})}
+                                onChange={v => setProduccionForm({...produccionForm, moldeId: v})}
                                 options={[
                                     { value: '', label: 'Seleccionar molde' },
-                                    ...moldes.map(m => ({ value: m.id, label: m.nombre }))
+                                    ...moldes.map(m => ({ value: m.id, label: m.nombre, searchTerms: m.nombre }))
                                 ]}
                             />
                             <div className="grid grid-cols-2 gap-4">
@@ -506,35 +507,36 @@ const SopladoPlugin: React.FC = () => {
                     {modalType === 'entrega' && (
                         <>
                             <AppInput label="Fecha" type="date" value={entregaForm.fecha} onChange={e => setEntregaForm({...entregaForm, fecha: e.target.value})} />
-                            <AppSelect 
+                            <SearchableSelect 
                                 label="Producto a entregar" 
                                 value={entregaForm.moldeId} 
-                                onChange={e => setEntregaForm({...entregaForm, moldeId: e.target.value})}
+                                onChange={v => setEntregaForm({...entregaForm, moldeId: v})}
                                 options={[
                                     { value: '', label: 'Seleccionar producto' },
-                                    ...moldes.map(m => ({ value: m.id, label: m.nombre }))
+                                    ...moldes.map(m => ({ value: m.id, label: m.nombre, searchTerms: m.nombre }))
                                 ]}
                             />
-                            <AppSelect 
+                            <SearchableSelect 
                                 label="Destino" 
                                 value={entregaForm.destino} 
-                                onChange={e => setEntregaForm({...entregaForm, destino: e.target.value})}
+                                onChange={v => setEntregaForm({...entregaForm, destino: v})}
                                 options={[
-                                    { value: 'PLANTA', label: 'PLANTA INTERNA (Llenado)' },
-                                    ...clientes.map(c => ({ value: c.id, label: c.nombre }))
+                                    { value: 'PLANTA', label: 'PLANTA INTERNA (Llenado)', searchTerms: 'planta interna llenado' },
+                                    ...clientes.map(c => ({ value: c.id, label: c.nombre, searchTerms: c.nombre }))
                                 ]}
                             />
                             {entregaForm.destino === 'PLANTA' && (
-                                <AppSelect 
-                                    label="Asociar a Producto (Stock Envases de Planta)" 
-                                    value={entregaForm.productoDestinoId || ''} 
-                                    onChange={e => setEntregaForm({...entregaForm, productoDestinoId: e.target.value})}
-                                    options={[
-                                        { value: '', label: 'Seleccione producto a impactar...' },
-                                        ...productos.filter(p => p.tipo === 'Descartable').map(p => ({ value: p.id, label: p.nombre + ' (' + p.litros + 'L)' }))
-                                    ]}
-                                    required
-                                />
+                                <div className="mt-2 text-left">
+                                    <SearchableSelect 
+                                        label="Asociar a Producto (Stock Envases de Planta)" 
+                                        value={entregaForm.productoDestinoId || ''} 
+                                        onChange={v => setEntregaForm({...entregaForm, productoDestinoId: v})}
+                                        options={[
+                                            { value: '', label: 'Seleccione producto a impactar...' },
+                                            ...productos.filter(p => p.tipo === 'Descartable').map(p => ({ value: p.id, label: p.nombre + ' (' + p.litros + 'L)', searchTerms: p.nombre }))
+                                        ]}
+                                    />
+                                </div>
                             )}
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-gray-500 ml-1">Cantidad</label>
@@ -551,16 +553,16 @@ const SopladoPlugin: React.FC = () => {
                                 {entregaForm.insumos?.map((ins, idx) => (
                                     <div key={idx} className="flex gap-2 mb-2 items-center">
                                         <div className="flex-1">
-                                            <AppSelect 
+                                            <SearchableSelect 
                                                 value={ins.insumoId} 
-                                                onChange={e => {
+                                                onChange={v => {
                                                     const newInsumos = [...(entregaForm.insumos || [])];
-                                                    newInsumos[idx].insumoId = e.target.value;
+                                                    newInsumos[idx].insumoId = v;
                                                     setEntregaForm({...entregaForm, insumos: newInsumos});
                                                 }}
                                                 options={[
                                                     { value: '', label: 'Seleccionar insumo' },
-                                                    ...insumosSoplado.map(i => ({ value: i.id, label: i.nombre }))
+                                                    ...insumosSoplado.map(i => ({ value: i.id, label: i.nombre, searchTerms: i.nombre }))
                                                 ]}
                                             />
                                         </div>
