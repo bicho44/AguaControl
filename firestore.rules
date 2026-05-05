@@ -40,6 +40,17 @@ service cloud.firestore {
     match /preformas/{preformaId} {
       allow read, write: if isSoplador();
     }
+    
+    // Ojo Magico
+    match /ojo_magico_queue/{queueId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /proveedores/{provId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /facturas_proveedor/{facId} {
+      allow read, write: if isAuthenticated();
+    }
     match /moldes/{moldeId} {
       allow read, write: if isSoplador();
     }

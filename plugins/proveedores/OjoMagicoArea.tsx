@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { extractFacturaData } from './ocrService';
 import { useDataStore } from '../../hooks/useDataStore';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import { UploadCloud, FileText, Camera, X, Check } from 'lucide-react';
@@ -24,8 +24,22 @@ export const OjoMagicoArea: React.FC = () => {
     const { showNotification } = useNotification();
     
     // Cola de extracción
-    const [queue, setQueue] = useState<QueueItem[]>([]);
+    const [queue, setQueue] = useState<any[]>([]);
+    const [localFiles, setLocalFiles] = useState<{ id: string, file?: File, base64?: string, mimeType?: string }[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
+    
+    // Auth no se usa estrictamente, pero le podemos poner "unknown" si falla
+    
+    useEffect(() => {
+        const q = query(collection(db, 'ojo_magico_queue'), orderBy('createdAt', 'desc'), limit(30));
+        const unsub = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Ordenar por fecha asc para que los mas viejos se muestren primero (si fuesen pendientes) o como se prefiera
+            data.sort((a: any, b: any) => a.createdAt - b.createdAt);
+            setQueue(data);
+        });
+        return () => unsub();
+    }, []);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
@@ -35,24 +49,18 @@ export const OjoMagicoArea: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
 
-    // Procesamiento en background de la cola
+    // Procesamiento en background de la cola de archivos locales (subidos por este usuario)
     useEffect(() => {
         const processNextInQueue = async () => {
-            const nextItem = queue.find(q => q.status === 'pending');
+            const nextItem = localFiles.find(q => queue.find(fi => fi.id === q.id)?.status === 'pending') || localFiles[0];
             
             if (!nextItem) {
-                // Cola terminada
+                // Cola terminada localmente
                 if (isExtracting) {
                     setIsExtracting(false);
-                    const doneItems = queue.filter(q => q.status === 'done').length;
-                    if (doneItems > 0) {
-                        showNotification(`¡Procesamiento finalizado! ${doneItems} facturas registradas.`, 'success');
-                        window.dispatchEvent(new CustomEvent('ojo_magico_done', { detail: { count: doneItems } }));
-                    }
-                    // Limpiar cola oculta unos segundos después si queremos, o dejarla 
-                    setTimeout(() => {
-                        setQueue(curr => curr.filter(q => q.status !== 'done' && q.status !== 'error'));
-                    }, 5000);
+                    // Solo limpiamos los locales. Firebase se encarga del estado visual 
+                    setLocalFiles([]);
+                    setTimeout(() => window.dispatchEvent(new CustomEvent('ojo_magico_done', { detail: { count: 1 } })), 1000);
                 }
                 return;
             }
@@ -61,8 +69,12 @@ export const OjoMagicoArea: React.FC = () => {
                 setIsExtracting(true);
             }
 
-            // Marcar como procesando
-            setQueue(curr => curr.map(item => item.id === nextItem.id ? { ...item, status: 'processing' } : item));
+            // Marcar como procesando en Firestore
+            try {
+                await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'processing' });
+            } catch(e) {
+                console.error(e);
+            }
 
             try {
                 let base64String = nextItem.base64;
@@ -83,18 +95,20 @@ export const OjoMagicoArea: React.FC = () => {
                     await processBase64(base64String, mimeType);
                 }
                 
-                // Marcar como completado
-                setQueue(curr => curr.map(item => item.id === nextItem.id ? { ...item, status: 'done' } : item));
+                // Marcar como completado en firebase
+                await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'done' });
                 
             } catch (error: any) {
                 console.error(error);
-                setQueue(curr => curr.map(item => item.id === nextItem.id ? { ...item, status: 'error', error: error.message } : item));
+                await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'error', error: error.message });
             }
+            
+            setLocalFiles(curr => curr.filter(f => f.id !== nextItem.id));
         };
 
         processNextInQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queue, isExtracting]);
+    }, [localFiles, isExtracting, queue]);
 
     useEffect(() => {
         if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
@@ -272,13 +286,19 @@ export const OjoMagicoArea: React.FC = () => {
         }
     };
 
-    const addToQueue = (item: Omit<QueueItem, 'id' | 'status'>) => {
-        const newItem: QueueItem = {
-            ...item,
-            id: Math.random().toString(36).substring(7),
-            status: 'pending'
-        };
-        setQueue(curr => [...curr, newItem]);
+    const addToQueue = async (item: Omit<QueueItem, 'id' | 'status'>) => {
+        const fileName = item.file ? item.file.name : `Captura-${new Date().toLocaleTimeString()}`;
+        try {
+            const docRef = await addDoc(collection(db, 'ojo_magico_queue'), {
+                fileName,
+                status: 'pending',
+                createdAt: Date.now()
+            });
+            setLocalFiles(curr => [...curr, { id: docRef.id, ...item }]);
+        } catch (e) {
+            console.error("Error al encolar en firestore", e);
+            showNotification("Error de conexión al encolar documento", "error");
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,7 +407,7 @@ export const OjoMagicoArea: React.FC = () => {
                             <div key={item.id} className="flex flex-col gap-1 text-sm bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
                                 <div className="flex items-center justify-between">
                                     <span className="font-semibold text-gray-700 dark:text-gray-300 truncate text-xs flex-1">
-                                        {item.file?.name || `Captura #${index + 1}`}
+                                        {item.fileName || `Captura #${index + 1}`}
                                     </span>
                                     <span className="shrink-0 ml-2">
                                         {item.status === 'pending' && <span className="text-[10px] font-bold px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">Pendiente</span>}

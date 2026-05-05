@@ -14,6 +14,13 @@ vi.mock('firebase/firestore', () => ({
     updateDoc: vi.fn(),
     deleteDoc: vi.fn(),
     getFirestore: vi.fn(),
+    onSnapshot: vi.fn().mockImplementation((query, cb) => {
+        cb({ docs: [] });
+        return () => {};
+    }),
+    query: vi.fn(),
+    orderBy: vi.fn(),
+    limit: vi.fn(),
 }));
 
 vi.mock('./ocrService', () => ({
