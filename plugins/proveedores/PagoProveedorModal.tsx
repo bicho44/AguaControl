@@ -29,6 +29,7 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
         metodo: MetodoPago.EFECTIVO,
         observaciones: ''
     });
+    const [afectarCaja, setAfectarCaja] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
@@ -40,6 +41,7 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
                 metodo: MetodoPago.EFECTIVO,
                 observaciones: ''
             });
+            setAfectarCaja(true);
 
             if (initialFacturaId) {
                 const fac = facturasProveedor.find(f => f.id === initialFacturaId);
@@ -86,19 +88,22 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
             const pagoRef = doc(collection(db, 'pagos_proveedor'));
             batch.set(pagoRef, formData);
 
-            // 2. Afectar caja (Gasto)
-            const gastoRef = doc(collection(db, 'gastos'));
+            // 2. Afectar caja (Gasto) si corresponde
             const prov = proveedores.find(p => p.id === formData.proveedorId);
-            const provName = prov ? prov.nombre : 'Desconocido';
             const fac = facturasProveedor.find(f => f.id === formData.facturaProveedorId);
-            const facNumber = fac ? fac.numero : 'Adelanto';
             
-            batch.set(gastoRef, {
-                fecha: formData.fecha,
-                concepto: `Pago a Proveedor: ${provName} (Fac: ${facNumber})`,
-                pagos: [{ monto: formData.monto, metodo: formData.metodo }],
-                observaciones: formData.observaciones || ''
-            });
+            if (afectarCaja) {
+                const gastoRef = doc(collection(db, 'gastos'));
+                const provName = prov ? prov.nombre : 'Desconocido';
+                const facNumber = fac ? fac.numero : 'Adelanto';
+                
+                batch.set(gastoRef, {
+                    fecha: formData.fecha,
+                    concepto: `Pago a Proveedor: ${provName} (Fac: ${facNumber})`,
+                    pagos: [{ monto: formData.monto, metodo: formData.metodo }],
+                    observaciones: formData.observaciones || ''
+                });
+            }
 
             // 3. Actualizar factura si corresponde
             if (formData.facturaProveedorId && fac) {
@@ -149,11 +154,24 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
 
                 <AppInput label="Observaciones" value={formData.observaciones || ''} onChange={e => setFormData({...formData, observaciones: e.target.value})} />
                 
-                <p className="text-xs text-orange-500 font-bold">* Al registrar este pago, el importe impactará en la <span className="underline">Caja</span> de manera automática como un Gasto.</p>
+                <div className="flex items-center gap-2 px-2">
+                    <input 
+                        type="checkbox" 
+                        id="afectarCaja" 
+                        checked={afectarCaja} 
+                        onChange={(e) => setAfectarCaja(e.target.checked)}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <label htmlFor="afectarCaja" className="text-sm font-medium text-gray-900 dark:text-gray-300">
+                        Afectar Caja (Crear como Gasto)
+                    </label>
+                </div>
+
+                {afectarCaja && <p className="text-xs text-orange-500 font-bold px-2">* El importe impactará en la <span className="underline">Caja</span> de manera automática como un Gasto.</p>}
 
                 <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
                     <AppButton variant="secondary" onClick={onClose}>Cancelar</AppButton>
-                    <AppButton onClick={handleSave}>Registrar y Afectar Caja</AppButton>
+                    <AppButton onClick={handleSave}>Registrar Pago</AppButton>
                 </div>
             </div>
         </Modal>

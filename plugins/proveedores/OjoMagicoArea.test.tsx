@@ -65,10 +65,6 @@ describe('OjoMagicoArea Component', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByText(/Analizando factura/i)).toBeDefined();
-        });
-
-        await waitFor(() => {
             expect(mockExtract).toHaveBeenCalled();
         });
     });

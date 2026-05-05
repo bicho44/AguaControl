@@ -10,10 +10,23 @@ import { getLocalDateString } from '../../utils/dateUtils';
 import AppButton from '../../components/ui/AppButton';
 import Modal from '../../components/Modal';
 
+interface QueueItem {
+    id: string;
+    file?: File;
+    base64?: string;
+    mimeType?: string;
+    status: 'pending' | 'processing' | 'done' | 'error';
+    error?: string;
+}
+
 export const OjoMagicoArea: React.FC = () => {
     const { proveedores, clientes, facturasProveedor } = useDataStore();
     const { showNotification } = useNotification();
+    
+    // Cola de extracción
+    const [queue, setQueue] = useState<QueueItem[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
@@ -21,6 +34,67 @@ export const OjoMagicoArea: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
+
+    // Procesamiento en background de la cola
+    useEffect(() => {
+        const processNextInQueue = async () => {
+            const nextItem = queue.find(q => q.status === 'pending');
+            
+            if (!nextItem) {
+                // Cola terminada
+                if (isExtracting) {
+                    setIsExtracting(false);
+                    const doneItems = queue.filter(q => q.status === 'done').length;
+                    if (doneItems > 0) {
+                        showNotification(`¡Procesamiento finalizado! ${doneItems} facturas registradas.`, 'success');
+                        window.dispatchEvent(new CustomEvent('ojo_magico_done', { detail: { count: doneItems } }));
+                    }
+                    // Limpiar cola oculta unos segundos después si queremos, o dejarla 
+                    setTimeout(() => {
+                        setQueue(curr => curr.filter(q => q.status !== 'done' && q.status !== 'error'));
+                    }, 5000);
+                }
+                return;
+            }
+
+            if (!isExtracting) {
+                setIsExtracting(true);
+            }
+
+            // Marcar como procesando
+            setQueue(curr => curr.map(item => item.id === nextItem.id ? { ...item, status: 'processing' } : item));
+
+            try {
+                let base64String = nextItem.base64;
+                let mimeType = nextItem.mimeType;
+
+                if (nextItem.file) {
+                    mimeType = nextItem.file.type;
+                    const reader = new FileReader();
+                    const filePromise = new Promise<string>((resolve, reject) => {
+                        reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
+                        reader.onerror = reject;
+                    });
+                    reader.readAsDataURL(nextItem.file);
+                    base64String = await filePromise;
+                }
+
+                if (base64String && mimeType) {
+                    await processBase64(base64String, mimeType);
+                }
+                
+                // Marcar como completado
+                setQueue(curr => curr.map(item => item.id === nextItem.id ? { ...item, status: 'done' } : item));
+                
+            } catch (error: any) {
+                console.error(error);
+                setQueue(curr => curr.map(item => item.id === nextItem.id ? { ...item, status: 'error', error: error.message } : item));
+            }
+        };
+
+        processNextInQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [queue, isExtracting]);
 
     useEffect(() => {
         if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
@@ -66,23 +140,17 @@ export const OjoMagicoArea: React.FC = () => {
         }
     };
 
-    const handleConfirmPhoto = async () => {
+    const handleConfirmPhoto = () => {
         if (!capturedImage) return;
         
         const base64Data = capturedImage.split(',')[1];
         stopCamera();
         
-        setIsExtracting(true);
-        showNotification('Procesando foto con IA...', 'success');
-
-        try {
-            // Reutilizamos la lógica de procesamiento pero con el base64 directo
-            await processBase64(base64Data, 'image/jpeg');
-        } catch (error: any) {
-            console.error(error);
-            showNotification('Error procesando foto: ' + error.message, 'error');
-            setIsExtracting(false);
-        }
+        addToQueue({
+            base64: base64Data,
+            mimeType: 'image/jpeg'
+        });
+        showNotification('Foto agregada a la cola de procesamiento...', 'success');
     };
 
     const processBase64 = async (base64String: string, mimeType: string) => {
@@ -160,16 +228,18 @@ export const OjoMagicoArea: React.FC = () => {
                 }
             }
 
-            const existingFac = facturasProveedor.find(f => f.proveedorId === foundProvId && f.numero === extractedData.numero);
+            const tipo = (extractedData.tipoComprobante || 'A') as any;
+            const existingFac = facturasProveedor.find(f => f.proveedorId === foundProvId && f.numero === extractedData.numero && f.tipoComprobante === tipo);
             if (existingFac) {
-                showNotification(`Esta factura (${extractedData.numero}) ya se encuentra registrada`, 'error');
-                return;
+                const errorMsg = `La factura ${tipo} ${extractedData.numero} ya se encuentra registrada para este proveedor.`;
+                showNotification(errorMsg, 'error');
+                throw new Error(errorMsg);
             }
 
             const dataToSave = {
                 proveedorId: foundProvId,
                 numero: extractedData.numero || 'S/N',
-                tipoComprobante: (extractedData.tipoComprobante || 'A') as any,
+                tipoComprobante: tipo,
                 fechaEmision: extractedData.fechaEmision || getLocalDateString(new Date()),
                 fechaVencimiento: extractedData.fechaVencimiento || getLocalDateString(new Date()),
                 subtotalNeto: extractedData.subtotalNeto || 0,
@@ -199,53 +269,42 @@ export const OjoMagicoArea: React.FC = () => {
                 showNotification('Error extrayendo datos: ' + error.message, 'error');
             }
             throw error;
-        } finally {
-            setIsExtracting(false);
-            setIsDragOver(false);
         }
     };
 
-    const processFile = async (file: File) => {
-        setIsExtracting(true);
-        showNotification('Procesando factura con IA...', 'success');
-
-        try {
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const base64String = (event.target?.result as string).split(',')[1];
-                try {
-                    await processBase64(base64String, file.type);
-                } catch (e) {
-                    // processBase64 ya maneja notificaciones
-                } finally {
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                }
-            };
-            reader.readAsDataURL(file);
-        } catch (error) {
-            setIsExtracting(false);
-            showNotification('Error leyendo archivo', 'error');
-        }
+    const addToQueue = (item: Omit<QueueItem, 'id' | 'status'>) => {
+        const newItem: QueueItem = {
+            ...item,
+            id: Math.random().toString(36).substring(7),
+            status: 'pending'
+        };
+        setQueue(curr => [...curr, newItem]);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            processFile(e.target.files[0]);
+        if (e.target.files && e.target.files.length > 0) {
+            Array.from(e.target.files).forEach(file => {
+                addToQueue({ file });
+            });
+            showNotification(`${e.target.files.length} archivo(s) agregado(s) a la cola...`, 'success');
         }
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         setIsDragOver(false);
-        if (isExtracting) return;
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            processFile(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            Array.from(e.dataTransfer.files).forEach(file => {
+                addToQueue({ file });
+            });
+            showNotification(`${e.dataTransfer.files.length} archivo(s) agregado(s) a la cola...`, 'success');
         }
     };
 
     const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-        if (!isExtracting) setIsDragOver(true);
+        setIsDragOver(true);
     };
 
     const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
@@ -253,36 +312,36 @@ export const OjoMagicoArea: React.FC = () => {
         setIsDragOver(false);
     };
 
+    const queueCount = queue.filter(q => q.status === 'pending' || q.status === 'processing').length;
+
     return (
         <div className="h-full group">
             <div 
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
-                onClick={() => {
-                    if (!isExtracting) fileInputRef.current?.click();
-                }}
+                onClick={() => fileInputRef.current?.click()}
                 className={`cursor-pointer transition-all border-2 border-dashed rounded-xl p-3 flex flex-row items-center justify-center text-left gap-3 h-full relative overflow-hidden ${
                     isDragOver ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 
-                    isExtracting ? 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 opacity-70 cursor-not-allowed' :
+                    isExtracting ? 'border-purple-300 bg-purple-50 dark:border-purple-800 dark:bg-gray-800 shadow-inner' :
                     'border-purple-300 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/10 dark:to-gray-800 dark:border-purple-800 hover:border-purple-500 hover:shadow-lg'
                 }`}
             >
                 <input 
                     type="file" 
                     accept="image/*,.pdf" 
+                    multiple
                     ref={fileInputRef} 
                     className="hidden" 
                     onChange={handleFileChange} 
-                    disabled={isExtracting}
                 />
 
                 {isExtracting ? (
                     <>
                         <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin shrink-0"></div>
-                        <div>
-                            <h3 className="text-sm font-bold text-gray-800 dark:text-white">✨ Ojo Mágico Trabajando...</h3>
-                            <p className="text-xs text-gray-500 font-medium">Analizando factura...</p>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-gray-800 dark:text-white truncate">✨ Ojo Mágico Trabajando</h3>
+                            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium truncate">Procesando {queueCount} facturas restantes...</p>
                         </div>
                     </>
                 ) : (
@@ -293,7 +352,7 @@ export const OjoMagicoArea: React.FC = () => {
                         <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-bold text-gray-800 dark:text-white truncate">✨ Ojo Mágico</h3>
                             <p className="text-xs text-gray-500 hidden md:block truncate">
-                                Arrastrá o hacé clic
+                                Arrastrá varias facturas
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -375,7 +434,7 @@ export const OjoMagicoArea: React.FC = () => {
                                 onClick={handleConfirmPhoto}
                                 className="flex-1 bg-purple-600 hover:bg-purple-700"
                             >
-                                <Check className="w-4 h-4 mr-2" /> Procesar Factura
+                                <Check className="w-4 h-4 mr-2" /> Agregar a Cola
                             </AppButton>
                         )}
                     </div>
