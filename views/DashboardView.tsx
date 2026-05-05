@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { 
   Calendar, 
   AlertTriangle, 
@@ -994,7 +994,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     monthlySalesVolumeChartData,
     currentMonthDailySalesData,
     nonReturnableMonthlyData,
-    externalVendorsPieData,
+    externalVendorsBarData,
+    allExternalProducts,
     stockEnCalle,
     vendedoresComisiones
   } = useMemo(() => {
@@ -1219,17 +1220,45 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         };
     }).filter(d => d.actual > 0 || d.anterior > 0);
 
-    const externalSalesMap = new Map<string, number>();
-    monthlyVentas.forEach(v => {
-        const vendor = usuariosMap.get(v.vendedorId);
+    // CÁLCULO DE VENTAS A VENDEDORES EXTERNOS (Agrupado por Vendedor y Producto)
+    const externalSalesMap = new Map<string, Record<string, number>>();
+    const allExternalProducts = new Set<string>();
+
+    const processExternalSale = (vendedorId: string, clienteId: string | undefined, movimientos: any[]) => {
+        // Remove guard check. Include all sales made by the external vendor.
+        const vendor = usuariosMap.get(vendedorId);
         if (vendor?.tipo === TipoVendedor.EXTERNO) {
-            const totalUnits = v.movimientos.reduce((s, m) => s + m.cantidad, 0);
-            externalSalesMap.set(vendor.nombre, (externalSalesMap.get(vendor.nombre) || 0) + totalUnits);
+            if (!externalSalesMap.has(vendor.nombre)) externalSalesMap.set(vendor.nombre, {});
+            const vData = externalSalesMap.get(vendor.nombre)!;
+            
+            movimientos.forEach(m => {
+                const prod = productosMap.get(m.productoId);
+                if (prod) {
+                    const pName = prod.abreviatura || shortName(prod.nombre);
+                    const cant = Number(m.cantidad || m.entregados) || 0;
+                    if (cant > 0) {
+                        vData[pName] = (vData[pName] || 0) + cant;
+                        allExternalProducts.add(pName);
+                    }
+                }
+            });
         }
+    };
+
+    monthlyVentas.forEach(v => processExternalSale(v.vendedorId, v.clienteId, v.movimientos));
+    monthlyRemitos.forEach(r => processExternalSale(r.vendedorId, r.clienteId, r.movimientos));
+
+    const externalVendorsBarData = Array.from(externalSalesMap.entries()).map(([name, data]) => ({
+        name,
+        ...data
+    }));
+    
+    // Sort by total units descending
+    externalVendorsBarData.sort((a, b) => {
+        const totalA = Object.keys(a).filter(k => k !== 'name').reduce((sum, k) => sum + (a[k] as number), 0);
+        const totalB = Object.keys(b).filter(k => k !== 'name').reduce((sum, k) => sum + (b[k] as number), 0);
+        return totalB - totalA;
     });
-    const externalVendorsPieData = Array.from(externalSalesMap.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
 
     // NUEVO CÁLCULO: Stock en calle (envases/equipos en poder de clientes)
     const counts: Record<string, number> = {};
@@ -1258,7 +1287,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         monthlySalesVolumeChartData: monthlyHistoryData,
         currentMonthDailySalesData: dailyEvolutionData,
         nonReturnableMonthlyData,
-        externalVendorsPieData,
+        externalVendorsBarData,
+        allExternalProducts: Array.from(allExternalProducts),
         stockEnCalle,
         vendedoresComisiones: comisiones
     }
@@ -1739,30 +1769,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     vendedores_externos: (
       <div className="h-full w-full">
           <Card title="Vendedores Externos">
-              <div className="h-80 px-2 flex flex-col">
-                  {externalVendorsPieData.length > 0 ? (
+              <div className="h-80 w-full">
+                  {externalVendorsBarData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                              <Pie
-                                  data={externalVendorsPieData}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={60}
-                                  outerRadius={80}
-                                  paddingAngle={5}
-                                  dataKey="value"
-                                  label={({ value }) => `${value}`}
-                              >
-                                  {externalVendorsPieData.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                  ))}
-                              </Pie>
-                              <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
-                              <Legend verticalAlign="bottom" height={36} />
-                          </PieChart>
+                          <BarChart data={externalVendorsBarData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 'bold' }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 'bold' }} />
+                              <Tooltip contentStyle={lightTooltipStyle} cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }} />
+                              <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                              {allExternalProducts.map((pName, index) => (
+                                  <Bar key={pName} dataKey={pName} stackId="a" fill={PIE_COLORS[index % PIE_COLORS.length]} radius={index === allExternalProducts.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                              ))}
+                          </BarChart>
                       </ResponsiveContainer>
                   ) : (
-                      <div className="flex-1 flex items-center justify-center text-gray-400 text-xs uppercase font-black">Sin ventas externas</div>
+                      <div className="flex flex-col items-center justify-center h-full opacity-40">
+                          <p className="text-xs font-bold uppercase">Sin ventas externas</p>
+                      </div>
                   )}
               </div>
           </Card>
