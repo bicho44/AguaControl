@@ -315,13 +315,13 @@ export const OjoMagicoArea: React.FC = () => {
     const queueCount = queue.filter(q => q.status === 'pending' || q.status === 'processing').length;
 
     return (
-        <div className="h-full group">
+        <div className="h-full relative group">
             <div 
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
                 onClick={() => fileInputRef.current?.click()}
-                className={`cursor-pointer transition-all border-2 border-dashed rounded-xl p-3 flex flex-row items-center justify-center text-left gap-3 h-full relative overflow-hidden ${
+                className={`cursor-pointer transition-all border-2 border-dashed rounded-xl p-3 flex flex-row items-center justify-center text-left gap-3 h-full relative overflow-hidden z-10 ${
                     isDragOver ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 
                     isExtracting ? 'border-purple-300 bg-purple-50 dark:border-purple-800 dark:bg-gray-800 shadow-inner' :
                     'border-purple-300 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/10 dark:to-gray-800 dark:border-purple-800 hover:border-purple-500 hover:shadow-lg'
@@ -373,6 +373,39 @@ export const OjoMagicoArea: React.FC = () => {
                     </>
                 )}
             </div>
+
+            {queue.length > 0 && (
+                <div className="absolute top-full right-0 mt-2 w-72 max-h-[300px] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 flex flex-col">
+                    <div className="sticky top-0 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 px-3 py-2 flex justify-between items-center backdrop-blur-sm">
+                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Cola de Procesos</span>
+                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded-full font-bold">
+                            {queue.filter(q => q.status === 'done').length} / {queue.length}
+                        </span>
+                    </div>
+                    <div className="p-2 space-y-2">
+                        {queue.map((item, index) => (
+                            <div key={item.id} className="flex flex-col gap-1 text-sm bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-gray-700 dark:text-gray-300 truncate text-xs flex-1">
+                                        {item.file?.name || `Captura #${index + 1}`}
+                                    </span>
+                                    <span className="shrink-0 ml-2">
+                                        {item.status === 'pending' && <span className="text-[10px] font-bold px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">Pendiente</span>}
+                                        {item.status === 'processing' && <span className="text-[10px] font-bold px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded animate-pulse">Procesando...</span>}
+                                        {item.status === 'done' && <span className="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">Completado</span>}
+                                        {item.status === 'error' && <span className="text-[10px] font-bold px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">Error</span>}
+                                    </span>
+                                </div>
+                                {item.error && (
+                                    <div className="text-[10px] text-red-600 dark:text-red-400 mt-1 line-clamp-2" title={item.error}>
+                                        {item.error}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Camera Capture Modal */}
             <Modal 
