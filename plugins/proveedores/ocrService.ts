@@ -86,6 +86,10 @@ export async function extractFacturaData(fileBase64: string, mimeType: string, r
             throw new Error("429_QUOTA_EXCEEDED");
         }
 
+        if (error.message?.toLowerCase().includes("networkerror") || error.message?.toLowerCase().includes("fetch")) {
+            throw new Error("NETWORK_ERROR");
+        }
+
         // Personalizamos el error para que sea informativo pero no mate la app
         if (error.message?.includes("API key")) {
             throw new Error("Error de Configuración: La API Key de Gemini no es válida o no tiene permisos.");

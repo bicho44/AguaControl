@@ -4,7 +4,7 @@ import { useDataStore } from '../../hooks/useDataStore';
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
-import { UploadCloud, FileText, Camera, X, Check } from 'lucide-react';
+import { UploadCloud, FileText, Camera, X, Check, List } from 'lucide-react';
 import { EstadoFacturaProveedor, Proveedor } from '../../types';
 import { getLocalDateString } from '../../utils/dateUtils';
 import AppButton from '../../components/ui/AppButton';
@@ -28,6 +28,7 @@ export const OjoMagicoArea: React.FC = () => {
     const [localFiles, setLocalFiles] = useState<{ id: string, file?: File, base64?: string, mimeType?: string }[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
     const [isQuotaPaused, setIsQuotaPaused] = useState(false);
+    const [showQueueUI, setShowQueueUI] = useState(false);
     
     // Auth no se usa estrictamente, pero le podemos poner "unknown" si falla
     
@@ -104,7 +105,7 @@ export const OjoMagicoArea: React.FC = () => {
                 
             } catch (error: any) {
                 console.error(error);
-                if (error.message?.includes("429_QUOTA_EXCEEDED")) {
+                if (error.message?.includes("429_QUOTA_EXCEEDED") || error.message?.includes("NETWORK_ERROR")) {
                     await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'pending' });
                     setIsExtracting(false);
                     setIsQuotaPaused(true);
@@ -290,6 +291,8 @@ export const OjoMagicoArea: React.FC = () => {
                 showNotification('El servicio de IA está saturado. Reintenta en unos minutos.', 'error');
             } else if (error.message === "429_QUOTA_EXCEEDED") {
                 showNotification('Sin créditos de IA. El procesamiento se ha pausado.', 'error');
+            } else if (error.message === "NETWORK_ERROR") {
+                showNotification('Error de red. El procesamiento se ha pausado. Revisa tu conexión.', 'error');
             } else {
                 showNotification('Error extrayendo datos: ' + error.message, 'error');
             }
@@ -375,17 +378,31 @@ export const OjoMagicoArea: React.FC = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-bold text-gray-800 dark:text-white truncate">✨ Ojo Mágico Pausado</h3>
-                            <p className="text-xs text-red-600 dark:text-red-400 font-medium truncate">Sin créditos. {queueCount} pendientes.</p>
+                            <p className="text-xs text-red-600 dark:text-red-400 font-medium truncate">Proceso pausado. {queueCount} pendientes.</p>
                         </div>
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsQuotaPaused(false);
-                            }}
-                            className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
-                        >
-                            Reintentar
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsQuotaPaused(false);
+                                }}
+                                className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
+                            >
+                                Reintentar
+                            </button>
+                            {queue.length > 0 && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowQueueUI(!showQueueUI);
+                                    }}
+                                    className={`p-2 rounded-lg shadow-sm transition-all active:scale-90 ${showQueueUI ? 'bg-purple-700 text-white' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'}`}
+                                    title="Ver Cola de Procesos"
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                     </>
                 ) : isExtracting ? (
                     <>
@@ -393,6 +410,20 @@ export const OjoMagicoArea: React.FC = () => {
                         <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-bold text-gray-800 dark:text-white truncate">✨ Ojo Mágico Trabajando</h3>
                             <p className="text-xs text-purple-600 dark:text-purple-400 font-medium truncate">Procesando {queueCount} facturas restantes...</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {queue.length > 0 && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowQueueUI(!showQueueUI);
+                                    }}
+                                    className={`p-2 rounded-lg shadow-sm transition-all active:scale-90 ${showQueueUI ? 'bg-purple-700 text-white' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'}`}
+                                    title="Ver Cola de Procesos"
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </>
                 ) : (
@@ -417,6 +448,18 @@ export const OjoMagicoArea: React.FC = () => {
                             >
                                 <Camera className="w-4 h-4" />
                             </button>
+                            {queue.length > 0 && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowQueueUI(!showQueueUI);
+                                    }}
+                                    className={`p-2 rounded-lg shadow-sm transition-all active:scale-90 ${showQueueUI ? 'bg-purple-700 text-white' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'}`}
+                                    title="Ver Cola de Procesos"
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            )}
                             <div className="hidden lg:flex gap-1 text-[10px] font-bold text-purple-500 bg-white dark:bg-gray-800/50 px-2 py-1 rounded-full shadow-sm">
                                 <FileText className="w-3 h-3" /> AUTO
                             </div>
@@ -425,8 +468,8 @@ export const OjoMagicoArea: React.FC = () => {
                 )}
             </div>
 
-            {queue.length > 0 && (
-                <div className="absolute top-full right-0 mt-2 w-72 max-h-[300px] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 flex flex-col">
+            {queue.length > 0 && showQueueUI && (
+                <div className="absolute top-full right-0 mt-2 w-72 max-h-[300px] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
                     <div className="sticky top-0 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 px-3 py-2 flex justify-between items-center backdrop-blur-sm">
                         <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Cola de Procesos</span>
                         <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded-full font-bold">
