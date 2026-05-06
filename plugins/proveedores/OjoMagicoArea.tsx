@@ -27,6 +27,7 @@ export const OjoMagicoArea: React.FC = () => {
     const [queue, setQueue] = useState<any[]>([]);
     const [localFiles, setLocalFiles] = useState<{ id: string, file?: File, base64?: string, mimeType?: string }[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
+    const [isQuotaPaused, setIsQuotaPaused] = useState(false);
     
     // Auth no se usa estrictamente, pero le podemos poner "unknown" si falla
     
@@ -52,6 +53,8 @@ export const OjoMagicoArea: React.FC = () => {
     // Procesamiento en background de la cola de archivos locales (subidos por este usuario)
     useEffect(() => {
         const processNextInQueue = async () => {
+            if (isQuotaPaused) return;
+
             const nextItem = localFiles.find(q => queue.find(fi => fi.id === q.id)?.status === 'pending') || localFiles[0];
             
             if (!nextItem) {
@@ -97,18 +100,24 @@ export const OjoMagicoArea: React.FC = () => {
                 
                 // Marcar como completado en firebase
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'done' });
+                setLocalFiles(curr => curr.filter(f => f.id !== nextItem.id));
                 
             } catch (error: any) {
                 console.error(error);
+                if (error.message?.includes("429_QUOTA_EXCEEDED")) {
+                    await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'pending' });
+                    setIsExtracting(false);
+                    setIsQuotaPaused(true);
+                    return;
+                }
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'error', error: error.message });
+                setLocalFiles(curr => curr.filter(f => f.id !== nextItem.id));
             }
-            
-            setLocalFiles(curr => curr.filter(f => f.id !== nextItem.id));
         };
 
         processNextInQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [localFiles, isExtracting, queue]);
+    }, [localFiles, isExtracting, queue, isQuotaPaused]);
 
     useEffect(() => {
         if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
@@ -279,6 +288,8 @@ export const OjoMagicoArea: React.FC = () => {
         } catch (error: any) {
             if (error.message === "503_OVERLOADED") {
                 showNotification('El servicio de IA está saturado. Reintenta en unos minutos.', 'error');
+            } else if (error.message === "429_QUOTA_EXCEEDED") {
+                showNotification('Sin créditos de IA. El procesamiento se ha pausado.', 'error');
             } else {
                 showNotification('Error extrayendo datos: ' + error.message, 'error');
             }
@@ -343,6 +354,7 @@ export const OjoMagicoArea: React.FC = () => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`cursor-pointer transition-all border-2 border-dashed rounded-xl p-3 flex flex-row items-center justify-center text-left gap-3 h-full relative overflow-hidden z-10 ${
                     isDragOver ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 
+                    isQuotaPaused ? 'border-red-400 bg-red-50 dark:border-red-800 dark:bg-gray-800 shadow-inner' :
                     isExtracting ? 'border-purple-300 bg-purple-50 dark:border-purple-800 dark:bg-gray-800 shadow-inner' :
                     'border-purple-300 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/10 dark:to-gray-800 dark:border-purple-800 hover:border-purple-500 hover:shadow-lg'
                 }`}
@@ -356,7 +368,26 @@ export const OjoMagicoArea: React.FC = () => {
                     onChange={handleFileChange} 
                 />
 
-                {isExtracting ? (
+                {isQuotaPaused ? (
+                    <>
+                        <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full shadow-sm text-red-600 dark:text-red-400 shrink-0">
+                            <FileText className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-gray-800 dark:text-white truncate">✨ Ojo Mágico Pausado</h3>
+                            <p className="text-xs text-red-600 dark:text-red-400 font-medium truncate">Sin créditos. {queueCount} pendientes.</p>
+                        </div>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsQuotaPaused(false);
+                            }}
+                            className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            Reintentar
+                        </button>
+                    </>
+                ) : isExtracting ? (
                     <>
                         <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin shrink-0"></div>
                         <div className="flex-1 min-w-0">
