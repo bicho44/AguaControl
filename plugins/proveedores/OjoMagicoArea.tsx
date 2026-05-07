@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { extractFacturaData } from './ocrService';
 import { useDataStore } from '../../hooks/useDataStore';
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import { UploadCloud, FileText, Camera, X, Check, List } from 'lucide-react';
@@ -10,6 +10,7 @@ import { getLocalDateString } from '../../utils/dateUtils';
 import AppButton from '../../components/ui/AppButton';
 import Modal from '../../components/Modal';
 import { formatFacturaNumber } from './FacturasList';
+import { OjoMagicoQueueModal } from './OjoMagicoQueueModal';
 
 interface QueueItem {
     id: string;
@@ -57,14 +58,18 @@ export const OjoMagicoArea: React.FC = () => {
         const processNextInQueue = async () => {
             if (isQuotaPaused) return;
 
-            const nextItem = localFiles.find(q => queue.find(fi => fi.id === q.id)?.status === 'pending') || localFiles[0];
+            // Sort logic: we want to process pending items.
+            // Items might not be in queue yet due to snapshot delay, we only process if they are explicitly pending.
+            const nextItem = localFiles.find(q => {
+                const qf = queue.find(fi => fi.id === q.id);
+                return qf && qf.status === 'pending';
+            });
             
             if (!nextItem) {
-                // Cola terminada localmente
+                // Cola terminada localmente (ningún archivo en 'pending')
                 if (isExtracting) {
                     setIsExtracting(false);
-                    // Solo limpiamos los locales. Firebase se encarga del estado visual 
-                    setLocalFiles([]);
+                    // No limpiamos los locales para poder previsualizarlos luego
                     setTimeout(() => window.dispatchEvent(new CustomEvent('ojo_magico_done', { detail: { count: 1 } })), 1000);
                 }
                 return;
@@ -102,7 +107,6 @@ export const OjoMagicoArea: React.FC = () => {
                 
                 // Marcar como completado en firebase
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'done' });
-                setLocalFiles(curr => curr.filter(f => f.id !== nextItem.id));
                 
             } catch (error: any) {
                 console.error(error);
@@ -113,7 +117,6 @@ export const OjoMagicoArea: React.FC = () => {
                     return;
                 }
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'error', error: error.message });
-                setLocalFiles(curr => curr.filter(f => f.id !== nextItem.id));
             }
         };
 
@@ -471,37 +474,14 @@ export const OjoMagicoArea: React.FC = () => {
                 )}
             </div>
 
-            {queue.length > 0 && showQueueUI && (
-                <div className="absolute top-full right-0 mt-2 w-72 max-h-[300px] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
-                    <div className="sticky top-0 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 px-3 py-2 flex justify-between items-center backdrop-blur-sm">
-                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Cola de Procesos</span>
-                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded-full font-bold">
-                            {queue.filter(q => q.status === 'done').length} / {queue.length}
-                        </span>
-                    </div>
-                    <div className="p-2 space-y-2">
-                        {queue.map((item, index) => (
-                            <div key={item.id} className="flex flex-col gap-1 text-sm bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-semibold text-gray-700 dark:text-gray-300 truncate text-xs flex-1">
-                                        {item.fileName || `Captura #${index + 1}`}
-                                    </span>
-                                    <span className="shrink-0 ml-2">
-                                        {item.status === 'pending' && <span className="text-[10px] font-bold px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">Pendiente</span>}
-                                        {item.status === 'processing' && <span className="text-[10px] font-bold px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded animate-pulse">Procesando...</span>}
-                                        {item.status === 'done' && <span className="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">Completado</span>}
-                                        {item.status === 'error' && <span className="text-[10px] font-bold px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">Error</span>}
-                                    </span>
-                                </div>
-                                {item.error && (
-                                    <div className="text-[10px] text-red-600 dark:text-red-400 mt-1 line-clamp-2" title={item.error}>
-                                        {item.error}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            {showQueueUI && (
+                <OjoMagicoQueueModal 
+                    isOpen={showQueueUI}
+                    onClose={() => setShowQueueUI(false)}
+                    queue={queue}
+                    localFiles={localFiles}
+                    setLocalFiles={setLocalFiles}
+                />
             )}
 
             {/* Camera Capture Modal */}
