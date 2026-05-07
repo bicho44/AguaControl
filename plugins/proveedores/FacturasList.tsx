@@ -19,6 +19,13 @@ import { FacturaPreviewModal } from './FacturaPreviewModal';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+export const formatFacturaNumber = (f: Partial<FacturaProveedor>) => {
+    if (f.puntoVenta !== undefined && f.numeroComprobante !== undefined) {
+        return `${f.puntoVenta.toString().padStart(4, '0')}-${f.numeroComprobante.toString().padStart(8, '0')}`;
+    }
+    return f.numero || 'S/N';
+};
+
 export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly = false }) => {
     const { facturasProveedor, proveedores, empresaSettings } = useDataStore();
     const { showNotification } = useNotification();
@@ -30,7 +37,8 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
     const [editingItem, setEditingItem] = useState<FacturaProveedor | null>(null);
     const [formData, setFormData] = useState<Partial<FacturaProveedor>>({
         proveedorId: '',
-        numero: '',
+        puntoVenta: 0,
+        numeroComprobante: 0,
         tipoComprobante: 'A',
         fechaEmision: getLocalDateString(new Date()),
         fechaVencimiento: getLocalDateString(new Date()),
@@ -139,8 +147,8 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
     };
 
     const handleSave = async () => {
-        if (!formData.proveedorId || !formData.numero || !formData.total) {
-            showNotification('Proveedor, número y total son obligatorios', 'error');
+        if (!formData.proveedorId || formData.puntoVenta === undefined || formData.numeroComprobante === undefined || !formData.total) {
+            showNotification('Proveedor, punto de venta, número y total son obligatorios', 'error');
             return;
         }
 
@@ -190,7 +198,9 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         setEditingItem(null);
         setFormData({ 
             proveedorId: '', 
-            numero: '', 
+            numero: '',
+            puntoVenta: 0,
+            numeroComprobante: 0,
             tipoComprobante: 'A',
             fechaEmision: getLocalDateString(new Date()), 
             fechaVencimiento: getLocalDateString(new Date()), 
@@ -223,7 +233,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                 f.fechaEmision,
                 f.fechaVencimiento || '',
                 f.tipoComprobante || 'A',
-                f.numero,
+                formatFacturaNumber(f),
                 prop?.nombre || 'Desconocido',
                 prop?.cuit || '',
                 f.subtotalNeto || 0,
@@ -395,7 +405,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
                 return [
                     f.fechaEmision,
-                    `${f.tipoComprobante} ${f.numero}`,
+                    `${f.tipoComprobante} ${formatFacturaNumber(f)}`,
                     `$${n.toFixed(2)}`,
                     `$${i.toFixed(2)}`,
                     `$${p.toFixed(2)}`,
@@ -528,7 +538,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                                         <td className="px-4 py-3">{f.fechaEmision}</td>
                                         <td className="px-4 py-3">{f.fechaVencimiento}</td>
                                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{prov?.nombre || 'Desconocido'}</td>
-                                        <td className="px-4 py-3">{f.numero}</td>
+                                        <td className="px-4 py-3">{formatFacturaNumber(f)}</td>
                                         <td className="px-4 py-3">${f.total.toFixed(2)}</td>
                                         <td className="px-4 py-3 font-bold text-red-500">${(f.saldoPagar || 0).toFixed(2)}</td>
                                         <td className="px-4 py-3">
@@ -604,9 +614,10 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
                 <div className="space-y-4">
                     <SearchableSelect label="Proveedor *" options={proveedoresOptions} value={formData.proveedorId || ''} onChange={(v) => setFormData({...formData, proveedorId: v})} />
                     
-                    <div className="grid grid-cols-3 gap-4">
-                        <AppSelect label="Tipo" value={formData.tipoComprobante || 'A'} onChange={e => setFormData({...formData, tipoComprobante: e.target.value as any})} options={[{label:'Factura A', value:'A'}, {label:'Factura B', value:'B'}, {label:'Factura C', value:'C'}, {label:'Factura M', value:'M'}, {label:'Factura X', value:'X'}, {label:'Ticket', value:'Ticket'}]} />
-                        <AppInput label="Nro de Factura *" value={formData.numero || ''} onChange={e => setFormData({...formData, numero: e.target.value})} className="col-span-2" autoFocus />
+                    <div className="grid grid-cols-4 gap-4">
+                        <AppSelect className="col-span-1" label="Tipo" value={formData.tipoComprobante || 'A'} onChange={e => setFormData({...formData, tipoComprobante: e.target.value as any})} options={[{label:'Factura A', value:'A'}, {label:'Factura B', value:'B'}, {label:'Factura C', value:'C'}, {label:'Factura M', value:'M'}, {label:'Factura X', value:'X'}, {label:'Ticket', value:'Ticket'}]} />
+                        <AppInput className="col-span-1" type="number" label="Pto. Venta *" value={formData.puntoVenta || ''} onChange={e => setFormData({...formData, puntoVenta: parseInt(e.target.value, 10) || 0})} autoFocus />
+                        <AppInput className="col-span-2" type="number" label="Nro. Comprobante *" value={formData.numeroComprobante || ''} onChange={e => setFormData({...formData, numeroComprobante: parseInt(e.target.value, 10) || 0})} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

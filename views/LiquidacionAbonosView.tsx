@@ -30,6 +30,9 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [observations, setObservations] = useState<Record<string, string>>({});
+  const [puntoVenta, setPuntoVenta] = useState<number | ''>('');
+  const [numeroComprobante, setNumeroComprobante] = useState<number | ''>('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { showNotification } = useNotification();
 
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
@@ -201,16 +204,23 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
   };
 
   const handleFacturar = async (liq: any) => {
+    if (puntoVenta === '' || numeroComprobante === '') {
+        showNotification('Debe establecer Punto Venta y Nro Comprobante inicial en las opciones.', 'error');
+        return;
+    }
     try {
       await addFactura({
         clienteId: liq.cliente.id,
         fecha: getLocalDateString(),
         monto: liq.totalAFacturar,
         remitosIds: liq.remitosIds,
+        puntoVenta: Number(puntoVenta),
+        numeroComprobante: Number(numeroComprobante),
         concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`,
         observaciones: observations[liq.cliente.id] || ''
       });
       showNotification(`Factura generada para ${liq.cliente.nombre}`, 'success');
+      setNumeroComprobante(prev => prev === '' ? '' : Number(prev) + 1);
       setSelectedIds(prev => prev.filter(id => id !== liq.cliente.id));
       setObservations(prev => {
         const next = { ...prev };
@@ -223,10 +233,15 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
   };
 
   const handleFacturarSeleccionados = async () => {
+    if (puntoVenta === '' || numeroComprobante === '') {
+        showNotification('Debe establecer Punto Venta y Nro Comprobante inicial en las opciones.', 'error');
+        return;
+    }
     const toInvoice = filteredLiquidaciones.filter(l => selectedIds.includes(l.cliente.id) && !l.yaFacturado);
     if (toInvoice.length === 0) return;
 
     let successCount = 0;
+    let nroCurrent = Number(numeroComprobante);
     for (const liq of toInvoice) {
       try {
         await addFactura({
@@ -234,9 +249,12 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
           fecha: getLocalDateString(),
           monto: liq.totalAFacturar,
           remitosIds: liq.remitosIds,
+          puntoVenta: Number(puntoVenta),
+          numeroComprobante: nroCurrent,
           concepto: `Liquidación Abonos ${months[selectedMonth].label} ${selectedYear}`,
           observaciones: observations[liq.cliente.id] || ''
         });
+        nroCurrent++;
         successCount++;
       } catch (e) {
         console.error(`Error facturando a ${liq.cliente.nombre}:`, e);
@@ -245,6 +263,7 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
 
     if (successCount > 0) {
       showNotification(`${successCount} facturas generadas correctamente`, 'success');
+      setNumeroComprobante(nroCurrent);
       setSelectedIds([]);
       setObservations({});
     } else {

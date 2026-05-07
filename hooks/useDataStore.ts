@@ -423,8 +423,7 @@ export const useDataStore = () => {
     const addFactura = useCallback(async (f: any) => {
         const docRef = await addDoc(collection(db, 'facturas'), { 
             ...cleanUndefineds(f), 
-            estado: EstadoFactura.PENDIENTE,
-            numero: `F-${Date.now()}` 
+            estado: EstadoFactura.PENDIENTE
         });
         for (const rid of f.remitosIds) { await updateDoc(doc(db, 'remitos', rid), { facturaId: docRef.id }); }
     }, []);

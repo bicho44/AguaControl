@@ -25,7 +25,8 @@ export async function extractFacturaData(fileBase64: string, mimeType: string, r
     const PROMPT = `
         Analiza esta factura de proveedor de Argentina. Extrae los datos en formato JSON.
         - tipoComprobante: (A, B, C, M, X o Ticket)
-        - numero: número de comprobante completo (ej: 0001-00000123)
+        - puntoVenta: número de punto de venta (como numero entero, ej: 1)
+        - numeroComprobante: número del comprobante (como numero entero, ej: 123)
         - fechaEmision: YYYY-MM-DD
         - subtotalNeto: valor numérico
         - importeIva: valor numérico

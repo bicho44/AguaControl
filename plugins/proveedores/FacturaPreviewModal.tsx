@@ -2,6 +2,7 @@ import React from 'react';
 import Modal from '../../components/Modal';
 import { FacturaProveedor, Proveedor } from '../../types';
 import AppButton from '../../components/ui/AppButton';
+import { formatFacturaNumber } from './FacturasList';
 
 interface Props {
     isOpen: boolean;
@@ -26,7 +27,7 @@ export const FacturaPreviewModal: React.FC<Props> = ({ isOpen, onClose, factura,
                     <div className="text-right">
                         <p className="text-xs text-gray-500 font-bold uppercase">Comprobante</p>
                         <p className="text-xl font-bold text-gray-800 dark:text-white">
-                            [{factura.tipoComprobante || 'A'}] {factura.numero}
+                            [{factura.tipoComprobante || 'A'}] {formatFacturaNumber(factura)}
                         </p>
                     </div>
                 </div>

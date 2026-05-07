@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useDataStore } from '../../hooks/useDataStore';
 import AppButton from '../../components/ui/AppButton';
 import { PagoProveedorModal } from './PagoProveedorModal';
+import { formatFacturaNumber } from './FacturasList';
 
 export const PagosList: React.FC = () => {
     const { pagosProveedor, facturasProveedor, proveedores } = useDataStore();
@@ -34,7 +35,7 @@ export const PagosList: React.FC = () => {
                                     <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-4 py-3">{p.fecha}</td>
                                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{prov?.nombre || 'Desconocido'}</td>
-                                        <td className="px-4 py-3">{fac?.numero || 'A Cuenta / Adelanto'}</td>
+                                        <td className="px-4 py-3">{fac ? formatFacturaNumber(fac) : 'A Cuenta / Adelanto'}</td>
                                         <td className="px-4 py-3 font-bold text-green-600">${p.monto.toFixed(2)}</td>
                                         <td className="px-4 py-3">{p.metodo}</td>
                                     </tr>

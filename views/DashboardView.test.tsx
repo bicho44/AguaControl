@@ -44,7 +44,7 @@ const mockAdmin: Usuario = {
     rol: Rol.ADMINISTRADOR,
     nombre: 'Admin General',
     tipo: TipoVendedor.INTERNO,
-    estado: 'ACTIVO'
+    email: 'admin@example.com'
 };
 
 const mockExternalVendor: Usuario = {
@@ -52,7 +52,7 @@ const mockExternalVendor: Usuario = {
     rol: Rol.REPARTIDOR,
     nombre: 'Ariel Martin',
     tipo: TipoVendedor.EXTERNO,
-    estado: 'ACTIVO'
+    email: 'vendor1@example.com'
 };
 
 const mockInternalVendor: Usuario = {
@@ -60,7 +60,7 @@ const mockInternalVendor: Usuario = {
     rol: Rol.REPARTIDOR,
     nombre: 'Juan Perez',
     tipo: TipoVendedor.INTERNO,
-    estado: 'ACTIVO'
+    email: 'vendor2@example.com'
 };
 
 vi.mock('react-sortablejs', () => ({

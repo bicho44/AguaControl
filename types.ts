@@ -279,7 +279,9 @@ export interface Factura {
     id: string;
     fecha: string;
     clienteId: string;
-    numero: string;
+    numero?: string; // Legacy
+    puntoVenta?: number;
+    numeroComprobante?: number;
     monto: number;
     remitosIds: string[];
     pagoIds?: string[];
@@ -404,7 +406,9 @@ export interface ItemFacturaProveedor {
 export interface FacturaProveedor {
     id: string;
     proveedorId: string;
-    numero: string;
+    numero?: string; // Legacy
+    puntoVenta?: number;
+    numeroComprobante?: number;
     tipoComprobante?: 'A' | 'B' | 'C' | 'M' | 'X' | 'Ticket';
     fechaEmision: string;
     fechaVencimiento: string;

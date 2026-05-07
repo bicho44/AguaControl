@@ -15,6 +15,7 @@ import AppSelect from '../../components/ui/AppSelect';
 import { getLocalDateString } from '../../utils/dateUtils';
 import { PagoProveedorModal } from './PagoProveedorModal';
 import { FacturaPreviewModal } from './FacturaPreviewModal';
+import { formatFacturaNumber } from './FacturasList';
 
 export const ProveedorCuentaCorriente: React.FC<{ 
     proveedor: Proveedor,
@@ -33,7 +34,8 @@ export const ProveedorCuentaCorriente: React.FC<{
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formData, setFormData] = useState<Partial<FacturaProveedor>>({
         proveedorId: proveedor.id,
-        numero: '',
+        puntoVenta: 0,
+        numeroComprobante: 0,
         tipoComprobante: 'A',
         fechaEmision: new Date().toISOString().split('T')[0],
         fechaVencimiento: new Date().toISOString().split('T')[0],
@@ -72,7 +74,7 @@ export const ProveedorCuentaCorriente: React.FC<{
                 id: f.id,
                 fecha: f.fechaEmision,
                 tipo: 'FACTURA',
-                descripcion: `Factura ${f.tipoComprobante || ''} ${f.numero}`,
+                descripcion: `Factura ${f.tipoComprobante || ''} ${formatFacturaNumber(f)}`,
                 debe: f.total,
                 haber: 0,
                 estado: f.estado,
@@ -138,7 +140,8 @@ export const ProveedorCuentaCorriente: React.FC<{
                     
                     setFormData({
                         ...formData,
-                        numero: extractedData.numero || '',
+                        puntoVenta: extractedData.puntoVenta || 0,
+                        numeroComprobante: extractedData.numeroComprobante || 0,
                         tipoComprobante: extractedData.tipoComprobante || 'A',
                         fechaEmision: extractedData.fechaEmision || new Date().toISOString().split('T')[0],
                         fechaVencimiento: extractedData.fechaVencimiento || new Date().toISOString().split('T')[0],
@@ -167,7 +170,7 @@ export const ProveedorCuentaCorriente: React.FC<{
     };
 
     const handleSaveInvoice = async () => {
-        if (!formData.numero || !formData.total) {
+        if (formData.puntoVenta === undefined || formData.numeroComprobante === undefined || !formData.total) {
             showNotification('Completar número y total de factura', 'error');
             return;
         }
@@ -184,7 +187,8 @@ export const ProveedorCuentaCorriente: React.FC<{
             setIsUploadModalOpen(false);
             setFormData({
                 proveedorId: proveedor.id,
-                numero: '',
+                puntoVenta: 0,
+                numeroComprobante: 0,
                 tipoComprobante: 'A',
                 fechaEmision: new Date().toISOString().split('T')[0],
                 fechaVencimiento: new Date().toISOString().split('T')[0],
@@ -409,8 +413,8 @@ export const ProveedorCuentaCorriente: React.FC<{
                         {isExtracting && <p className="text-xs text-purple-600 mt-2 font-bold animate-pulse">Analizando documento, por favor espere...</p>}
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 border-t dark:border-gray-700 pt-4">
-                        <AppSelect label="Tipo *)" value={formData.tipoComprobante || ''} onChange={e => setFormData({...formData, tipoComprobante: e.target.value as any})}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t dark:border-gray-700 pt-4">
+                        <AppSelect className="col-span-1" label="Tipo *" value={formData.tipoComprobante || ''} onChange={e => setFormData({...formData, tipoComprobante: e.target.value as any})}
                             options={[
                                 { value: 'A', label: 'Factura A' },
                                 { value: 'B', label: 'Factura B' },
@@ -419,11 +423,14 @@ export const ProveedorCuentaCorriente: React.FC<{
                                 { value: 'Ticket', label: 'Ticket' },
                             ]}
                         />
-                        <AppInput label="Número *" value={formData.numero || ''} onChange={e => setFormData({...formData, numero: e.target.value})} placeholder="0001-0000123" />
+                        <AppInput className="col-span-1" type="number" label="Pto. Venta *" value={formData.puntoVenta || ''} onChange={e => setFormData({...formData, puntoVenta: parseInt(e.target.value, 10) || 0})} />
+                        <AppInput className="col-span-2" type="number" label="Nro. Comprobante *" value={formData.numeroComprobante || ''} onChange={e => setFormData({...formData, numeroComprobante: parseInt(e.target.value, 10) || 0})} />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
                         <AppInput label="Fecha Emisión" type="date" value={formData.fechaEmision || ''} onChange={e => setFormData({...formData, fechaEmision: e.target.value})} />
-                        <AppInput label="Total *" type="number" step="0.01" value={formData.total || ''} onChange={e => setFormData({...formData, total: parseFloat(e.target.value)})} />
                         <AppInput label="Neto" type="number" step="0.01" value={formData.subtotalNeto || ''} onChange={e => setFormData({...formData, subtotalNeto: parseFloat(e.target.value)})} />
                         <AppInput label="IVA" type="number" step="0.01" value={formData.importeIva || ''} onChange={e => setFormData({...formData, importeIva: parseFloat(e.target.value)})} />
+                        <AppInput label="Total *" type="number" step="0.01" value={formData.total || ''} onChange={e => setFormData({...formData, total: parseFloat(e.target.value)})} />
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4">

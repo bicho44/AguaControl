@@ -13,6 +13,7 @@ import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
 import { getLocalDateString } from '../utils/dateUtils';
 import LiquidacionAbonosView from './LiquidacionAbonosView';
+import { getFormatNro } from './FacturasListView';
 
 // Force sync
 
@@ -73,7 +74,7 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Cobro de Factura {factura.numero}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white uppercase tracking-tighter pr-12">Cobro de Factura {getFormatNro(factura)}</h2>
                 <div className="text-xs text-gray-500 mt-1 uppercase font-black">
                     Saldo Restante: <span className="text-red-600">${montoRestante.toLocaleString('es-AR')}</span>
                 </div>
@@ -108,6 +109,8 @@ const PagoFacturaForm: React.FC<PagoFacturaFormProps> = ({ factura, montoRestant
 
 const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, facturas, productos, contratos, servicios, registrosPago, addFactura, addPagoToFactura }) => {
   const [activeTab, setActiveTab] = useState<'cuentacorriente' | 'liquidacion'>('cuentacorriente');
+  const [puntoVenta, setPuntoVenta] = useState<number | ''>('');
+  const [numeroComprobante, setNumeroComprobante] = useState<number | ''>('');
   const [selectedClienteId, setSelectedClienteId] = useState<string>('');
   const [selectedRemitos, setSelectedRemitos] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState('');
@@ -181,6 +184,10 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
   
   const handleGenerarFactura = () => {
     if (selectedRemitos.size === 0) return;
+    if (puntoVenta === '' || numeroComprobante === '') {
+        showNotification('Debe ingresar Punto de Venta y Número de Comprobante.', 'error');
+        return;
+    }
     const rems = clienteData?.remitosPendientes.filter(r => selectedRemitos.has(r.id)) || [];
     const mt = rems.reduce((sum, r) => sum + getRemitoTotal(r), 0);
     addFactura({ 
@@ -188,10 +195,14 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
         clienteId: selectedClienteId, 
         remitosIds: Array.from(selectedRemitos), 
         monto: mt,
-        observaciones: facturaObservations
+        observaciones: facturaObservations,
+        puntoVenta: Number(puntoVenta),
+        numeroComprobante: Number(numeroComprobante)
     });
     setSelectedRemitos(new Set());
     setFacturaObservations('');
+    setPuntoVenta('');
+    setNumeroComprobante('');
     showNotification('Factura generada.', 'success');
   };
 
@@ -319,6 +330,20 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                         </Card>
                         <Card title="Acciones">
                             <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <AppInput 
+                                        label="Pto. Venta *" 
+                                        type="number"
+                                        value={puntoVenta === '' ? '' : puntoVenta} 
+                                        onChange={e => setPuntoVenta(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                    />
+                                    <AppInput 
+                                        label="Nro. Comprobante *" 
+                                        type="number"
+                                        value={numeroComprobante === '' ? '' : numeroComprobante} 
+                                        onChange={e => setNumeroComprobante(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                    />
+                                </div>
                                 <AppInput 
                                     placeholder="Observaciones de la factura..." 
                                     value={facturaObservations} 
@@ -326,7 +351,7 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                 />
                                 <AppButton 
                                     onClick={handleGenerarFactura} 
-                                    disabled={selectedRemitos.size === 0} 
+                                    disabled={selectedRemitos.size === 0 || puntoVenta === '' || numeroComprobante === ''} 
                                     className="w-full py-4 uppercase"
                                 >
                                     Generar Factura (${clienteData.remitosPendientes.filter(r=>selectedRemitos.has(r.id)).reduce((s,r)=>s+getRemitoTotal(r),0).toLocaleString()})
@@ -388,7 +413,7 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                                 />
                                             </td>
                                             <td className="p-3">{new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</td>
-                                            <td className="p-3 font-mono">{r.puntoVenta}-{r.numero}</td>
+                                            <td className="p-3 font-mono">{r.puntoVenta.toString().padStart(4, '0')}-{r.numero.toString().padStart(8, '0')}</td>
                                             <td className="p-3 text-right font-black text-primary-600 dark:text-primary-400">${getRemitoTotal(r).toLocaleString('es-AR')}</td>
                                         </tr>
                                     ))}
@@ -399,7 +424,7 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                     <Card title="Facturas Emitidas">
                         <div className="space-y-3">{clienteData.facturasCliente.map(f => {
                             const pagado = (f.pagoIds || []).reduce((s, id) => s + (registrosPago.find(p => p.id === id)?.monto || 0), 0);
-                            return (<div key={f.id} className="p-4 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 flex justify-between items-center shadow-sm"><div><p className="font-black uppercase tracking-tighter">{f.numero}</p><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-AR')} | Saldo: ${(f.monto - pagado).toLocaleString('es-AR')}</p></div><AppButton size="sm" onClick={() => setPagandoFacturaInfo({ factura: f, montoRestante: f.monto - pagado })} disabled={f.estado === EstadoFactura.PAGADO}>Pagar</AppButton></div>);
+                            return (<div key={f.id} className="p-4 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 flex justify-between items-center shadow-sm"><div><p className="font-black uppercase tracking-tighter">Factura {getFormatNro(f)}</p><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-AR')} | Saldo: ${(f.monto - pagado).toLocaleString('es-AR')}</p></div><AppButton size="sm" onClick={() => setPagandoFacturaInfo({ factura: f, montoRestante: f.monto - pagado })} disabled={f.estado === EstadoFactura.PAGADO}>Pagar</AppButton></div>);
                         })}</div>
                     </Card>
                 </div>

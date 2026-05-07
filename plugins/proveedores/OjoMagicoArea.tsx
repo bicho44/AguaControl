@@ -9,6 +9,7 @@ import { EstadoFacturaProveedor, Proveedor } from '../../types';
 import { getLocalDateString } from '../../utils/dateUtils';
 import AppButton from '../../components/ui/AppButton';
 import Modal from '../../components/Modal';
+import { formatFacturaNumber } from './FacturasList';
 
 interface QueueItem {
     id: string;
@@ -253,16 +254,18 @@ export const OjoMagicoArea: React.FC = () => {
             }
 
             const tipo = (extractedData.tipoComprobante || 'A') as any;
-            const existingFac = facturasProveedor.find(f => f.proveedorId === foundProvId && f.numero === extractedData.numero && f.tipoComprobante === tipo);
+            const existingFac = facturasProveedor.find(f => f.proveedorId === foundProvId && f.puntoVenta === extractedData.puntoVenta && f.numeroComprobante === extractedData.numeroComprobante && f.tipoComprobante === tipo);
             if (existingFac) {
-                const errorMsg = `La factura ${tipo} ${extractedData.numero} ya se encuentra registrada para este proveedor.`;
+                const errorMsg = `La factura ${tipo} ${formatFacturaNumber({ puntoVenta: extractedData.puntoVenta, numeroComprobante: extractedData.numeroComprobante })} ya se encuentra registrada para este proveedor.`;
                 showNotification(errorMsg, 'error');
                 throw new Error(errorMsg);
             }
 
             const dataToSave = {
                 proveedorId: foundProvId,
-                numero: extractedData.numero || 'S/N',
+                puntoVenta: extractedData.puntoVenta || 0,
+                numeroComprobante: extractedData.numeroComprobante || 0,
+                numero: extractedData.numero || '', // legacy fallback
                 tipoComprobante: tipo,
                 fechaEmision: extractedData.fechaEmision || getLocalDateString(new Date()),
                 fechaVencimiento: extractedData.fechaVencimiento || getLocalDateString(new Date()),

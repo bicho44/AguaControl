@@ -807,7 +807,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                             <div key={factura.id} className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
                                 <div className="flex justify-between items-center mb-4 px-1">
                                     <div>
-                                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Factura #{factura.numero}</p>
+                                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Factura #{(factura as any).puntoVenta !== undefined && (factura as any).numeroComprobante !== undefined ? `${(factura as any).puntoVenta.toString().padStart(4, '0')}-${(factura as any).numeroComprobante.toString().padStart(8, '0')}` : (factura as any).numero || 'S/N'}</p>
                                         <p className="text-xs font-bold text-gray-500">{factura.fecha}</p>
                                     </div>
                                     <div className="text-right">

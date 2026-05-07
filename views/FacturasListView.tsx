@@ -15,6 +15,13 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 // Force sync
 
+export const getFormatNro = (f: Factura) => {
+    if (f.puntoVenta !== undefined && f.numeroComprobante !== undefined) {
+        return `${f.puntoVenta.toString().padStart(4, '0')}-${f.numeroComprobante.toString().padStart(8, '0')}`;
+    }
+    return f.numero || 'S/N';
+};
+
 interface FacturasListViewProps {
   facturas: Factura[];
   clientes: Cliente[];
@@ -57,7 +64,7 @@ const PagoFacturaForm: React.FC<{
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Registrar Pago para Factura {factura.numero}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white pr-12">Registrar Pago para Factura {getFormatNro(factura)}</h2>
                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     <span>Total Factura: <strong>${factura.monto.toLocaleString('es-AR')}</strong></span>
                     <span className="mx-2">|</span>
@@ -223,7 +230,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
 
           const replacements: Record<string, string> = {
               '{{cliente}}': cliente.nombre,
-              '{{numero}}': factura.numero,
+              '{{numero}}': getFormatNro(factura),
               '{{monto}}': factura.monto.toLocaleString('es-AR'),
               '{{fecha}}': new Date(factura.fecha + 'T00:00:00').toLocaleDateString('es-AR'),
               '{{empresa}}': empresaSettings.nombreFantasia || empresaSettings.nombre,
@@ -278,7 +285,10 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
     }).sort((a, b) => {
         const dateComparison = new Date(b.fecha + 'T00:00:00').getTime() - new Date(a.fecha + 'T00:00:00').getTime();
         if (dateComparison !== 0) return dateComparison;
-        return parseInt(b.numero.split('-')[2]) - parseInt(a.numero.split('-')[2]);
+        
+        const aNum = a.numeroComprobante !== undefined ? a.numeroComprobante : parseInt((a.numero || '').replace(/\D/g, '')) || 0;
+        const bNum = b.numeroComprobante !== undefined ? b.numeroComprobante : parseInt((b.numero || '').replace(/\D/g, '')) || 0;
+        return bNum - aNum;
     });
   }, [facturas, clienteFilter, dateFilter]);
 
@@ -332,7 +342,7 @@ const FacturasListView: React.FC<FacturasListViewProps> = ({ facturas, clientes,
                                 <div>
                                     <p className="text-xs text-gray-500">Número</p>
                                     <div className="flex items-center gap-2">
-                                        <p className="font-medium text-gray-900 dark:text-white font-mono">{factura.numero}</p>
+                                        <p className="font-medium text-gray-900 dark:text-white font-mono">{getFormatNro(factura)}</p>
                                         {factura.enviada && (
                                             <span className="text-green-500" title="Enviada por email">
                                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>

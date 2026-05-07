@@ -33,7 +33,9 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ item, type, payments, t
                     </div>
                     <div className="min-w-0">
                         <h4 className="font-bold text-gray-900 dark:text-white truncate">
-                            {type === 'factura' ? `Factura ${item.numero}` : `Remito ${item.puntoVenta}-${item.numero}`}
+                            {type === 'factura' 
+                                ? `Factura ${item.puntoVenta !== undefined && item.numeroComprobante !== undefined ? `${item.puntoVenta.toString().padStart(4, '0')}-${item.numeroComprobante.toString().padStart(8, '0')}` : (item.numero || 'S/N')}` 
+                                : `Remito ${item.puntoVenta}-${item.numero}`}
                         </h4>
                         <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">
                             {new Date(item.fecha + 'T00:00:00').toLocaleDateString()}

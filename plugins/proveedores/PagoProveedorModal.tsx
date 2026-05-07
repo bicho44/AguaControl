@@ -10,6 +10,7 @@ import { collection, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
 import { getLocalDateString } from '../../utils/dateUtils';
+import { formatFacturaNumber } from './FacturasList';
 
 interface PagoProveedorModalProps {
     isOpen: boolean;
@@ -62,7 +63,7 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
         const facs = facturasProveedor.filter(f => f.proveedorId === formData.proveedorId && (f.estado === EstadoFacturaProveedor.PENDIENTE || f.estado === EstadoFacturaProveedor.PAGADO_PARCIAL));
         return [
             { value: '', label: 'Adelanto / A cuenta...' },
-            ...facs.map(f => ({ value: f.id, label: `${f.numero} (Saldo: $${f.saldoPagar?.toFixed(2) || '0.00'})` }))
+            ...facs.map(f => ({ value: f.id, label: `${formatFacturaNumber(f)} (Saldo: $${f.saldoPagar?.toFixed(2) || '0.00'})` }))
         ];
     }, [formData.proveedorId, facturasProveedor]);
 
@@ -95,7 +96,7 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
             if (afectarCaja) {
                 const gastoRef = doc(collection(db, 'gastos'));
                 const provName = prov ? prov.nombre : 'Desconocido';
-                const facNumber = fac ? fac.numero : 'Adelanto';
+                const facNumber = fac ? formatFacturaNumber(fac) : 'Adelanto';
                 
                 batch.set(gastoRef, {
                     fecha: formData.fecha,
