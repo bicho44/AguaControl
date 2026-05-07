@@ -27,7 +27,6 @@ export const OjoMagicoArea: React.FC = () => {
     
     // Cola de extracción
     const [queue, setQueue] = useState<any[]>([]);
-    const [localFiles, setLocalFiles] = useState<{ id: string, file?: File, base64?: string, mimeType?: string }[]>([]);
     const [isExtracting, setIsExtracting] = useState(false);
     const [isQuotaPaused, setIsQuotaPaused] = useState(false);
     const [showQueueUI, setShowQueueUI] = useState(false);
@@ -35,6 +34,11 @@ export const OjoMagicoArea: React.FC = () => {
     // Auth no se usa estrictamente, pero le podemos poner "unknown" si falla
     
     useEffect(() => {
+        // Aseguramos una session para restringir el auto-procesamiento al uploader
+        if (!sessionStorage.getItem('sessionId')) {
+            sessionStorage.setItem('sessionId', Math.random().toString(36).substring(2, 15));
+        }
+
         const q = query(collection(db, 'ojo_magico_queue'), orderBy('createdAt', 'desc'), limit(30));
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -58,12 +62,8 @@ export const OjoMagicoArea: React.FC = () => {
         const processNextInQueue = async () => {
             if (isQuotaPaused) return;
 
-            // Sort logic: we want to process pending items.
-            // Items might not be in queue yet due to snapshot delay, we only process if they are explicitly pending.
-            const nextItem = localFiles.find(q => {
-                const qf = queue.find(fi => fi.id === q.id);
-                return qf && qf.status === 'pending';
-            });
+            const sessionId = sessionStorage.getItem('sessionId');
+            const nextItem = queue.find(fi => fi.status === 'pending' && fi.uploaderSessionId === sessionId);
             
             if (!nextItem) {
                 // Cola terminada localmente (ningún archivo en 'pending')
@@ -90,17 +90,6 @@ export const OjoMagicoArea: React.FC = () => {
                 let base64String = nextItem.base64;
                 let mimeType = nextItem.mimeType;
 
-                if (nextItem.file) {
-                    mimeType = nextItem.file.type;
-                    const reader = new FileReader();
-                    const filePromise = new Promise<string>((resolve, reject) => {
-                        reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
-                        reader.onerror = reject;
-                    });
-                    reader.readAsDataURL(nextItem.file);
-                    base64String = await filePromise;
-                }
-
                 if (base64String && mimeType) {
                     await processBase64(base64String, mimeType);
                 }
@@ -121,8 +110,7 @@ export const OjoMagicoArea: React.FC = () => {
         };
 
         processNextInQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [localFiles, isExtracting, queue, isQuotaPaused]);
+    }, [isExtracting, queue, isQuotaPaused]);
 
     useEffect(() => {
         if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
@@ -306,18 +294,69 @@ export const OjoMagicoArea: React.FC = () => {
         }
     };
 
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let { width, height } = img;
+                        const MAX_SIZE = 1200;
+                        if (width > height) {
+                            if (width > MAX_SIZE) {
+                                height *= MAX_SIZE / width;
+                                width = MAX_SIZE;
+                            }
+                        } else {
+                            if (height > MAX_SIZE) {
+                                width *= MAX_SIZE / height;
+                                height = MAX_SIZE;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target?.result as string;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            } else {
+                const reader = new FileReader();
+                reader.onload = () => resolve((reader.result as string).split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            }
+        });
+    };
+
     const addToQueue = async (item: Omit<QueueItem, 'id' | 'status'>) => {
         const fileName = item.file ? item.file.name : `Captura-${new Date().toLocaleTimeString()}`;
         try {
-            const docRef = await addDoc(collection(db, 'ojo_magico_queue'), {
+            let base64 = item.base64;
+            let mimeType = item.mimeType;
+            if (item.file && !base64) {
+                 base64 = await fileToBase64(item.file);
+                 mimeType = item.file.type.startsWith('image/') ? 'image/jpeg' : item.file.type;
+            }
+            
+            await addDoc(collection(db, 'ojo_magico_queue'), {
                 fileName,
                 status: 'pending',
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                base64: base64 || null,
+                mimeType: mimeType || null,
+                uploaderSessionId: sessionStorage.getItem('sessionId') || ''
             });
-            setLocalFiles(curr => [...curr, { id: docRef.id, ...item }]);
+
         } catch (e) {
             console.error("Error al encolar en firestore", e);
-            showNotification("Error de conexión al encolar documento", "error");
+            showNotification("Error de conexión o archivo muy grande", "error");
         }
     };
 
@@ -384,7 +423,8 @@ export const OjoMagicoArea: React.FC = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-bold text-gray-800 dark:text-white truncate">✨ Ojo Mágico Pausado</h3>
-                            <p className="text-xs text-red-600 dark:text-red-400 font-medium truncate">Proceso pausado. {queueCount} pendientes.</p>
+                            <p className="text-xs text-red-600 dark:text-red-400 font-medium truncate">Proceso en pausa por límites de servidor ({queueCount} pendientes).</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">La cuota de IA es manejada internamente. Se reanudará solo (intenta subir de a lotes más pequeños).</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <button 
@@ -479,8 +519,6 @@ export const OjoMagicoArea: React.FC = () => {
                     isOpen={showQueueUI}
                     onClose={() => setShowQueueUI(false)}
                     queue={queue}
-                    localFiles={localFiles}
-                    setLocalFiles={setLocalFiles}
                 />
             )}
 

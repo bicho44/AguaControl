@@ -4,61 +4,80 @@ import AppButton from '../../components/ui/AppButton';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useNotification } from '../../context/NotificationContext';
-import { Trash2, RotateCw, Eye } from 'lucide-react';
+import { Trash2, RotateCw, Eye, Play } from 'lucide-react';
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     queue: any[];
-    localFiles: { id: string, file?: File, base64?: string, mimeType?: string }[];
-    setLocalFiles: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-export const OjoMagicoQueueModal: React.FC<Props> = ({ isOpen, onClose, queue, localFiles, setLocalFiles }) => {
+export const OjoMagicoQueueModal: React.FC<Props> = ({ isOpen, onClose, queue }) => {
     const { showNotification } = useNotification();
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewType, setPreviewType] = useState<'pdf' | 'image' | null>(null);
 
     const handleClearQueue = async () => {
         const toDelete = queue.filter(q => q.status === 'done' || q.status === 'error');
         for (const item of toDelete) {
             try {
                 await deleteDoc(doc(db, 'ojo_magico_queue', item.id));
-            } catch(e) { }
+            } catch(e) { console.error("Error deleting", e); }
         }
-        setLocalFiles(curr => curr.filter(f => !toDelete.find(td => td.id === f.id)));
+        setPreviewUrl(null);
         showNotification(`${toDelete.length} archivos limpiados de la cola.`, 'success');
     };
 
     const handleDelete = async (itemId: string) => {
         try {
             await deleteDoc(doc(db, 'ojo_magico_queue', itemId));
-            setLocalFiles(curr => curr.filter(f => f.id !== itemId));
-        } catch(e) { }
+            setPreviewUrl(null);
+        } catch(e) { console.error("Error deleting", e); }
     };
 
-    const handleRetry = async (itemId: string) => {
-        const fileExists = localFiles.find(f => f.id === itemId);
-        if (!fileExists) {
-             showNotification('El archivo ya no está disponible en la memoria local. Debes subirlo de nuevo.', 'error');
+    const handleRetry = async (item: any) => {
+        if (!item.base64) {
+             showNotification('La imagen original no está disponible. Debes subirla de nuevo.', 'error');
              return;
         }
         try {
-            await updateDoc(doc(db, 'ojo_magico_queue', itemId), { status: 'pending', error: '' });
+            const currentSession = sessionStorage.getItem('sessionId') || Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('sessionId', currentSession);
+            await updateDoc(doc(db, 'ojo_magico_queue', item.id), { 
+                status: 'pending', 
+                error: '',
+                uploaderSessionId: currentSession
+            });
             showNotification('Encolado nuevamente para proceso.', 'success');
         } catch (e) { }
     };
 
     const handlePreview = (item: any) => {
-        const lf = localFiles.find(f => f.id === item.id);
-        if (!lf) {
-            showNotification('Archivo original no disponible.', 'error');
+        if (!item.base64) {
+            showNotification('El archivo originario no está adjunto o se eliminó.', 'error');
             return;
         }
-        if (lf.file) {
-            const url = URL.createObjectURL(lf.file);
+        
+        let type: 'pdf' | 'image' = 'image';
+        if (item.mimeType === 'application/pdf') type = 'pdf';
+        if (item.fileName?.toLowerCase().endsWith('.pdf')) type = 'pdf';
+        
+        setPreviewType(type);
+
+        try {
+            // Decodificamos el base64 a binario para crear un blob, lo que permite preview de PDF sin problemas de largo URI
+            const byteCharacters = atob(item.base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: item.mimeType || 'image/jpeg' });
+            const url = URL.createObjectURL(blob);
             setPreviewUrl(url);
-        } else if (lf.base64 && lf.mimeType) {
-            const url = `data:${lf.mimeType};base64,${lf.base64}`;
+        } catch (e) {
+            // Fallback
+            const url = `data:${item.mimeType || 'image/jpeg'};base64,${item.base64}`;
             setPreviewUrl(url);
         }
     };
@@ -107,8 +126,13 @@ export const OjoMagicoQueueModal: React.FC<Props> = ({ isOpen, onClose, queue, l
                                     </button>
                                     
                                     {(item.status === 'error' || item.status === 'done') && (
-                                        <button onClick={() => handleRetry(item.id)} className="p-1.5 text-gray-500 hover:text-blue-600 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" title="Re-intentar">
+                                        <button onClick={() => handleRetry(item)} className="p-1.5 text-gray-500 hover:text-blue-600 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" title="Re-intentar">
                                             <RotateCw className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    {item.status === 'pending' && (
+                                        <button onClick={() => handleRetry(item)} className="p-1.5 text-gray-500 hover:text-green-600 bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/30 rounded" title="Procesar ahora">
+                                            <Play className="w-4 h-4 text-green-500" />
                                         </button>
                                     )}
                                     <button onClick={() => handleDelete(item.id)} className="p-1.5 text-gray-500 hover:text-red-600 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="Eliminar">
@@ -133,7 +157,7 @@ export const OjoMagicoQueueModal: React.FC<Props> = ({ isOpen, onClose, queue, l
                             <AppButton variant="secondary" size="sm" onClick={() => setPreviewUrl(null)}>Cerrar Previsualización</AppButton>
                         </div>
                         <div className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center min-h-[200px] p-2">
-                            {previewUrl.startsWith('data:application/pdf') || previewUrl.endsWith('.pdf') || previewUrl.includes('blob:') ? (
+                            {previewType === 'pdf' ? (
                                 <iframe src={previewUrl} className="w-full h-[60vh] rounded" title="PDF Preview" />
                             ) : (
                                 <img src={previewUrl} alt="Preview" className="max-w-full max-h-[60vh] object-contain rounded" />
