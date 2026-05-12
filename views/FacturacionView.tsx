@@ -184,10 +184,7 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
   
   const handleGenerarFactura = () => {
     if (selectedRemitos.size === 0) return;
-    if (puntoVenta === '' || numeroComprobante === '') {
-        showNotification('Debe ingresar Punto de Venta y Número de Comprobante.', 'error');
-        return;
-    }
+    
     const rems = clienteData?.remitosPendientes.filter(r => selectedRemitos.has(r.id)) || [];
     const mt = rems.reduce((sum, r) => sum + getRemitoTotal(r), 0);
     addFactura({ 
@@ -196,8 +193,8 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
         remitosIds: Array.from(selectedRemitos), 
         monto: mt,
         observaciones: facturaObservations,
-        puntoVenta: Number(puntoVenta),
-        numeroComprobante: Number(numeroComprobante)
+        puntoVenta: puntoVenta === '' ? undefined : Number(puntoVenta),
+        numeroComprobante: numeroComprobante === '' ? undefined : Number(numeroComprobante)
     });
     setSelectedRemitos(new Set());
     setFacturaObservations('');
@@ -332,13 +329,13 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                             <div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-2">
                                     <AppInput 
-                                        label="Pto. Venta *" 
+                                        label="Pto. Venta (Opcional)" 
                                         type="number"
                                         value={puntoVenta === '' ? '' : puntoVenta} 
                                         onChange={e => setPuntoVenta(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                                     />
                                     <AppInput 
-                                        label="Nro. Comprobante *" 
+                                        label="Nro. Comprobante (Opcional)" 
                                         type="number"
                                         value={numeroComprobante === '' ? '' : numeroComprobante} 
                                         onChange={e => setNumeroComprobante(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
@@ -351,8 +348,8 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                 />
                                 <AppButton 
                                     onClick={handleGenerarFactura} 
-                                    disabled={selectedRemitos.size === 0 || puntoVenta === '' || numeroComprobante === ''} 
-                                    className="w-full py-4 uppercase"
+                                    disabled={selectedRemitos.size === 0} 
+                                    className="w-full py-4 uppercase font-bold"
                                 >
                                     Generar Factura (${clienteData.remitosPendientes.filter(r=>selectedRemitos.has(r.id)).reduce((s,r)=>s+getRemitoTotal(r),0).toLocaleString()})
                                 </AppButton>
@@ -422,10 +419,29 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                         </div>
                     </Card>
                     <Card title="Facturas Emitidas">
-                        <div className="space-y-3">{clienteData.facturasCliente.map(f => {
-                            const pagado = (f.pagoIds || []).reduce((s, id) => s + (registrosPago.find(p => p.id === id)?.monto || 0), 0);
-                            return (<div key={f.id} className="p-4 border dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 flex justify-between items-center shadow-sm"><div><p className="font-black uppercase tracking-tighter">Factura {getFormatNro(f)}</p><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-AR')} | Saldo: ${(f.monto - pagado).toLocaleString('es-AR')}</p></div><AppButton size="sm" onClick={() => setPagandoFacturaInfo({ factura: f, montoRestante: f.monto - pagado })} disabled={f.estado === EstadoFactura.PAGADO}>Pagar</AppButton></div>);
-                        })}</div>
+                        <div className="space-y-3">
+                            {clienteData.facturasCliente.map(f => {
+                                const pagado = (f.pagoIds || []).reduce((s, id) => s + (registrosPago.find(p => p.id === id)?.monto || 0), 0);
+                                const saldo = f.monto - pagado;
+                                return (
+                                    <div key={f.id} className="p-4 border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800/50 flex justify-between items-center shadow-sm">
+                                        <div>
+                                            <p className="font-bold text-gray-800 dark:text-gray-200 uppercase">Factura {getFormatNro(f)}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase mt-1">
+                                                {new Date(f.fecha + 'T00:00:00').toLocaleDateString('es-AR')} | Saldo: ${saldo.toLocaleString('es-AR')}
+                                            </p>
+                                        </div>
+                                        <AppButton 
+                                            size="sm" 
+                                            onClick={() => setPagandoFacturaInfo({ factura: f, montoRestante: saldo })} 
+                                            disabled={f.estado === EstadoFactura.PAGADO}
+                                        >
+                                            Pagar
+                                        </AppButton>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </Card>
                 </div>
             ) : <div className="h-96 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-400 uppercase font-black text-xs tracking-widest">Seleccione un cliente para ver su estado</div>}
