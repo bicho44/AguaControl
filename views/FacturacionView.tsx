@@ -182,26 +182,43 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
     return { remitosPendientes: rems, facturasCliente: facts, totalDeuda, tieneAbonos };
   }, [selectedClienteId, remitos, facturas, registrosPago, startDate, endDate, contratos]);
   
-  const handleGenerarFactura = () => {
-    if (selectedRemitos.size === 0) return;
-    
-    const rems = clienteData?.remitosPendientes.filter(r => selectedRemitos.has(r.id)) || [];
-    const mt = rems.reduce((sum, r) => sum + getRemitoTotal(r), 0);
-    addFactura({ 
-        fecha: getLocalDateString(), 
-        clienteId: selectedClienteId, 
-        remitosIds: Array.from(selectedRemitos), 
-        monto: mt,
-        observaciones: facturaObservations,
-        puntoVenta: puntoVenta === '' ? undefined : Number(puntoVenta),
-        numeroComprobante: numeroComprobante === '' ? undefined : Number(numeroComprobante)
-    });
-    setSelectedRemitos(new Set());
-    setFacturaObservations('');
-    setPuntoVenta('');
-    setNumeroComprobante('');
-    showNotification('Factura generada.', 'success');
-  };
+    const maxFacturas = useMemo(() => {
+        const lastPv = facturas.length > 0 ? facturas[facturas.length - 1].puntoVenta || 1 : 1;
+        const fncs = facturas.filter(f => f.puntoVenta === lastPv).map(f => f.numeroComprobante || 0);
+        return { pv: lastPv, nc: fncs.length > 0 ? Math.max(...fncs) + 1 : 1 };
+    }, [facturas]);
+
+    useEffect(() => {
+        if (puntoVenta === '' && numeroComprobante === '') {
+            setPuntoVenta(maxFacturas.pv);
+            setNumeroComprobante(maxFacturas.nc);
+        }
+    }, [maxFacturas, puntoVenta, numeroComprobante]);
+
+    const handleGenerarFactura = () => {
+        if (selectedRemitos.size === 0) return;
+        if (puntoVenta === '' || numeroComprobante === '') {
+            showNotification('Debe ingresar Punto de Venta y Número de Comprobante.', 'error');
+            return;
+        }
+        
+        const rems = clienteData?.remitosPendientes.filter(r => selectedRemitos.has(r.id)) || [];
+        const mt = rems.reduce((sum, r) => sum + getRemitoTotal(r), 0);
+        addFactura({ 
+            fecha: getLocalDateString(), 
+            clienteId: selectedClienteId, 
+            remitosIds: Array.from(selectedRemitos), 
+            monto: mt,
+            observaciones: facturaObservations,
+            puntoVenta: Number(puntoVenta),
+            numeroComprobante: Number(numeroComprobante)
+        });
+        setSelectedRemitos(new Set());
+        setFacturaObservations('');
+        setPuntoVenta(Number(puntoVenta));
+        setNumeroComprobante(Number(numeroComprobante) + 1);
+        showNotification('Factura generada.', 'success');
+    };
 
   // Navegación por teclado para la lista de clientes
   useEffect(() => {
@@ -329,13 +346,13 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                             <div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-2">
                                     <AppInput 
-                                        label="Pto. Venta (Opcional)" 
+                                        label="Pto. Venta *" 
                                         type="number"
                                         value={puntoVenta === '' ? '' : puntoVenta} 
                                         onChange={e => setPuntoVenta(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                                     />
                                     <AppInput 
-                                        label="Nro. Comprobante (Opcional)" 
+                                        label="Nro. Comprobante *" 
                                         type="number"
                                         value={numeroComprobante === '' ? '' : numeroComprobante} 
                                         onChange={e => setNumeroComprobante(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
@@ -348,7 +365,7 @@ const FacturacionView: React.FC<FacturacionViewProps> = ({ clientes, remitos, fa
                                 />
                                 <AppButton 
                                     onClick={handleGenerarFactura} 
-                                    disabled={selectedRemitos.size === 0} 
+                                    disabled={selectedRemitos.size === 0 || puntoVenta === '' || numeroComprobante === ''} 
                                     className="w-full py-4 uppercase font-bold"
                                 >
                                     Generar Factura (${clienteData.remitosPendientes.filter(r=>selectedRemitos.has(r.id)).reduce((s,r)=>s+getRemitoTotal(r),0).toLocaleString()})

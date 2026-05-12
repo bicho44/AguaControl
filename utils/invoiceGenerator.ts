@@ -196,7 +196,9 @@ export const generateInvoicePDF = async (
                 drawInvoice(0, "");
             }
 
-            const fileName = `Factura_${factura.numero}.pdf`;
+            const formatterName = `${factura.puntoVenta !== undefined && factura.numeroComprobante !== undefined ? `${factura.puntoVenta.toString().padStart(4, '0')}-${factura.numeroComprobante.toString().padStart(8, '0')}` : factura.numero || 'S-N'}`;
+            const clientName = (cliente.nombreFiscal || cliente.nombre).replace(/[^a-zA-Z0-9_\s]/g, '');
+            const fileName = `${clientName}_PRESUPUESTO_${formatterName}.pdf`.replace(/\s+/g, '_');
             doc.save(fileName);
 
             try {
