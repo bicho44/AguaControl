@@ -35,6 +35,19 @@ const LiquidacionAbonosView: React.FC<LiquidacionAbonosViewProps> = ({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { showNotification } = useNotification();
 
+  const maxFacturas = useMemo(() => {
+    const lastPv = facturas.length > 0 ? facturas[facturas.length - 1].puntoVenta || 1 : 1;
+    const fncs = facturas.filter(f => f.puntoVenta === lastPv).map(f => f.numeroComprobante || 0);
+    return { pv: lastPv, nc: fncs.length > 0 ? Math.max(...fncs) + 1 : 1 };
+  }, [facturas]);
+
+  React.useEffect(() => {
+    if (puntoVenta === '' && numeroComprobante === '') {
+        setPuntoVenta(maxFacturas.pv);
+        setNumeroComprobante(maxFacturas.nc);
+    }
+  }, [maxFacturas, puntoVenta, numeroComprobante]);
+
   const productosMap = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
   const clientesMap = useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
 
