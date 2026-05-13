@@ -53,7 +53,8 @@ export const generateInvoicePDF = async (
                 doc.setFont("helvetica", "bold");
                 doc.text("PRESUPUESTO", boxX + 22.5, 18, { align: 'center' });
                 doc.setFontSize(10);
-                doc.text(`N° ${factura.numero}`, boxX + 22.5, 24, { align: 'center' });
+                const formatNro = factura.puntoVenta !== undefined && factura.numeroComprobante !== undefined ? `${factura.puntoVenta.toString().padStart(4, '0')}-${factura.numeroComprobante.toString().padStart(8, '0')}` : factura.numero || 'S/N';
+                doc.text(`N° ${formatNro}`, boxX + 22.5, 24, { align: 'center' });
                 doc.setFontSize(8);
                 doc.setFont("helvetica", "normal");
                 doc.text(`Fecha: ${new Date(factura.fecha + 'T00:00:00').toLocaleDateString('es-AR')}`, boxX + 22.5, 30, { align: 'center' });
