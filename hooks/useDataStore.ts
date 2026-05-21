@@ -111,6 +111,7 @@ export const useDataStore = () => {
     const [proveedores, setProveedores] = useState<Proveedor[]>([]);
     const [facturasProveedor, setFacturasProveedor] = useState<FacturaProveedor[]>([]);
     const [pagosProveedor, setPagosProveedor] = useState<PagoProveedor[]>([]);
+    const [pedidos, setPedidos] = useState<any[]>([]);
     const [empresaSettings, setEmpresaSettings] = useState<EmpresaSettings>({ 
         nombre: 'Distribuidora Aguas Puras',
         nombreFantasia: 'Aguas Puras'
@@ -159,6 +160,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'proveedores'), (s) => setProveedores(s.docs.map(d => ({ id: d.id, ...d.data() } as Proveedor)))),
             onSnapshot(collection(db, 'facturas_proveedor'), (s) => setFacturasProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as FacturaProveedor)))),
             onSnapshot(collection(db, 'pagos_proveedor'), (s) => setPagosProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as PagoProveedor)))),
+            onSnapshot(collection(db, 'pedidos'), (s) => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() } as any)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {
                     setEmpresaSettings(s.data() as EmpresaSettings);
@@ -188,6 +190,21 @@ export const useDataStore = () => {
                 pagoIds.push(pDoc.id);
             }
             await updateDoc(doc(db, 'remitos', docRef.id), { pagoIds });
+        }
+
+        try {
+            // Auto-cancelar pedidos pendientes del cliente (simulando entrega)
+            const q = query(collection(db, 'pedidos'), where('clienteId', '==', remitoData.clienteId), where('estado', '==', 'PENDIENTE'));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                const batchP = writeBatch(db);
+                snapshot.docs.forEach(d => {
+                    batchP.update(d.ref, { estado: 'ENTREGADO' });
+                });
+                await batchP.commit();
+            }
+        } catch (e) {
+            console.error('Error auto-cancelando pedido:', e);
         }
     }, []);
 
@@ -1076,10 +1093,36 @@ export const useDataStore = () => {
         await batch.commit();
     }, [clientes]);
 
+    const addPedido = useCallback(async (p: any, pagos?: any[]) => {
+        const pRef = await addDoc(collection(db, 'pedidos'), cleanUndefineds(p));
+        if (pagos && pagos.length > 0) {
+            for (const pago of pagos) {
+                if (pago.monto > 0) {
+                    await addDoc(collection(db, 'registrosPago'), {
+                        fecha: p.fechaCreacion,
+                        monto: pago.monto,
+                        metodo: pago.metodo,
+                        origen: { tipo: 'pedido', id: pRef.id },
+                        clienteId: p.clienteId
+                    });
+                }
+            }
+            await updateDoc(pRef, { pagado: true });
+        }
+    }, []);
+
+    const updatePedido = useCallback(async (id: string, updates: any) => {
+        await updateDoc(doc(db, 'pedidos', id), cleanUndefineds(updates));
+    }, []);
+
+    const deletePedido = useCallback(async (id: string) => {
+        await deleteDoc(doc(db, 'pedidos', id));
+    }, []);
+
     return {
         remitos, clientes, usuarios, productos, registrosPago, gastos, ventasVendedor, facturas, contratos, servicios, planillas, movimientosStockPlanta, empresaSettings, logs, causasRecambio,
         preformas, moldes, produccionSoplado, entregasSoplado, insumosSoplado,
-        proveedores, facturasProveedor, pagosProveedor,
+        proveedores, facturasProveedor, pagosProveedor, pedidos,
         addRemito, updateRemito, deleteRemito, addCliente, updateCliente, deleteCliente, reactivarCliente,
         addPagoManual, addGasto, addVentaVendedor, updateRegistroPago, updateGasto, deleteRegistroPago, deleteGasto, updateVentaVendedor, deleteVentaVendedor,
         addUsuario, updateUsuario, addFactura, addPagoToFactura, markFacturaAsSent,
@@ -1093,6 +1136,7 @@ export const useDataStore = () => {
         addInsumoSoplado, updateInsumoSoplado, deleteInsumoSoplado,
         addProduccionSoplado, updateProduccionSoplado, deleteProduccionSoplado,
         addEntregaSoplado, updateEntregaSoplado, deleteEntregaSoplado,
+        addPedido, updatePedido, deletePedido,
         cierresPlanta,
         addLog
     };

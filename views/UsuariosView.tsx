@@ -118,6 +118,16 @@ const UsuarioForm: React.FC<{
                   <p className="mt-1 text-[10px] text-gray-500 italic">Esto permitirá al usuario ver su estado de cuenta personal al iniciar sesión.</p>
               </fieldset>
           )}
+
+          <fieldset className="border-t dark:border-gray-600 pt-4">
+              <label className="flex items-center gap-2 cursor-pointer p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <input type="checkbox" checked={formData.accesoPedidos || false} onChange={e => setFormData(prev => ({ ...prev, accesoPedidos: e.target.checked }))} className="w-4 h-4 text-primary-600 rounded" />
+                  <div>
+                      <p className="text-sm font-bold text-gray-800 dark:text-white">Acceso a Toma de Pedidos</p>
+                      <p className="text-xs text-gray-500">Permitir a este usuario acceder al plugin de Pedidos y configurar despachos.</p>
+                  </div>
+              </label>
+          </fieldset>
           
           {isInternal && formData.rol !== Rol.CLIENTE && (
               <fieldset className="border-t dark:border-gray-600 pt-4">

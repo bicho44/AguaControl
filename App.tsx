@@ -136,7 +136,8 @@ function AppContent() {
         addVentaVendedor: dataStore.addVentaVendedor,
         addCliente: dataStore.addCliente,
         addPagoToFactura: dataStore.addPagoToFactura,
-        setCurrentView: setCurrentView
+        setCurrentView: setCurrentView,
+        dataStore: dataStore
     };
 
     if (user.rol === Rol.REPARTIDOR && !allowedViewsForRepartidor.includes(currentView)) {
@@ -177,7 +178,7 @@ function AppContent() {
       const plugin = plugins.find(p => p.id === pluginId);
       if (plugin && plugin.roles.includes(user.rol)) {
         const PluginComponent = plugin.component;
-        return renderViewWithFailsafe(plugin.name, <PluginComponent />);
+        return renderViewWithFailsafe(plugin.name, <PluginComponent dataStore={dataStore} currentUser={user} />);
       }
     }
     // ----------------------------

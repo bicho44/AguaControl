@@ -169,6 +169,28 @@ export interface Usuario {
     preciosEspeciales?: PrecioEspecial[];
     avatarUrl?: string;
     clienteId?: string; // Para vincular el usuario con un cliente específico
+    accesoPedidos?: boolean;
+}
+
+export interface PedidoProducto {
+    productoId: string;
+    cantidad: number;
+    precioUnitario: number;
+}
+
+export type EstadoPedido = 'PENDIENTE' | 'ENTREGADO' | 'CANCELADO';
+
+export interface Pedido {
+    id: string;
+    fechaCreacion: string;
+    fechaEsperada: string;
+    clienteId: string;
+    vendedorId?: string;
+    productos: PedidoProducto[];
+    estado: EstadoPedido;
+    pagado: boolean;
+    montoTotal: number;
+    observaciones?: string;
 }
 
 export interface Producto {

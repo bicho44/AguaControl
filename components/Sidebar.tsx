@@ -100,6 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   // Plugins filtrados por rol
   const pluginItems = plugins.filter(p => {
     if (!p.roles.includes(currentUser.rol)) return false;
+    if (p.id === 'pedidos' && !currentUser.accesoPedidos) return false;
     if (p.isEnabled && !p.isEnabled(empresaSettings)) return false;
     return true;
   });
