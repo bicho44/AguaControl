@@ -1565,7 +1565,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   // Define all possible widgets
   const widgets: Record<string, React.ReactNode> = {
-    plugin_pedidos: user?.accesoPedidos ? (
+    plugin_pedidos: empresaSettings?.pedidosConfig?.enabled && user?.accesoPedidos ? (
       <div className="h-full w-full">
         <PedidosDashboardWidget dataStore={{pedidos: dataStore?.pedidos, clientes, productos}} />
       </div>
