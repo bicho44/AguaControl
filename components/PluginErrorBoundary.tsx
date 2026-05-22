@@ -10,6 +10,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  error?: Error;
 }
 
 class PluginErrorBoundary extends Component<Props, State> {
@@ -17,8 +18,8 @@ class PluginErrorBoundary extends Component<Props, State> {
     hasError: false
   };
 
-  public static getDerivedStateFromError(_: Error): State {
-    return { hasError: true };
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -33,6 +34,13 @@ class PluginErrorBoundary extends Component<Props, State> {
           <p className="text-red-600 dark:text-red-300">
             Hubo un problema al cargar este componente. El error ha sido registrado en el sistema.
           </p>
+          {this.state.error && (
+            <pre className="mt-4 p-4 bg-red-100 text-red-800 text-sm overflow-auto">
+              {this.state.error.message}
+              {'\n'}
+              {this.state.error.stack}
+            </pre>
+          )}
           <button 
             onClick={() => this.setState({ hasError: false })}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"

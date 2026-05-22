@@ -136,19 +136,19 @@ export const useDataStore = () => {
         const logsQuery = query(collection(db, 'system_logs'), orderBy('timestamp', 'desc'), limit(100));
 
         const unsub = [
-            onSnapshot(collection(db, 'remitos'), (s) => setRemitos(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, movimientos: data.movimientos || [] } as Remito; }))),
-            onSnapshot(collection(db, 'clientes'), (s) => setClientes(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, sucursales: data.sucursales || [] } as Cliente; }))),
-            onSnapshot(collection(db, 'usuarios'), (s) => setUsuarios(s.docs.map(d => ({ id: d.id, ...d.data() } as Usuario)))),
+            onSnapshot(collection(db, 'remitos'), (s) => setRemitos(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, movimientos: data.movimientos || [], recambios: data.recambios || [], pagoIds: data.pagoIds || [] } as Remito; }))),
+            onSnapshot(collection(db, 'clientes'), (s) => setClientes(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, sucursales: data.sucursales || [], telefonos: data.telefonos || [], emails: data.emails || [], preciosEspeciales: data.preciosEspeciales || [] } as Cliente; }))),
+            onSnapshot(collection(db, 'usuarios'), (s) => setUsuarios(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, comisiones: data.comisiones || [], preciosEspeciales: data.preciosEspeciales || [] } as Usuario; }))),
             onSnapshot(collection(db, 'productos'), (s) => setProductos(s.docs.map(d => ({ id: d.id, ...d.data() } as Producto)))),
-            onSnapshot(collection(db, 'registrosPago'), (s) => setRegistrosPago(s.docs.map(d => ({ id: d.id, ...d.data() } as RegistroPago)))),
+            onSnapshot(collection(db, 'registrosPago'), (s) => setRegistrosPago(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, origen: data.origen || { tipo: 'desconocido', id: 'N/A' } } as RegistroPago; }))),
             onSnapshot(collection(db, 'gastos'), (s) => setGastos(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, pagos: data.pagos || [] } as Gasto; }))),
-            onSnapshot(collection(db, 'ventasVendedor'), (s) => setVentasVendedor(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, movimientos: data.movimientos || [] } as VentaVendedor; }))),
+            onSnapshot(collection(db, 'ventasVendedor'), (s) => setVentasVendedor(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, movimientos: data.movimientos || [], pagoIds: data.pagoIds || [] } as VentaVendedor; }))),
             onSnapshot(collection(db, 'facturas'), (s) => setFacturas(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, remitosIds: data.remitosIds || [], pagoIds: data.pagoIds || [] } as Factura; }))),
             onSnapshot(collection(db, 'contratos'), (s) => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() } as Contrato)))),
             onSnapshot(collection(db, 'servicios'), (s) => setServicios(s.docs.map(d => ({ id: d.id, ...d.data() } as Servicio)))),
             onSnapshot(collection(db, 'planillas'), (s) => setPlanillas(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, cargaInicial: data.cargaInicial || [], recargas: data.recargas || [], devolucion: data.devolucion || [] } as PlanillaDiaria; }))),
             onSnapshot(collection(db, 'movimientosStockPlanta'), (s) => setMovimientosStockPlanta(s.docs.map(d => ({ id: d.id, ...d.data() } as MovimientoStockPlanta)))),
-            onSnapshot(collection(db, 'cierres_planta'), (s) => setCierresPlanta(s.docs.map(d => ({ id: d.id, ...d.data() } as CierrePlanta)))),
+            onSnapshot(collection(db, 'cierres_planta'), (s) => setCierresPlanta(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, saldos: data.saldos || [] } as CierrePlanta; }))),
             onSnapshot(collection(db, 'causasRecambio'), (s) => setCausasRecambio(s.docs.map(d => ({ id: d.id, ...d.data() } as CausaRecambio)))),
             onSnapshot(logsQuery, (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() } as LogEntry)))),
             onSnapshot(collection(db, 'preformas'), (s) => setPreformas(s.docs.map(d => ({ id: d.id, ...d.data() } as Preforma)))),
@@ -156,8 +156,8 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'produccion_soplado'), (s) => setProduccionSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as ProduccionSoplado)))),
             onSnapshot(collection(db, 'entregas_soplado'), (s) => setEntregasSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as EntregaSoplado)))),
             onSnapshot(collection(db, 'insumos_soplado'), (s) => setInsumosSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as InsumoSoplado)))),
-            onSnapshot(collection(db, 'proveedores'), (s) => setProveedores(s.docs.map(d => ({ id: d.id, ...d.data() } as Proveedor)))),
-            onSnapshot(collection(db, 'facturas_proveedor'), (s) => setFacturasProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as FacturaProveedor)))),
+            onSnapshot(collection(db, 'proveedores'), (s) => setProveedores(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, telefonos: data.telefonos || [], emails: data.emails || [] } as Proveedor; }))),
+            onSnapshot(collection(db, 'facturas_proveedor'), (s) => setFacturasProveedor(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, items: data.items || [], alicuotasIva: data.alicuotasIva || [], otrosImpuestos: data.otrosImpuestos || [] } as FacturaProveedor; }))),
             onSnapshot(collection(db, 'pagos_proveedor'), (s) => setPagosProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as PagoProveedor)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {
                 if (s.exists()) {

@@ -156,6 +156,7 @@ function AppContent() {
         <PluginErrorBoundary 
           pluginName={viewName}
           onCatch={(error, info) => {
+            console.error(`ERROR IN VIEW [${viewName}]:`, error, info);
             dataStore.addLog({
               level: LogLevel.ERROR,
               message: `Error en Vista: ${viewName}`,
