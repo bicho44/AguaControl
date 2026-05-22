@@ -1486,6 +1486,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     clientes={visibleClientes} 
                     vendedores={usuarios} 
                     productos={productos} 
+                    pedidos={dataStore?.pedidos}
                     currentUser={user} 
                     onSave={handleSaveRemito} 
                     onAddCliente={handleAddClienteWrapper} 
