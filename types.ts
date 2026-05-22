@@ -169,6 +169,7 @@ export interface Usuario {
     preciosEspeciales?: PrecioEspecial[];
     avatarUrl?: string;
     clienteId?: string; // Para vincular el usuario con un cliente específico
+    dashboardLayout?: any;
 }
 
 export interface Producto {

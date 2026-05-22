@@ -31,8 +31,9 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 import RemitoForm from '../components/RemitoForm';
 import CajaUnifiedForm from '../components/CajaUnifiedForm';
-import SopladoDashboardWidget from '../plugins/soplado/SopladoDashboardWidget';
-import { Preforma, Molde, ProduccionSoplado, EntregaSoplado } from '../plugins/soplado/types';
+import plugins from '../plugins';
+import PluginErrorBoundary from '../components/PluginErrorBoundary';
+import { useDataStore } from '../hooks/useDataStore';
 
 // Force sync
 
@@ -49,11 +50,6 @@ interface DashboardViewProps {
   planillas: PlanillaDiaria[];
   movimientosPlanta: MovimientoStockPlanta[];
   facturas?: any[];
-  // Soplado props
-  preformas?: Preforma[];
-  moldes?: Molde[];
-  produccionSoplado?: ProduccionSoplado[];
-  entregasSoplado?: EntregaSoplado[];
   // New props for actions
   addRemito?: (remito: any) => Promise<void>;
   addPagoManual?: (pago: any) => Promise<void>;
@@ -759,7 +755,6 @@ const ExternalVendorDashboard: React.FC<{
 
 const DashboardView: React.FC<DashboardViewProps> = ({ 
     remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio, planillas, movimientosPlanta,
-    preformas, moldes, produccionSoplado, entregasSoplado,
     facturas = [],
     addRemito, addPagoManual, addGasto, addVentaVendedor, addCliente, addPagoToFactura, setCurrentView
 }) => {
@@ -1333,15 +1328,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const [layout, setLayout] = useState(defaultLayout);
 
-  // Load layout from localStorage on mount
+  const { updateUsuario, addLog } = useDataStore();
+
+  // Load layout from user context on mount
   useEffect(() => {
     if (user.rol === Rol.ADMINISTRADOR) {
-      const savedLayout = localStorage.getItem(`dashboard_layout_${user.id}`);
-      if (savedLayout) {
+      if (user.dashboardLayout) {
         try {
-          const parsed = JSON.parse(savedLayout);
+          const parsed = typeof user.dashboardLayout === 'string' ? JSON.parse(user.dashboardLayout) : user.dashboardLayout;
           // Merge with default to ensure no missing widgets if we add new ones
-          const merged = defaultLayout.map(def => {
+          const defaultWithPlugins = [...defaultLayout];
+          plugins.forEach(plugin => {
+              if (plugin.dashboardWidget && !defaultWithPlugins.some(w => w.id === `plugin_${plugin.id}`)) {
+                  defaultWithPlugins.push({ id: `plugin_${plugin.id}`, visible: true, span: 4 });
+              }
+          });
+
+          const merged = defaultWithPlugins.map(def => {
             const found = parsed.find((p: any) => p.id === def.id);
             // Ensure span exists (for users who saved layout before we added span)
             return found ? { ...def, ...found, span: found.span || def.span } : def;
@@ -1353,16 +1356,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         } catch (e) {
           console.error("Error parsing dashboard layout", e);
         }
+      } else {
+        // First time, build with plugins
+        const withPlugins = [...defaultLayout];
+        plugins.forEach(plugin => {
+            if (plugin.dashboardWidget && !withPlugins.some(w => w.id === `plugin_${plugin.id}`)) {
+                withPlugins.push({ id: `plugin_${plugin.id}`, visible: true, span: 4 });
+            }
+        });
+        setLayout(withPlugins);
       }
     }
-  }, [user.id, user.rol]);
+  }, [user.id, user.rol, user.dashboardLayout]);
 
-  // Save layout to localStorage when it changes
-  useEffect(() => {
-    if (user.rol === Rol.ADMINISTRADOR && layout.length > 0) {
-      localStorage.setItem(`dashboard_layout_${user.id}`, JSON.stringify(layout));
+  const handleSaveLayout = async () => {
+    try {
+        if (!user || user.rol !== Rol.ADMINISTRADOR) return;
+        setIsEditingLayout(false);
+        await updateUsuario({ ...user, dashboardLayout: layout });
+        showNotification("Layout guardado en la base de datos.", "success");
+    } catch (error) {
+        showNotification("Error guardando layout.", "error");
     }
-  }, [layout, user.id, user.rol]);
+  };
 
   const toggleWidgetVisibility = (id: string) => {
     setLayout(prev => prev.map(w => w.id === id ? { ...w, visible: !w.visible } : w));
@@ -1518,12 +1534,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </>
   );
 
+  // If the user's role uniquely maps to a plugin, maybe we render it. But for now Soplador is hardcoded because it's a root role.
   if (user.rol === Rol.SOPLADOR) {
+      const sopladoPlugin = plugins.find(p => p.id === 'soplado');
+      const isEnabled = sopladoPlugin?.isEnabled ? sopladoPlugin.isEnabled(empresaSettings) : true;
+      const Widget = sopladoPlugin?.dashboardWidget;
+      
     return (
       <div className="space-y-6 pt-12 md:pt-0 pb-12">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Panel de Soplado</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Panel de Especialista</h1>
             <p className="text-gray-500 dark:text-gray-400 font-medium">Bienvenido, {user.nombre}</p>
           </div>
           <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-2xl shadow-sm border-2 border-primary-100 dark:border-primary-900/30">
@@ -1532,21 +1553,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </header>
 
-        {empresaSettings?.sopladoConfig?.enabled ? (
-          <SopladoDashboardWidget 
-            preformas={preformas || []}
-            moldes={moldes || []}
-            produccion={produccionSoplado || []}
-            entregas={entregasSoplado || []}
-            settings={empresaSettings.sopladoConfig}
-            onAction={handleSopladoAction}
-          />
+        {isEnabled && Widget ? (
+          <PluginErrorBoundary 
+            pluginName={sopladoPlugin?.name || 'Módulo'} 
+            onCatch={(error) => {
+              if (addLog) {
+                  addLog({
+                      fecha: new Date().toISOString(),
+                      usuario: 'Sistema',
+                      accion: 'ERROR_PLUGIN',
+                      detalle: `Falló widget Especialista: ${error.message}`
+                  }).catch(() => {});
+              }
+            }}
+          >
+            <Widget onAction={handleSopladoAction} />
+          </PluginErrorBoundary>
         ) : (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-6 rounded-2xl">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-6 w-6 text-yellow-600" />
               <p className="text-sm font-bold text-yellow-700 dark:text-yellow-400 uppercase tracking-tight">
-                El plugin de soplado está desactivado. Contacte al administrador para habilitarlo.
+                El módulo requerido está desactivado. Contacte al administrador.
               </p>
             </div>
           </div>
@@ -1559,20 +1587,52 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // 3. DASHBOARD ADMINISTRADOR
   
+  // Collect enabled dynamic plugin widgets
+  const pluginWidgets: Record<string, React.ReactNode> = {};
+  
+  if (user.rol === Rol.ADMINISTRADOR) {
+      plugins.forEach(plugin => {
+          if (plugin.dashboardWidget) {
+              const isEnabled = plugin.isEnabled ? plugin.isEnabled(empresaSettings) : true;
+              if (isEnabled) {
+                  const Widget = plugin.dashboardWidget;
+                  pluginWidgets[`plugin_${plugin.id}`] = (
+                      <PluginErrorBoundary 
+                          pluginName={plugin.name}
+                          onCatch={(error, info) => {
+                              try {
+                                  if (addLog) {
+                                      addLog({
+                                          fecha: new Date().toISOString(),
+                                          usuario: 'Sistema',
+                                          accion: 'ERROR_PLUGIN',
+                                          detalle: `Falló widget ${plugin.name}: ${error.message}`
+                                      }).catch(() => {});
+                                  }
+                                  console.error("Plugin failed in dashboard:", plugin.id, error);
+                              } catch(e) {}
+                          }}
+                      >
+                         <div className="h-full w-full">
+                           <Widget />
+                         </div>
+                      </PluginErrorBoundary>
+                  );
+              }
+          }
+      });
+  }
+
   // Define all possible widgets
+  const isWidgetEnabled = (id: string) => {
+      if (id.startsWith('plugin_')) {
+          return pluginWidgets[id] !== undefined;
+      }
+      return true;
+  };
+
   const widgets: Record<string, React.ReactNode> = {
-    plugin_soplado: empresaSettings?.sopladoConfig?.enabled ? (
-      <div className="h-full w-full">
-        <SopladoDashboardWidget 
-          preformas={preformas || []}
-          moldes={moldes || []}
-          produccion={produccionSoplado || []}
-          entregas={entregasSoplado || []}
-          settings={empresaSettings.sopladoConfig}
-          onAction={handleSopladoAction}
-        />
-      </div>
-    ) : null,
+    ...pluginWidgets,
     caja_efectivo: (
       <div className="p-4 md:p-6 bg-white dark:bg-gray-800 rounded-3xl border-2 border-green-100 dark:border-green-900/30 shadow-xl flex flex-col items-center justify-center transition-all hover:scale-[1.02] h-full">
           <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">Efectivo Total</p>
@@ -1838,20 +1898,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter italic">Dashboard Operativo</h1>
         <button 
-          onClick={() => setIsEditingLayout(!isEditingLayout)}
+          onClick={() => {
+              if (isEditingLayout) {
+                  handleSaveLayout();
+              } else {
+                  setIsEditingLayout(true);
+              }
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             isEditingLayout 
             ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' 
             : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
           }`}
         >
-          {isEditingLayout ? <><X className="w-4 h-4" /> Terminar Edición</> : <><Settings2 className="w-4 h-4" /> Personalizar</>}
+          {isEditingLayout ? <><X className="w-4 h-4" /> Guardar Edición</> : <><Settings2 className="w-4 h-4" /> Personalizar</>}
         </button>
       </div>
 
       {/* Hidden Widgets Tray (Only visible when editing) */}
       <AnimatePresence>
-        {isEditingLayout && layout.some(w => !w.visible && (w.id !== 'plugin_soplado' || empresaSettings?.sopladoConfig?.enabled)) && (
+        {isEditingLayout && layout.some(w => !w.visible && isWidgetEnabled(w.id)) && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -1860,7 +1926,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Widgets Ocultos</p>
             <div className="flex flex-wrap gap-2">
-              {layout.filter(w => !w.visible && (w.id !== 'plugin_soplado' || empresaSettings?.sopladoConfig?.enabled)).map(w => (
+              {layout.filter(w => !w.visible && isWidgetEnabled(w.id)).map(w => (
                 <button
                   key={w.id}
                   onClick={() => toggleWidgetVisibility(w.id)}
@@ -1876,7 +1942,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </AnimatePresence>
 
       <ReactSortable 
-        list={layout.filter(item => (item.visible || isEditingLayout) && !(item.id === 'plugin_soplado' && !empresaSettings?.sopladoConfig?.enabled))} 
+        list={layout.filter(item => (item.visible || isEditingLayout) && isWidgetEnabled(item.id))} 
         setList={(newList) => {
           const updated = layout.map(item => {
             const found = newList.find(n => n.id === item.id);
@@ -1898,7 +1964,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         ghostClass="opacity-50"
         handle=".drag-handle"
       >
-        {layout.filter(item => (item.visible || isEditingLayout) && !(item.id === 'plugin_soplado' && !empresaSettings?.sopladoConfig?.enabled)).map((item) => {
+        {layout.filter(item => (item.visible || isEditingLayout) && isWidgetEnabled(item.id)).map((item) => {
           
           return (
             <div 

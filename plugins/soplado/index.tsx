@@ -18,7 +18,8 @@ const sopladoPlugin: AppPlugin = {
   roles: [Rol.ADMINISTRADOR, Rol.SOPLADOR],
   component: SopladoPlugin,
   dashboardWidget: SopladoDashboardWidget,
-  settingsComponent: SopladoSettings
+  settingsComponent: SopladoSettings,
+  isEnabled: (settings) => settings?.sopladoConfig?.enabled === true
 };
 
 export default sopladoPlugin;

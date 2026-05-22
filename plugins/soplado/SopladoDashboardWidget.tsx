@@ -5,29 +5,24 @@ import Card from '../../components/Card';
 import AppButton from '../../components/ui/AppButton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Rol } from '../../types';
+import { useDataStore } from '../../hooks/useDataStore';
+import { useSopladoStore } from './useSopladoStore';
 
 import { Preforma, Molde, ProduccionSoplado, EntregaSoplado, SopladoDashboardSettings } from './types';
 
 interface SopladoDashboardWidgetProps {
-    preformas: Preforma[];
-    moldes: Molde[];
-    produccion: ProduccionSoplado[];
-    entregas: EntregaSoplado[];
-    settings: SopladoDashboardSettings;
     onAction?: (type: 'produccion' | 'entrega') => void;
 }
 
 const SopladoDashboardWidget: React.FC<SopladoDashboardWidgetProps> = ({ 
-    preformas, 
-    moldes, 
-    produccion, 
-    entregas, 
-    settings,
     onAction 
 }) => {
     const { user } = useAuth();
+    const { empresaSettings } = useDataStore();
+    const { preformas, produccion, entregas } = useSopladoStore();
 
     const isSoplador = user?.rol === Rol.SOPLADOR;
+    const settings = empresaSettings?.sopladoConfig;
 
     if (!settings?.enabled) return null;
 

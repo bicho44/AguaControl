@@ -177,8 +177,20 @@ function AppContent() {
       const pluginId = currentView.replace('plugin_', '');
       const plugin = plugins.find(p => p.id === pluginId);
       if (plugin && plugin.roles.includes(user.rol)) {
-        const PluginComponent = plugin.component;
-        return renderViewWithFailsafe(plugin.name, <PluginComponent />);
+        const isEnabled = plugin.isEnabled ? plugin.isEnabled(dataStore.empresaSettings) : true;
+        if (isEnabled) {
+          const PluginComponent = plugin.component;
+          return renderViewWithFailsafe(plugin.name, <PluginComponent />);
+        } else {
+          return (
+             <div className="p-8">
+               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-2xl flex flex-col gap-2">
+                 <h3 className="text-yellow-800 font-bold uppercase">Módulo Desactivado</h3>
+                 <p className="text-yellow-700 text-sm">Este módulo no está habilitado en la configuración de la empresa.</p>
+               </div>
+             </div>
+          );
+        }
       }
     }
     // ----------------------------
