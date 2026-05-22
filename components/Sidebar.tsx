@@ -17,7 +17,7 @@ import { ClipboardListIcon } from './icons/ClipboardListIcon';
 import { ClipboardCheckIcon } from './icons/ClipboardCheckIcon';
 import { MapIcon } from './icons/MapIcon';
 import { View, Usuario, Rol, EmpresaSettings, TipoVendedor } from '../types';
-import plugins from '../plugins';
+import plugins, { isPluginEnabled } from '../plugins';
 
 interface SidebarProps {
   currentView: View;
@@ -97,11 +97,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isSideba
   const group4 = filterItems(systemNavItems);
   const group5 = filterItems(userNavItems);
   
-  // Plugins filtrados por rol
+  // Plugins filtrados por rol y estado habilitado
   const pluginItems = plugins.filter(p => {
     if (!p.roles.includes(currentUser.rol)) return false;
-    if (p.isEnabled && !p.isEnabled(empresaSettings)) return false;
-    return true;
+    return isPluginEnabled(p, empresaSettings);
   });
 
   const handleNavClick = (view: View) => {

@@ -20,7 +20,7 @@ import LoginView from './views/LoginView';
 import SetupView from './views/SetupView';
 import MyProfileView from './views/MyProfileView';
 import MyCustomerAccountView from './views/MyCustomerAccountView';
-import plugins from './plugins';
+import plugins, { isPluginEnabled } from './plugins';
 import { useDataStore } from './hooks/useDataStore';
 import { View, Rol, LogLevel } from './types';
 import PluginErrorBoundary from './components/PluginErrorBoundary';
@@ -177,7 +177,7 @@ function AppContent() {
       const pluginId = currentView.replace('plugin_', '');
       const plugin = plugins.find(p => p.id === pluginId);
       if (plugin && plugin.roles.includes(user.rol)) {
-        const isEnabled = plugin.isEnabled ? plugin.isEnabled(dataStore.empresaSettings) : true;
+        const isEnabled = isPluginEnabled(plugin, dataStore.empresaSettings);
         if (isEnabled) {
           const PluginComponent = plugin.component;
           return renderViewWithFailsafe(plugin.name, <PluginComponent />);

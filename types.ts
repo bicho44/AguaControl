@@ -456,6 +456,7 @@ export interface EmpresaSettings {
     banco?: string;
     observacionesFactura?: string;
     emailTemplate?: EmailTemplate;
+    pluginsConfig?: Record<string, { enabled?: boolean; [key: string]: any }>;
     [key: string]: any; // Allow plugin configurations to be stored here
     afipConfig?: {
         enabled: boolean;

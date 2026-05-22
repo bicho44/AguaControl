@@ -22,7 +22,7 @@ import { ReactSortable } from 'react-sortablejs';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import AppButton from '../components/ui/AppButton';
-import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente, CausaRecambio, PlanillaDiaria, MovimientoStockPlanta } from '../types';
+import { Remito, Producto, TipoProducto, RegistroPago, Gasto, MetodoPago, Usuario, Cliente, VentaVendedor, DiaSemana, EmpresaSettings, TipoVendedor, Rol, PagoDetalle, EstadoCliente, CausaRecambio, PlanillaDiaria, MovimientoStockPlanta, LogLevel } from '../types';
 import LeafletMap from '../components/LeafletMap';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -31,7 +31,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 
 import RemitoForm from '../components/RemitoForm';
 import CajaUnifiedForm from '../components/CajaUnifiedForm';
-import plugins from '../plugins';
+import plugins, { isPluginEnabled } from '../plugins';
 import PluginErrorBoundary from '../components/PluginErrorBoundary';
 import { useDataStore } from '../hooks/useDataStore';
 
@@ -1559,10 +1559,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             onCatch={(error) => {
               if (addLog) {
                   addLog({
-                      fecha: new Date().toISOString(),
-                      usuario: 'Sistema',
-                      accion: 'ERROR_PLUGIN',
-                      detalle: `Falló widget Especialista: ${error.message}`
+                      level: LogLevel.ERROR,
+                      message: `Falló widget Especialista (Soplado): ${error.message}`,
+                      details: `Error detectado en cargador de widget Especialista en DashboardView`
                   }).catch(() => {});
               }
             }}
@@ -1593,7 +1592,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   if (user.rol === Rol.ADMINISTRADOR) {
       plugins.forEach(plugin => {
           if (plugin.dashboardWidget) {
-              const isEnabled = plugin.isEnabled ? plugin.isEnabled(empresaSettings) : true;
+              const isEnabled = isPluginEnabled(plugin, empresaSettings);
               if (isEnabled) {
                   const Widget = plugin.dashboardWidget;
                   pluginWidgets[`plugin_${plugin.id}`] = (
@@ -1603,10 +1602,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               try {
                                   if (addLog) {
                                       addLog({
-                                          fecha: new Date().toISOString(),
-                                          usuario: 'Sistema',
-                                          accion: 'ERROR_PLUGIN',
-                                          detalle: `Falló widget ${plugin.name}: ${error.message}`
+                                          level: LogLevel.ERROR,
+                                          message: `Falló widget ${plugin.name}: ${error.message}`,
+                                          details: `Error en plugin widget de dashboard: ${plugin.id}`
                                       }).catch(() => {});
                                   }
                                   console.error("Plugin failed in dashboard:", plugin.id, error);

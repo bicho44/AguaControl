@@ -7,8 +7,8 @@ try {
       <RutasView 
         clientes={[]}
         usuarios={[]}
-        updateRutasMasivo={() => {}}
-        updateCliente={() => {}}
+        updateRutasMasivo={async () => {}}
+        updateCliente={async () => {}}
       />
   );
   console.log("Success Render");

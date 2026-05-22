@@ -156,7 +156,7 @@ export const useDataStore = () => {
             onSnapshot(collection(db, 'produccion_soplado'), (s) => setProduccionSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as ProduccionSoplado)))),
             onSnapshot(collection(db, 'entregas_soplado'), (s) => setEntregasSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as EntregaSoplado)))),
             onSnapshot(collection(db, 'insumos_soplado'), (s) => setInsumosSoplado(s.docs.map(d => ({ id: d.id, ...d.data() } as InsumoSoplado)))),
-            onSnapshot(collection(db, 'proveedores'), (s) => setProveedores(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, telefonos: data.telefonos || [], emails: data.emails || [] } as Proveedor; }))),
+            onSnapshot(collection(db, 'proveedores'), (s) => setProveedores(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, telefonos: data.telefonos || [], emails: data.emails || [] } as unknown as Proveedor; }))),
             onSnapshot(collection(db, 'facturas_proveedor'), (s) => setFacturasProveedor(s.docs.map(d => { const data = d.data(); return { id: d.id, ...data, items: data.items || [], alicuotasIva: data.alicuotasIva || [], otrosImpuestos: data.otrosImpuestos || [] } as FacturaProveedor; }))),
             onSnapshot(collection(db, 'pagos_proveedor'), (s) => setPagosProveedor(s.docs.map(d => ({ id: d.id, ...d.data() } as PagoProveedor)))),
             onSnapshot(doc(db, 'settings', 'empresa'), (s) => {

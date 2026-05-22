@@ -14,7 +14,7 @@ import MapPickerModal from '../components/MapPickerModal';
 import AppButton from '../components/ui/AppButton';
 import AppInput from '../components/ui/AppInput';
 import AppSelect from '../components/ui/AppSelect';
-import plugins from '../plugins';
+import plugins, { isPluginEnabled } from '../plugins';
 
 // Force sync
 
@@ -103,6 +103,41 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
     if (e) e.preventDefault();
     updateSettings(formData);
     showNotification('Configuración guardada.', 'success');
+  };
+
+  const handleTogglePlugin = (pluginId: string) => {
+    const plugin = plugins.find(p => p.id === pluginId);
+    if (!plugin) return;
+    const currentStatus = isPluginEnabled(plugin, formData);
+    const newStatus = !currentStatus;
+    
+    // Configuración unificada
+    const updatedPluginsConfig = {
+      ...(formData.pluginsConfig || {}),
+      [pluginId]: {
+        ...(formData.pluginsConfig?.[pluginId] || {}),
+        enabled: newStatus
+      }
+    };
+    
+    // Compatibilidad retroactiva específica (ej: sopladoConfig o proveedoresConfig)
+    const legacyConfigKey = `${pluginId}Config` as keyof typeof formData;
+    const updatedLegacyConfig = formData[legacyConfigKey] 
+      ? { ...(formData[legacyConfigKey] as any), enabled: newStatus }
+      : { enabled: newStatus };
+      
+    const updatedFormData = {
+      ...formData,
+      pluginsConfig: updatedPluginsConfig,
+      [legacyConfigKey]: updatedLegacyConfig
+    };
+    
+    setFormData(updatedFormData);
+    updateSettings(updatedFormData);
+    showNotification(
+      `${plugin.name} ${newStatus ? 'activado' : 'desactivado'} correctamente.`,
+      'success'
+    );
   };
 
   const handleAddCausa = async () => {
@@ -343,34 +378,73 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
 
         {activeTab === 'plugins' && (
           <div className="space-y-6 animate-fade-in">
-            {plugins.filter(p => p.settingsComponent).map(plugin => {
-              const SettingsComp = plugin.settingsComponent!;
-              return (
-                <div key={plugin.id} className="space-y-4">
-                  <div className="flex items-center gap-2 px-2">
-                    <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg text-primary-600">
-                      {plugin.icon}
-                    </div>
+            <div className="bg-blue-50 dark:bg-blue-900/15 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/35 text-xs text-blue-700 dark:text-blue-300">
+              <span className="font-bold uppercase tracking-wider block mb-1">Centro de Control de Plugins</span>
+              Aquí puedes ver y gestionar de forma independiente todos los accesorios o mini-aplicaciones instaladas en la plataforma. Activar o desactivar un plugin cambiará instantáneamente la disponibilidad de sus opciones de menú, Widgets de dashboard y automatizaciones sin alterar tus datos de base de datos.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {plugins.map(plugin => {
+                const isEnabled = isPluginEnabled(plugin, formData);
+                const SettingsComp = plugin.settingsComponent;
+                return (
+                  <div key={plugin.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700/80 shadow-md flex flex-col justify-between hover:shadow-xl transition-all h-full">
                     <div>
-                      <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tighter">{plugin.name}</h3>
-                      <p className="text-xs text-gray-500">Configuración del módulo adicional</p>
+                      <div className="flex items-center justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-3 rounded-xl ${isEnabled ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
+                            {plugin.icon}
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-gray-800 dark:text-white">{plugin.name}</h3>
+                            <p className="text-[10px] text-gray-400 font-mono">ID: {plugin.id}</p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePlugin(plugin.id)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                            isEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              isEnabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 bg-gray-50 dark:bg-gray-900/30 p-3 rounded-xl border border-gray-100/50 dark:border-gray-800/50">
+                        {plugin.id === 'soplado' && 'Gestión avanzada para el soplado de bidones, moldes, preformas y control de merma diaria.'}
+                        {plugin.id === 'notes' && 'Herramienta de Notas Rápidas para el administrador y el personal con acceso directo.'}
+                        {plugin.id === 'proveedores' && 'Ecosistema de Proveedores y compras secundarias con inyección de movimientos en caja.'}
+                        {!['soplado', 'notes', 'proveedores'].includes(plugin.id) && 'Mini-aplicación adicional para expandir la funcionalidad operativa actual.'}
+                      </div>
                     </div>
+
+                    {isEnabled && SettingsComp && (
+                      <div className="mt-2 pt-4 border-t border-gray-100 dark:border-gray-700/80">
+                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Parámetros del Módulo</p>
+                        <SettingsComp 
+                          settings={formData} 
+                          updateSettings={(newSettings) => {
+                            setFormData(newSettings);
+                            updateSettings(newSettings);
+                          }} 
+                        />
+                      </div>
+                    )}
                   </div>
-                  <SettingsComp 
-                    settings={formData} 
-                    updateSettings={(newSettings) => {
-                      setFormData(newSettings);
-                      updateSettings(newSettings);
-                      showNotification('Configuración de plugin actualizada.', 'success');
-                    }} 
-                  />
-                </div>
-              );
-            })}
-            {plugins.filter(p => p.settingsComponent).length === 0 && (
+                );
+              })}
+            </div>
+
+            {plugins.length === 0 && (
               <div className="p-12 text-center bg-white dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                 <CubeIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 font-bold uppercase tracking-tighter">No hay plugins con configuración disponible</p>
+                <p className="text-gray-500 font-bold uppercase tracking-tighter">No hay plugins detectados en el sistema</p>
               </div>
             )}
           </div>
