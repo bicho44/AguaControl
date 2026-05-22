@@ -1640,12 +1640,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
                           <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
 
-                          {returnableProductNames.map(name => visibleProducts.includes(name) ? (
-                              <React.Fragment key={name}>
-                                  <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />
-                                  <Line type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
-                              </React.Fragment>
-                          ) : null)}
+                          {returnableProductNames.flatMap(name => {
+                              if (!visibleProducts.includes(name)) return [];
+                              return [
+                                  <Line key={`current-${name}`} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />,
+                                  <Line key={`prev-${name}`} type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
+                              ];
+                          })}
                       </LineChart>
                   </ResponsiveContainer>
               </div>
@@ -1724,9 +1725,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
                           <Legend iconType="circle" formatter={(v) => v} />
                           
-                          {returnableProductNames.map(name => {
-                              if (!visibleProducts.includes(name)) return null;
-                              return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
+                          {returnableProductNames.flatMap(name => {
+                              if (!visibleProducts.includes(name)) return [];
+                              return [<Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />];
                           })}
                       </LineChart>
                   </ResponsiveContainer>
