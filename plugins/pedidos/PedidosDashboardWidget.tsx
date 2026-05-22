@@ -3,12 +3,12 @@ import Card from '../../components/Card';
 import { PackageSearchIcon } from 'lucide-react';
 
 const PedidosDashboardWidget: React.FC<{ dataStore: any }> = ({ dataStore }) => {
-    const { pedidos = [], clientes, productos } = dataStore;
+    const { pedidos = [], clientes = [], productos = [] } = dataStore || {};
 
     const pedidosPendientes = useMemo(() => {
         return pedidos
-            .filter(p => p.estado === 'PENDIENTE')
-            .sort((a, b) => new Date(a.fechaEsperada).getTime() - new Date(b.fechaEsperada).getTime());
+            .filter((p: any) => p.estado === 'PENDIENTE')
+            .sort((a: any, b: any) => new Date(a.fechaEsperada).getTime() - new Date(b.fechaEsperada).getTime());
     }, [pedidos]);
 
     const clientesMap = useMemo(() => new Map(clientes.map((c: any) => [c.id, c])), [clientes]);
@@ -41,7 +41,7 @@ const PedidosDashboardWidget: React.FC<{ dataStore: any }> = ({ dataStore }) => 
                         </summary>
                         <div className="px-3 pb-3 border-t border-gray-200 dark:border-gray-700 pt-2">
                             <ul className="space-y-1">
-                                {pedido.productos.map((prod: any, idx: number) => (
+                                {(pedido.productos || []).map((prod: any, idx: number) => (
                                     <li key={idx} className="flex justify-between text-sm">
                                         <span className="text-gray-600 dark:text-gray-400">
                                             {prod.cantidad}x {productosMap.get(prod.productoId)?.nombre || 'Producto'}
