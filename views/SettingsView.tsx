@@ -358,7 +358,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                   </div>
                   <SettingsComp 
                     settings={formData} 
-                    dataStore={props}
                     updateSettings={(newSettings) => {
                       setFormData(newSettings);
                       updateSettings(newSettings);

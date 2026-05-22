@@ -9,7 +9,7 @@ import { useNotification } from '../../context/NotificationContext';
 import Modal from '../../components/Modal';
 
 const PedidosPluginView: React.FC<{ dataStore: any }> = ({ dataStore }) => {
-    const { clientes = [], productos = [], pedidos = [], addPedido, updatePedido, deletePedido } = dataStore || {};
+    const { clientes, productos, pedidos, addPedido, updatePedido, deletePedido } = dataStore;
     const { showNotification } = useNotification();
     
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -139,7 +139,7 @@ const PedidosPluginView: React.FC<{ dataStore: any }> = ({ dataStore }) => {
                                     </div>
                                 </div>
                                 <ul className="text-sm space-y-1 pt-2 border-t dark:border-gray-700">
-                                    {(p.productos || []).map((prod: any, idx: number) => (
+                                    {p.productos.map((prod: any, idx: number) => (
                                         <li key={idx} className="flex justify-between text-gray-600 dark:text-gray-300">
                                             <span>{prod.cantidad}x {productosMap.get(prod.productoId)?.nombre || 'Prod'}</span>
                                         </li>

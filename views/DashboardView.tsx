@@ -1486,7 +1486,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     clientes={visibleClientes} 
                     vendedores={usuarios} 
                     productos={productos} 
-                    pedidos={dataStore?.pedidos}
                     currentUser={user} 
                     onSave={handleSaveRemito} 
                     onAddCliente={handleAddClienteWrapper} 
@@ -1566,7 +1565,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   // Define all possible widgets
   const widgets: Record<string, React.ReactNode> = {
-    plugin_pedidos: empresaSettings?.pedidosConfig?.enabled && user?.accesoPedidos ? (
+    plugin_pedidos: user?.accesoPedidos ? (
       <div className="h-full w-full">
         <PedidosDashboardWidget dataStore={{pedidos: dataStore?.pedidos, clientes, productos}} />
       </div>

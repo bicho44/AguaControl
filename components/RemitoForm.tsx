@@ -21,7 +21,6 @@ interface RemitoFormProps {
   vendedores: Usuario[];
   productos: Producto[];
   currentUser: Usuario;
-  pedidos?: any[];
   onSave: (remito: (Omit<Remito, 'id' | 'pagoIds'> | Remito) & { pagos?: PagoDetalle[] }) => Promise<void>;
   onAddCliente: (cliente: Omit<Cliente, 'id' | 'estado'>) => Promise<string>;
   onClose: () => void;
@@ -34,7 +33,7 @@ interface RemitoFormProps {
   onVendedorChange?: (vendedorId: string) => void;
 }
 
-const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, causasRecambio, isReadOnly = false, facturas = [], onAddPagoToFactura, onVendedorChange, pedidos = [] }) => {
+const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, productos, currentUser, onSave, onAddCliente, onClose, remitos, registrosPago, causasRecambio, isReadOnly = false, facturas = [], onAddPagoToFactura, onVendedorChange }) => {
   const [formData, setFormData] = useState<Partial<Remito> & { pagos?: PagoDetalle[] }>(() => {
       // Inicializar con los datos del remito para evitar que clienteId sea undefined en el primer render
       return { ...remito, pagos: remito.pagos || [] };
@@ -606,23 +605,6 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 ml-1 truncate">
                         <span className="font-bold uppercase tracking-tighter">Dirección:</span> {currentAddress}
                     </p>
-                )}
-                {formData.clienteId && pedidos && pedidos.filter(p => p.clienteId === formData.clienteId && p.estado === 'PENDIENTE').length > 0 && (
-                  <div className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-200 p-2 rounded-lg text-xs space-y-1">
-                    <p className="font-bold flex justify-between items-center">
-                        <span>PEDIDOS PENDIENTES</span>
-                        {pedidos.filter(p => p.clienteId === formData.clienteId && p.estado === 'PENDIENTE').some(p => p.pagado) && (
-                            <span className="bg-green-100 text-green-800 text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Con anticipos pagados</span>
-                        )}
-                    </p>
-                    <ul className="pl-4 list-disc space-y-0.5">
-                        {pedidos.filter(p => p.clienteId === formData.clienteId && p.estado === 'PENDIENTE').map(p => (
-                            <li key={p.id}>
-                                Entregar {new Date(p.fechaEsperada + 'T00:00:00').toLocaleDateString('es-AR')}: {p.productos.map((prod: any) => `${prod.cantidad}x ${productosMap.get(prod.productoId)?.nombre || 'Prod'}`).join(', ')}
-                            </li>
-                        ))}
-                    </ul>
-                  </div>
                 )}
             </div>
             <div className={clienteSucursales.length <= 1 ? 'invisible md:visible' : ''}>

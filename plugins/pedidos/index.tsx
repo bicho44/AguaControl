@@ -4,7 +4,6 @@ import { AppPlugin } from '../types';
 import { Rol } from '../../types';
 import PedidosPluginView from './PedidosPluginView';
 import PedidosDashboardWidget from './PedidosDashboardWidget';
-import PedidosSettings from './PedidosSettings';
 
 const PedidosPluginConfig: AppPlugin = {
   id: 'pedidos',
@@ -14,8 +13,7 @@ const PedidosPluginConfig: AppPlugin = {
   roles: [Rol.ADMIN, Rol.VENDEDOR],
   component: PedidosPluginView,
   dashboardWidget: PedidosDashboardWidget,
-  settingsComponent: PedidosSettings,
-  isEnabled: (settings) => settings?.pedidosConfig?.enabled || false
+  isEnabled: () => true // El flag general. Se oculta por usuario en Sidebar.
 };
 
 export default PedidosPluginConfig;
