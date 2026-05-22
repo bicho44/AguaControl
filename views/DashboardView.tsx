@@ -62,7 +62,6 @@ interface DashboardViewProps {
   addCliente?: (cliente: any) => Promise<string>;
   addPagoToFactura?: (facturaId: string, fecha: string, pagos: PagoDetalle[]) => Promise<void>;
   setCurrentView?: (view: any) => void;
-  dataStore?: any;
 }
 
 // ----------------------------------------------------------------------
@@ -762,8 +761,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     remitos, productos, registrosPago, gastos, usuarios, clientes, ventasVendedor, empresaSettings, causasRecambio, planillas, movimientosPlanta,
     preformas, moldes, produccionSoplado, entregasSoplado,
     facturas = [],
-    addRemito, addPagoManual, addGasto, addVentaVendedor, addCliente, addPagoToFactura, setCurrentView,
-    dataStore
+    addRemito, addPagoManual, addGasto, addVentaVendedor, addCliente, addPagoToFactura, setCurrentView
 }) => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
@@ -1319,7 +1317,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   // Default layout definition with span (1 to 4)
   const defaultLayout = [
-    { id: 'plugin_pedidos', visible: true, span: 4 },
     { id: 'plugin_soplado', visible: true, span: 4 },
     { id: 'caja_efectivo', visible: true, span: 2 },
     { id: 'caja_bancos', visible: true, span: 2 },
@@ -1640,13 +1637,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
                           <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
 
-                          {returnableProductNames.flatMap(name => {
-                              if (!visibleProducts.includes(name)) return [];
-                              return [
-                                  <Line key={`current-${name}`} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />,
-                                  <Line key={`prev-${name}`} type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
-                              ];
-                          })}
+                          {returnableProductNames.map(name => visibleProducts.includes(name) ? (
+                              <React.Fragment key={name}>
+                                  <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />
+                                  <Line type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
+                              </React.Fragment>
+                          ) : null)}
                       </LineChart>
                   </ResponsiveContainer>
               </div>
@@ -1725,9 +1721,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
                           <Legend iconType="circle" formatter={(v) => v} />
                           
-                          {returnableProductNames.flatMap(name => {
-                              if (!visibleProducts.includes(name)) return [];
-                              return [<Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />];
+                          {returnableProductNames.map(name => {
+                              if (!visibleProducts.includes(name)) return null;
+                              return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
                           })}
                       </LineChart>
                   </ResponsiveContainer>
