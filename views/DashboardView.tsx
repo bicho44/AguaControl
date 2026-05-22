@@ -32,7 +32,6 @@ import { getLocalDateString } from '../utils/dateUtils';
 import RemitoForm from '../components/RemitoForm';
 import CajaUnifiedForm from '../components/CajaUnifiedForm';
 import SopladoDashboardWidget from '../plugins/soplado/SopladoDashboardWidget';
-import PedidosDashboardWidget from '../plugins/pedidos/PedidosDashboardWidget';
 import { Preforma, Molde, ProduccionSoplado, EntregaSoplado } from '../plugins/soplado/types';
 
 // Force sync
@@ -1565,11 +1564,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   // Define all possible widgets
   const widgets: Record<string, React.ReactNode> = {
-    plugin_pedidos: user?.accesoPedidos ? (
-      <div className="h-full w-full">
-        <PedidosDashboardWidget dataStore={{pedidos: dataStore?.pedidos, clientes, productos}} />
-      </div>
-    ) : null,
     plugin_soplado: empresaSettings?.sopladoConfig?.enabled ? (
       <div className="h-full w-full">
         <SopladoDashboardWidget 
