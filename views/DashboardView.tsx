@@ -1637,12 +1637,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} labelFormatter={(l) => `Día ${l}`} />
                           <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
 
-                          {returnableProductNames.map(name => visibleProducts.includes(name) ? (
-                              <React.Fragment key={name}>
-                                  <Line type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />
-                                  <Line type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
-                              </React.Fragment>
-                          ) : null)}
+                          {returnableProductNames.filter(name => visibleProducts.includes(name)).flatMap(name => [
+                              <Line key={`${name}-act`} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={false} name={shortName(name)} />,
+                              <Line key={`${name}-ant`} type="monotone" dataKey={`${name} Mes Ant`} stroke={productColors[name]} strokeWidth={2} strokeDasharray="5 5" dot={false} name={`${shortName(name)} (Ant)`} opacity={0.4} />
+                          ])}
                       </LineChart>
                   </ResponsiveContainer>
               </div>
@@ -1721,8 +1719,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Tooltip contentStyle={lightTooltipStyle} itemStyle={{ color: '#111827' }} />
                           <Legend iconType="circle" formatter={(v) => v} />
                           
-                          {returnableProductNames.map(name => {
-                              if (!visibleProducts.includes(name)) return null;
+                          {returnableProductNames.filter(name => visibleProducts.includes(name)).map(name => {
                               return <Line key={name} type="monotone" dataKey={name} stroke={productColors[name]} strokeWidth={3} dot={{ r: 4 }} name={shortName(name)} animationDuration={1000} />;
                           })}
                       </LineChart>
@@ -1879,17 +1876,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </AnimatePresence>
 
       <ReactSortable 
-        list={layout} 
-        setList={setLayout} 
+        list={layout.filter(item => (item.visible || isEditingLayout) && !(item.id === 'plugin_soplado' && !empresaSettings?.sopladoConfig?.enabled))} 
+        setList={(newList) => {
+          const updated = layout.map(item => {
+            const found = newList.find(n => n.id === item.id);
+            return found ? { ...item, span: found.span } : item;
+          });
+          const sorted = [...updated].sort((a, b) => {
+             const indexA = newList.findIndex(n => n.id === a.id);
+             const indexB = newList.findIndex(n => n.id === b.id);
+             if (indexA === -1 && indexB === -1) return 0;
+             if (indexA === -1) return 1;
+             if (indexB === -1) return -1;
+             return indexA - indexB;
+          });
+          setLayout(sorted);
+        }}
         className="grid grid-cols-1 md:grid-cols-4 gap-6"
         animation={200}
         disabled={!isEditingLayout}
         ghostClass="opacity-50"
         handle=".drag-handle"
       >
-        {layout.map((item) => {
-          if (!item.visible && !isEditingLayout) return null;
-          if (item.id === 'plugin_soplado' && !empresaSettings?.sopladoConfig?.enabled) return null;
+        {layout.filter(item => (item.visible || isEditingLayout) && !(item.id === 'plugin_soplado' && !empresaSettings?.sopladoConfig?.enabled)).map((item) => {
           
           return (
             <div 

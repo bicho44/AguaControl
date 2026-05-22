@@ -1,14 +1,14 @@
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import DashboardView from './views/DashboardView';
+import RutasView from './views/RutasView';
 
 try {
   renderToString(
-      <DashboardView 
-        onOpenRemito={() => {}}
-        onOpenVenta={() => {}}
-        showAllWidgets={true}
-        onWidgetToggle={() => {}}
+      <RutasView 
+        clientes={[]}
+        usuarios={[]}
+        updateRutasMasivo={() => {}}
+        updateCliente={() => {}}
       />
   );
   console.log("Success Render");
