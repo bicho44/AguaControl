@@ -57,9 +57,42 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
   
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
       const reader = new FileReader();
-      reader.onload = (ev) => setFormData(prev => ({ ...prev, logo: ev.target?.result as string }));
-      reader.readAsDataURL(e.target.files[0]);
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions
+          const MAX_WIDTH = 250;
+          const MAX_HEIGHT = 250;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const dataUrl = canvas.toDataURL('image/png');
+          setFormData(prev => ({ ...prev, logo: dataUrl }));
+        };
+        img.src = ev.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -186,8 +219,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ settings, updateSettings, c
                         <div className="w-32 h-32 mb-4 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden border-4 border-white dark:border-gray-600 shadow-md">
                             {formData.logo ? <img src={formData.logo} className="w-full h-full object-contain" alt="Logo" /> : <span className="text-xs text-gray-400">SIN LOGO</span>}
                         </div>
-                        <label className="cursor-pointer">
-                            <AppButton variant="secondary" size="sm" className="pointer-events-none">Subir Logo</AppButton>
+                        <label className="cursor-pointer inline-flex items-center justify-center rounded-xl font-bold transition-all px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 border border-gray-300 dark:border-gray-600">
+                            Subir Logo
                             <input type="file" className="hidden" accept="image/*" onChange={handleLogoChange} />
                         </label>
                     </div>

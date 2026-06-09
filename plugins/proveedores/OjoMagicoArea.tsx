@@ -57,10 +57,14 @@ export const OjoMagicoArea: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
 
+    const isProcessingRef = useRef(false);
+    const [queueTrigger, setQueueTrigger] = useState(0);
+
     // Procesamiento en background de la cola de archivos locales (subidos por este usuario)
     useEffect(() => {
         const processNextInQueue = async () => {
             if (isQuotaPaused) return;
+            if (isProcessingRef.current) return;
 
             const sessionId = sessionStorage.getItem('sessionId');
             const nextItem = queue.find(fi => fi.status === 'pending' && fi.uploaderSessionId === sessionId);
@@ -75,6 +79,7 @@ export const OjoMagicoArea: React.FC = () => {
                 return;
             }
 
+            isProcessingRef.current = true;
             if (!isExtracting) {
                 setIsExtracting(true);
             }
@@ -91,6 +96,7 @@ export const OjoMagicoArea: React.FC = () => {
                 let mimeType = nextItem.mimeType;
 
                 if (base64String && mimeType) {
+                    // Espera aquí para no duplicar llamadas a Gemini
                     await processBase64(base64String, mimeType);
                 }
                 
@@ -103,14 +109,17 @@ export const OjoMagicoArea: React.FC = () => {
                     await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'pending' });
                     setIsExtracting(false);
                     setIsQuotaPaused(true);
-                    return;
+                } else {
+                    await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'error', error: error.message });
                 }
-                await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'error', error: error.message });
+            } finally {
+                isProcessingRef.current = false;
+                setQueueTrigger(t => t + 1); // Forzar re-ejecución por si la cola se actualizó mientras estaba bloqueado
             }
         };
 
         processNextInQueue();
-    }, [isExtracting, queue, isQuotaPaused]);
+    }, [isExtracting, queue, isQuotaPaused, queueTrigger]);
 
     useEffect(() => {
         if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
