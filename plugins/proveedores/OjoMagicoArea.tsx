@@ -58,6 +58,12 @@ export const OjoMagicoArea: React.FC = () => {
     const [stream, setStream] = useState<MediaStream | null>(null);
 
     const isProcessingRef = useRef(false);
+    const queueRef = useRef(queue);
+
+    useEffect(() => {
+        queueRef.current = queue;
+    }, [queue]);
+
     const [queueTrigger, setQueueTrigger] = useState(0);
 
     // Procesamiento en background de la cola de archivos locales (subidos por este usuario)
@@ -67,28 +73,25 @@ export const OjoMagicoArea: React.FC = () => {
             if (isProcessingRef.current) return;
 
             const sessionId = sessionStorage.getItem('sessionId');
-            const nextItem = queue.find(fi => fi.status === 'pending' && fi.uploaderSessionId === sessionId);
+            
+            // Usamos directamente `queue` del state que viene mapeado del snapshot
+            const nextItem = queue.find(fi => fi.status === 'pending');
             
             if (!nextItem) {
                 // Cola terminada localmente (ningún archivo en 'pending')
-                if (isExtracting) {
-                    setIsExtracting(false);
-                    // No limpiamos los locales para poder previsualizarlos luego
-                    setTimeout(() => window.dispatchEvent(new CustomEvent('ojo_magico_done', { detail: { count: 1 } })), 1000);
-                }
+                setIsExtracting(false);
+                setTimeout(() => window.dispatchEvent(new CustomEvent('ojo_magico_done', { detail: { count: 1 } })), 1000);
                 return;
             }
 
             isProcessingRef.current = true;
-            if (!isExtracting) {
-                setIsExtracting(true);
-            }
+            setIsExtracting(true);
 
             // Marcar como procesando en Firestore
             try {
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'processing' });
             } catch(e) {
-                console.error(e);
+                console.error("Error setting state to processing", e);
             }
 
             try {
@@ -96,7 +99,6 @@ export const OjoMagicoArea: React.FC = () => {
                 let mimeType = nextItem.mimeType;
 
                 if (base64String && mimeType) {
-                    // Espera aquí para no duplicar llamadas a Gemini
                     await processBase64(base64String, mimeType);
                 }
                 
@@ -104,7 +106,7 @@ export const OjoMagicoArea: React.FC = () => {
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'done' });
                 
             } catch (error: any) {
-                console.error(error);
+                console.error("Error processing factura:", error);
                 if (error.message?.includes("429_QUOTA_EXCEEDED") || error.message?.includes("NETWORK_ERROR")) {
                     await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'pending' });
                     setIsExtracting(false);
@@ -113,13 +115,14 @@ export const OjoMagicoArea: React.FC = () => {
                     await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'error', error: error.message });
                 }
             } finally {
+                // Liberar para la próxima re-renderización disparada por updateDoc ('done')
                 isProcessingRef.current = false;
                 setQueueTrigger(t => t + 1); // Forzar re-ejecución por si la cola se actualizó mientras estaba bloqueado
             }
         };
 
         processNextInQueue();
-    }, [isExtracting, queue, isQuotaPaused, queueTrigger]);
+    }, [queue, isQuotaPaused, queueTrigger]);
 
     useEffect(() => {
         if (isCameraModalOpen && stream && videoRef.current && !capturedImage) {
