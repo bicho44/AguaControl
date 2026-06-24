@@ -172,13 +172,14 @@ export const OjoMagicoArea: React.FC = () => {
         if (!capturedImage) return;
         
         const base64Data = capturedImage.split(',')[1];
-        stopCamera();
+        // stopCamera(); // Remove this so the user can keep taking photos
         
         addToQueue({
             base64: base64Data,
             mimeType: 'image/jpeg'
         });
         showNotification('Foto agregada a la cola de procesamiento...', 'success');
+        setCapturedImage(null); // Go back to camera preview
     };
 
     const processBase64 = async (base64String: string, mimeType: string) => {
@@ -470,6 +471,16 @@ export const OjoMagicoArea: React.FC = () => {
                             <p className="text-xs text-purple-600 dark:text-purple-400 font-medium truncate">Procesando {queueCount} facturas restantes...</p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    startCamera();
+                                }}
+                                className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-all active:scale-90"
+                                title="Tomar Foto"
+                            >
+                                <Camera className="w-4 h-4" />
+                            </button>
                             {queue.length > 0 && (
                                 <button 
                                     onClick={(e) => {
