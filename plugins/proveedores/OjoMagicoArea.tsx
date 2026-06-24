@@ -316,7 +316,7 @@ export const OjoMagicoArea: React.FC = () => {
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         let { width, height } = img;
-                        const MAX_SIZE = 1200;
+                        const MAX_SIZE = 800;
                         if (width > height) {
                             if (width > MAX_SIZE) {
                                 height *= MAX_SIZE / width;
