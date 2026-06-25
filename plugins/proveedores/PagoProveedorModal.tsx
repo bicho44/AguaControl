@@ -53,10 +53,13 @@ export const PagoProveedorModal: React.FC<PagoProveedorModalProps> = ({ isOpen, 
         }
     }, [isOpen, initialFacturaId, initialProveedorId, facturasProveedor]);
 
-    const proveedoresOptions = useMemo(() => [
-        { value: '', label: 'Seleccionar...' },
-        ...proveedores.map(p => ({ value: p.id, label: p.nombre }))
-    ], [proveedores]);
+    const proveedoresOptions = useMemo(() => {
+        const sortedProveedores = [...proveedores].sort((a, b) => a.nombre.toLowerCase().localeCompare(b.nombre.toLowerCase()));
+        return [
+            { value: '', label: 'Seleccionar...' },
+            ...sortedProveedores.map(p => ({ value: p.id, label: p.nombre }))
+        ];
+    }, [proveedores]);
 
     const facturasOptions = useMemo(() => {
         if (!formData.proveedorId) return [{ value: '', label: 'Seleccione un proveedor primero' }];

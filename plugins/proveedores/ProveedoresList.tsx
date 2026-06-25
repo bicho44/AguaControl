@@ -37,7 +37,9 @@ export const ProveedoresList: React.FC = () => {
     })), [clientes]);
 
     const filteredProveedores = useMemo(() => {
-        return proveedores.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || (p.cuit && p.cuit.includes(searchTerm)));
+        return proveedores
+            .filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || (p.cuit && p.cuit.includes(searchTerm)))
+            .sort((a, b) => a.nombre.toLowerCase().localeCompare(b.nombre.toLowerCase()));
     }, [proveedores, searchTerm]);
 
     const handleSave = async () => {

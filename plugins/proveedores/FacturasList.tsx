@@ -58,10 +58,13 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
     const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('');
     const [filtroBusqueda, setFiltroBusqueda] = useState<string>('');
 
-    const proveedoresOptions = useMemo(() => [
-        { value: '', label: 'Todos los Proveedores' },
-        ...proveedores.map(p => ({ value: p.id, label: p.nombre }))
-    ], [proveedores]);
+    const proveedoresOptions = useMemo(() => {
+        const sortedProveedores = [...proveedores].sort((a, b) => a.nombre.toLowerCase().localeCompare(b.nombre.toLowerCase()));
+        return [
+            { value: '', label: 'Todos los Proveedores' },
+            ...sortedProveedores.map(p => ({ value: p.id, label: p.nombre }))
+        ];
+    }, [proveedores]);
 
     const filteredFacturas = useMemo(() => {
         let result = facturasProveedor;
