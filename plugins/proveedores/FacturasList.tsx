@@ -56,6 +56,7 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
     const [filtroProveedorId, setFiltroProveedorId] = useState<string>('');
     const [filtroFechaDesde, setFiltroFechaDesde] = useState<string>('');
     const [filtroFechaHasta, setFiltroFechaHasta] = useState<string>('');
+    const [filtroBusqueda, setFiltroBusqueda] = useState<string>('');
 
     const proveedoresOptions = useMemo(() => [
         { value: '', label: 'Todos los Proveedores' },
@@ -76,9 +77,17 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
             if (filtroFechaHasta) {
                 result = result.filter(f => f.fechaEmision <= filtroFechaHasta);
             }
+            if (filtroBusqueda) {
+                const term = filtroBusqueda.toLowerCase();
+                result = result.filter(f => {
+                    const numFact = formatFacturaNumber(f).toLowerCase();
+                    const prov = proveedores.find(p => p.id === f.proveedorId)?.nombre.toLowerCase() || '';
+                    return numFact.includes(term) || prov.includes(term);
+                });
+            }
         }
         return result.sort((a,b) => b.fechaEmision.localeCompare(a.fechaEmision));
-    }, [facturasProveedor, pendingOnly, filtroProveedorId, filtroFechaDesde, filtroFechaHasta]);
+    }, [facturasProveedor, pendingOnly, filtroProveedorId, filtroFechaDesde, filtroFechaHasta, filtroBusqueda, proveedores]);
 
     const calculateTotal = (data: Partial<FacturaProveedor>) => {
         const neto = parseFloat(String(data.subtotalNeto || 0));
@@ -475,6 +484,18 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
             {!pendingOnly && (
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                        <div className="relative">
+                            <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
+                            <input 
+                                type="text"
+                                placeholder="Buscar por Nro Factura..."
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-gray-800 dark:text-white bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 transition-shadow"
+                                value={filtroBusqueda}
+                                onChange={(e) => setFiltroBusqueda(e.target.value)}
+                            />
+                        </div>
+                    </div>
                     <div className="flex-1">
                         <SearchableSelect 
                             options={proveedoresOptions} 
