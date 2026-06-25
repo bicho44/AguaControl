@@ -236,7 +236,13 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
             'Fecha Emision', 'Fecha Vto', 'Comprobante', 'Numero', 'Proveedor', 'CUIT', 'Neto', 'IVA', 'Alicuota', 'Percepciones', 'Total', 'Estado'
         ].join(',');
 
-        const rows = filteredFacturas.map(f => {
+        const facturasSorted = [...filteredFacturas].sort((a, b) => {
+            const provA = proveedores.find(p => p.id === a.proveedorId)?.nombre || '';
+            const provB = proveedores.find(p => p.id === b.proveedorId)?.nombre || '';
+            return provA.localeCompare(provB) || b.fechaEmision.localeCompare(a.fechaEmision);
+        });
+
+        const rows = facturasSorted.map(f => {
             const prop = proveedores.find(p => p.id === f.proveedorId);
             return [
                 f.fechaEmision,
@@ -368,7 +374,14 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
 
         let currentY = 75;
 
-        Object.entries(groupedFacturas).forEach(([provId, facturas]) => {
+        const sortedProviderIds = Object.keys(groupedFacturas).sort((a, b) => {
+            const provA = proveedores.find(p => p.id === a)?.nombre || '';
+            const provB = proveedores.find(p => p.id === b)?.nombre || '';
+            return provA.localeCompare(provB);
+        });
+
+        sortedProviderIds.forEach((provId) => {
+            const facturas = groupedFacturas[provId];
             const prop = proveedores.find(p => p.id === provId);
             const provName = prop?.nombre || 'Proveedor Desconocido';
             
