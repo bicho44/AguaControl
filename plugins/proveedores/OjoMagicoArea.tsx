@@ -102,6 +102,9 @@ export const OjoMagicoArea: React.FC = () => {
                     await processBase64(base64String, mimeType);
                 }
                 
+                // Esperar 3 segundos antes de marcar como completado para dar respiro a la API
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
                 // Marcar como completado en firebase
                 await updateDoc(doc(db, 'ojo_magico_queue', nextItem.id), { status: 'done' });
                 
@@ -316,7 +319,7 @@ export const OjoMagicoArea: React.FC = () => {
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         let { width, height } = img;
-                        const MAX_SIZE = 800;
+                        const MAX_SIZE = 600;
                         if (width > height) {
                             if (width > MAX_SIZE) {
                                 height *= MAX_SIZE / width;
@@ -332,7 +335,7 @@ export const OjoMagicoArea: React.FC = () => {
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         if (ctx) ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+                        resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
                     };
                     img.onerror = reject;
                     img.src = e.target?.result as string;
