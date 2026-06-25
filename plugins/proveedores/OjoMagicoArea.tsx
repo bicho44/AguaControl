@@ -189,6 +189,10 @@ export const OjoMagicoArea: React.FC = () => {
         try {
             const extractedData = await extractFacturaData(base64String, mimeType);
             
+            const tipo = (extractedData.tipoComprobante || 'A') as any;
+            const pVenta = extractedData.puntoVenta || 0;
+            const nComprobante = extractedData.numeroComprobante || 0;
+
             let foundProvId = '';
             
             if (extractedData.proveedorCuit || extractedData.proveedorNombre) {
@@ -214,6 +218,22 @@ export const OjoMagicoArea: React.FC = () => {
                 const prov = matchEntity(proveedores) as Proveedor | null;
                 
                 if (prov) {
+                    // Check duplicate for this provider BEFORE updating or doing anything
+                    if (pVenta && nComprobante) {
+                        const existingFac = facturasProveedor.find(f => 
+                            f.proveedorId === prov.id && 
+                            f.puntoVenta === pVenta && 
+                            f.numeroComprobante === nComprobante && 
+                            f.tipoComprobante === tipo
+                        );
+                        
+                        if (existingFac) {
+                            const errorMsg = `La factura ${tipo} ${formatFacturaNumber({ puntoVenta: pVenta, numeroComprobante: nComprobante })} ya se encuentra registrada para el proveedor ${prov.nombre}.`;
+                            showNotification(errorMsg, 'error');
+                            throw new Error(errorMsg);
+                        }
+                    }
+
                     foundProvId = prov.id;
                     const updates: Partial<Proveedor> = {};
                     if (!prov.email && extractedData.proveedorEmail) updates.email = extractedData.proveedorEmail;
@@ -258,14 +278,6 @@ export const OjoMagicoArea: React.FC = () => {
                     foundProvId = newProvRef.id;
                     showNotification(`Proveedor "${baseData.nombre}" creado automáticamente`, 'success');
                 }
-            }
-
-            const tipo = (extractedData.tipoComprobante || 'A') as any;
-            const existingFac = facturasProveedor.find(f => f.proveedorId === foundProvId && f.puntoVenta === extractedData.puntoVenta && f.numeroComprobante === extractedData.numeroComprobante && f.tipoComprobante === tipo);
-            if (existingFac) {
-                const errorMsg = `La factura ${tipo} ${formatFacturaNumber({ puntoVenta: extractedData.puntoVenta, numeroComprobante: extractedData.numeroComprobante })} ya se encuentra registrada para este proveedor.`;
-                showNotification(errorMsg, 'error');
-                throw new Error(errorMsg);
             }
 
             const dataToSave = {
