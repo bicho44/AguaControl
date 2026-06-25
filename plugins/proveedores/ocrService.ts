@@ -47,7 +47,7 @@ export async function extractFacturaData(fileBase64: string, mimeType: string, r
         const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const result = await ai.models.generateContent({ 
-            model: "gemini-2.5-flash",
+            model: "gemini-3.1-flash-lite",
             contents: [
                 {
                     role: "user",
