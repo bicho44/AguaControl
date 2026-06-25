@@ -237,8 +237,8 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         ].join(',');
 
         const facturasSorted = [...filteredFacturas].sort((a, b) => {
-            const provA = proveedores.find(p => p.id === a.proveedorId)?.nombre || '';
-            const provB = proveedores.find(p => p.id === b.proveedorId)?.nombre || '';
+            const provA = (proveedores.find(p => p.id === a.proveedorId)?.nombre || '').trim().toLowerCase();
+            const provB = (proveedores.find(p => p.id === b.proveedorId)?.nombre || '').trim().toLowerCase();
             return provA.localeCompare(provB) || b.fechaEmision.localeCompare(a.fechaEmision);
         });
 
@@ -375,8 +375,8 @@ export const FacturasList: React.FC<{ pendingOnly?: boolean }> = ({ pendingOnly 
         let currentY = 75;
 
         const sortedProviderIds = Object.keys(groupedFacturas).sort((a, b) => {
-            const provA = proveedores.find(p => p.id === a)?.nombre || '';
-            const provB = proveedores.find(p => p.id === b)?.nombre || '';
+            const provA = (proveedores.find(p => p.id === a)?.nombre || '').trim().toLowerCase();
+            const provB = (proveedores.find(p => p.id === b)?.nombre || '').trim().toLowerCase();
             return provA.localeCompare(provB);
         });
 
