@@ -103,6 +103,10 @@ describe('SopladoPlugin Interface', () => {
         const selectorDestino = screen.getByText('Asociar a Producto (Stock Envases de Planta)');
         expect(selectorDestino).toBeDefined();
 
+        // Hacer click en el input para abrir el dropdown del SearchableSelect
+        const selectInput = screen.getByDisplayValue('Seleccione producto a impactar...');
+        fireEvent.click(selectInput);
+
         // Chequear que las opciones del AppSelect carguen productos internos
         expect(screen.getByText(/DESCARTABLE 20L/i)).toBeDefined();
     });

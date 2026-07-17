@@ -100,17 +100,21 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         const sucursalId = sucs.length === 1 ? sucs[0].id : '';
         
         setFormData(prev => {
-            // If the current vendor is an external acting as the main subject (no client was selected),
-            // we should probably revert the vendor to the main user or keep it?
-            // Safer to just keep the currently assigned vendor if it's explicitly set.
-            // But if they switch from Externo to Client, maybe the seller should remain that Externo or the sticky one.
-            // Best is to leave the prev.vendedorId intact.
             return { ...prev, clienteId, sucursalId };
         });
     } else {
         const vendedorIdOver = option.originalId;
         setFormData(prev => ({ ...prev, clienteId: '', vendedorId: vendedorIdOver, sucursalId: '' }));
         onVendedorChange?.(vendedorIdOver);
+    }
+
+    if (!isReadOnly) {
+        setTimeout(() => {
+            const input = document.getElementById('producto-select-0');
+            if (input) {
+                input.focus();
+            }
+        }, 100);
     }
   };
 
@@ -209,6 +213,17 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
         const stock = calculateStockAtentivo(formData.vendedorId!, false, undefined, remitos, productosMap);
         setClientStock(stock);
         setPendingFacturas([]);
+
+        // Pre-seleccionar productos si hay stock (Solo para remitos nuevos)
+        if (isNew && formData.movimientos?.length === 1 && formData.movimientos[0].productoId === '') {
+            const prodsWithStock = Object.entries(stock)
+                .filter(([_, cant]) => (cant as number) !== 0)
+                .map(([prodId, _]) => ({ productoId: prodId, entregados: 0, recibidos: 0 }));
+            
+            if (prodsWithStock.length > 0) {
+                setFormData(prev => ({ ...prev, movimientos: prodsWithStock }));
+            }
+        }
     } else { setIsCtaCte(false); setDeudaPendiente(0); setClientStock({}); }
   }, [formData.clienteId, formData.vendedorId, formData.sucursalId, clientes, remitos, getRemitoTotal, registrosPago, formData.id, productosMap, isNew, facturas]);
 
@@ -346,8 +361,17 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
   }
   
   const addMovimiento = useCallback(() => {
-    setFormData(prev => ({...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]}));
-  }, []);
+    setFormData(prev => {
+        const newLength = (prev.movimientos || []).length;
+        if (!isReadOnly) {
+            setTimeout(() => {
+                const input = document.getElementById(`producto-select-${newLength}`);
+                if (input) input.focus();
+            }, 50);
+        }
+        return {...prev, movimientos: [...(prev.movimientos || []), { productoId: '', entregados: 0, recibidos: 0}]};
+    });
+  }, [isReadOnly]);
 
   const addRecambio = useCallback(() => {
     setFormData(prev => ({
@@ -659,7 +683,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
             {(formData.movimientos || []).map((mov, index) => (
                 <div key={index} className="grid grid-cols-12 gap-1.5 lg:gap-3 p-2 lg:p-0 bg-gray-50 lg:bg-transparent dark:bg-gray-800/30 lg:dark:bg-transparent rounded-xl lg:rounded-none border lg:border-none border-gray-100 dark:border-gray-700 items-center">
                     <div className="col-span-12 lg:col-span-5">
-                        <SearchableSelect options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
+                        <SearchableSelect id={`producto-select-${index}`} options={productosOptions} value={mov.productoId} onChange={(v) => handleProductoChange(index, v)} disabled={isReadOnly} />
                     </div>
                     
                     <div className="col-span-5 lg:col-span-2 flex items-center gap-1">

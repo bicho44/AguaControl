@@ -17,7 +17,7 @@ interface CajaUnifiedFormProps {
     remitos: Remito[];
     registrosPago: RegistroPago[];
     causasRecambio: CausaRecambio[];
-    onSaveRemito: (remito: any) => Promise<void>;
+    onSaveRemito: (remito: any, preventClose?: boolean) => Promise<void>;
     onSaveGasto: (gasto: any) => Promise<void>;
     onAddCliente: (cliente: any) => Promise<string>;
     onClose: () => void;
