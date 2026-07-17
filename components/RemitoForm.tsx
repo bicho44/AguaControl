@@ -266,7 +266,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
     } else if (!needsBranch || hasBranch) {
       // Either branch is selected or none needed -> Focus Quantity
       setTimeout(() => {
-        const input = document.getElementById('primer-input-cantidad');
+        const input = document.getElementById('entregados-input-0');
         if (input) {
           input.focus();
           if (input instanceof HTMLInputElement) input.select();
@@ -333,6 +333,16 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
 
     newMovimientos[index] = { ...newMovimientos[index], productoId, precioUnitario: precio };
     setFormData(prev => ({ ...prev, movimientos: newMovimientos }));
+
+    if (!isReadOnly) {
+        setTimeout(() => {
+            const input = document.getElementById(`entregados-input-${index}`);
+            if (input) {
+                input.focus();
+                if (input instanceof HTMLInputElement) input.select();
+            }
+        }, 50);
+    }
   }
   
   const addMovimiento = useCallback(() => {
@@ -655,7 +665,7 @@ const RemitoForm: React.FC<RemitoFormProps> = ({ remito, clientes, vendedores, p
                     <div className="col-span-5 lg:col-span-2 flex items-center gap-1">
                         <label className="lg:hidden text-[8px] font-black text-gray-400 uppercase w-8 text-right">Ent</label>
                         <AppInput 
-                          id={index === 0 ? "primer-input-cantidad" : undefined}
+                          id={`entregados-input-${index}`}
                           type="number" 
                           value={mov.entregados} 
                           onChange={(e) => handleMovimientoChange(index, 'entregados', e.target.value)} 

@@ -30,7 +30,29 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
 }) => {
     const [mode, setMode] = useState<'VENTA' | 'GASTO'>(initialType === 'GASTO' ? 'GASTO' : 'VENTA');
     
-    // Estado para Gasto Simple
+    // Estado para Loop de Ventas
+    const [remitoInstanceId, setRemitoInstanceId] = useState(0);
+    const [remitoData, setRemitoData] = useState({
+        fecha: new Date().toISOString().split('T')[0],
+        puntoVenta: '999',
+        numero: '',
+        vendedorId: currentUser.id,
+        esVentaMostrador: true,
+        movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }],
+        pagos: []
+    });
+
+    const handleSaveLoopRemito = async (data: any) => {
+        await onSaveRemito(data, true); // preventClose = true
+        setRemitoData(prev => ({
+            ...prev,
+            fecha: data.fecha, // Conserve the date
+            puntoVenta: data.puntoVenta,
+            numero: '',
+            vendedorId: data.vendedorId
+        }));
+        setRemitoInstanceId(prev => prev + 1);
+    };
     const [gastoData, setGastoData] = useState({
         fecha: new Date().toISOString().split('T')[0],
         concepto: '',
@@ -87,15 +109,8 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
             {mode === 'VENTA' ? (
                 <div className="flex-1">
                     <RemitoForm 
-                        remito={{
-                            fecha: new Date().toISOString().split('T')[0],
-                            puntoVenta: '999',
-                            numero: '',
-                            vendedorId: currentUser.id,
-                            esVentaMostrador: true,
-                            movimientos: [{ productoId: '', entregados: 0, recibidos: 0 }],
-                            pagos: []
-                        }}
+                        key={`remito-loop-${remitoInstanceId}`}
+                        remito={remitoData}
                         clientes={clientes}
                         vendedores={vendedores}
                         productos={productos}
@@ -103,7 +118,7 @@ const CajaUnifiedForm: React.FC<CajaUnifiedFormProps> = ({
                         remitos={remitos}
                         registrosPago={registrosPago}
                         causasRecambio={causasRecambio}
-                        onSave={onSaveRemito}
+                        onSave={handleSaveLoopRemito}
                         onAddCliente={onAddCliente}
                         onClose={onClose}
                     />

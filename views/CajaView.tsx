@@ -98,17 +98,21 @@ const CajaView: React.FC<CajaViewProps> = ({
       catch (e) { showNotification('Error al crear cliente.', 'error'); return ""; }
   };
 
-  const handleSaveRemito = async (data: any) => {
+  const handleSaveRemito = async (data: any, preventClose: boolean = false) => {
     try {
         if (data.id) {
             await updateRemito(data);
             showNotification('Remito/Venta actualizado.', 'success');
+            setIsRemitoModalOpen(false);
+            setIsActionModalOpen(false);
         } else {
             await addRemito(data);
             showNotification('Remito/Venta registrado.', 'success');
+            if (!preventClose) {
+                setIsRemitoModalOpen(false);
+                setIsActionModalOpen(false);
+            }
         }
-        setIsRemitoModalOpen(false);
-        setIsActionModalOpen(false);
     } catch (e) {
         console.error(e);
         showNotification('Error al guardar venta.', 'error');
